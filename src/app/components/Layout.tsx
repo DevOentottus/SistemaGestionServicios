@@ -9,7 +9,7 @@ import {
 
 const navItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["Administrador", "Encargado", "Colaborador"] },
-  { path: "/collaborators", label: "Colaboradores", icon: Users, roles: ["Administrador"] },
+  { path: "/collaborators", label: "Usuarios", icon: Users, roles: ["Administrador"] },
   { path: "/areas", label: "Áreas de Servicio", icon: MapPin, roles: ["Administrador", "Encargado"] },
   { path: "/services", label: "Servicios", icon: ClipboardList, roles: ["Administrador", "Encargado", "Colaborador"] },
   { path: "/monitor", label: "Monitor / Sala", icon: Monitor, roles: ["Administrador", "Encargado"] },
@@ -37,7 +37,7 @@ export default function Layout() {
             <div className="w-9 h-9 bg-yellow-400 rounded-lg flex items-center justify-center">
               <Wrench className="w-5 h-5 text-blue-900" />
             </div>
-            <span style={{ fontWeight: 700 }}>TechService - Portal Cliente</span>
+            <span style={{ fontWeight: 700 }}>STS Service - Portal Cliente</span>
           </div>
           <button onClick={() => { logout(); navigate("/login"); }} className="text-blue-200 hover:text-white text-sm flex items-center gap-1">
             <LogOut className="w-4 h-4" /> Salir
@@ -79,7 +79,7 @@ export default function Layout() {
             <Wrench className="w-6 h-6 text-blue-900" />
           </div>
           <div>
-            <p className="text-white text-sm" style={{ fontWeight: 700 }}>TechService</p>
+            <p className="text-white text-sm" style={{ fontWeight: 700 }}>STS Service</p>
             <p className="text-blue-300 text-xs">Gestión Técnica</p>
           </div>
           <button className="ml-auto lg:hidden" onClick={() => setSidebarOpen(false)}>
@@ -154,7 +154,7 @@ export default function Layout() {
 
           <div className="flex-1">
             <h3 className="text-gray-800 text-sm" style={{ fontWeight: 600 }}>
-              {filteredNav.find(n => location.pathname.startsWith(n.path))?.label || "TechService"}
+              {filteredNav.find(n => location.pathname.startsWith(n.path))?.label || "STS Service"}
             </h3>
           </div>
 
