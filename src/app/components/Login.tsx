@@ -57,7 +57,7 @@ export function Login() {
             <Wrench className="w-8 h-8 text-blue-900" />
           </div>
           <h1 className="text-white" style={{ fontSize: '1.75rem', fontWeight: 700 }}>ServiTech Pro</h1>
-          <p className="text-blue-200 mt-1">Sistema de Gestión de Servicios Técnicos</p>
+          <p className="text-blue-200 mt-1">Sistema de Gestión de Servicios</p>
         </div>
 
         {/* Login Card */}

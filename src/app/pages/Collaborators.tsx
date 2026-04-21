@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { colaboradores as initialData, areas, Collaborator } from "../data/mockData";
+import { Usuarios as initialData, areas, Collaborator } from "../data/mockData";
 import {
   UserPlus, Search, Edit2, ToggleLeft, ToggleRight, X, Check, ChevronDown,
   Shield, MapPin,
@@ -107,7 +107,7 @@ export default function Collaborators() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-gray-900" style={{ fontWeight: 700 }}>Colaboradores</h1>
+          <h1 className="text-gray-900" style={{ fontWeight: 700 }}>Usuarios</h1>
           <p className="text-gray-500 text-sm">{colabs.filter((c) => c.activo).length} activos · {colabs.filter((c) => !c.activo).length} inactivos</p>
         </div>
         <button
@@ -230,7 +230,7 @@ export default function Collaborators() {
             </tbody>
           </table>
           {filtered.length === 0 && (
-            <div className="text-center py-12 text-gray-400 text-sm">No se encontraron colaboradores</div>
+            <div className="text-center py-12 text-gray-400 text-sm">No se encontraron Usuarios</div>
           )}
         </div>
       </div>
