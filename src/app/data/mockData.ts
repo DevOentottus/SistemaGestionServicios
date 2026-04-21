@@ -1,5 +1,27 @@
 export type Role = "Administrador" | "Encargado" | "Colaborador" | "Cliente";
 
+export interface Usuarios {
+  id_usuario: string;
+  dni: string;
+  nombres: string;
+  apellido_paterno: string;
+  apellido_materno: string;
+  telefono: string;
+  correo: string;
+  id_area_principal: string;
+  id_area_adicional: string;
+  encargado_area_principal: boolean;
+  encargado_area_adicional: boolean;
+  rol: Role;
+  username: string;
+  password_hash: string;
+  fecha_actualizacion_password: Date;
+  ultimo_login: Date;
+  fecha_creacion: Date;
+  activo: boolean;
+  ocupado: boolean;
+}
+
 export interface User {
   id: string;
   username: string;

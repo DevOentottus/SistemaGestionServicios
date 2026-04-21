@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Usuarios as initialData, areas, Collaborator } from "../data/mockData";
+import { Colaboradores as initialData, areas, Collaborator } from "../data/mockData";
 import {
   UserPlus, Search, Edit2, ToggleLeft, ToggleRight, X, Check, ChevronDown,
   Shield, MapPin,
@@ -14,13 +14,13 @@ const rolColors: Record<string, string> = {
 const NONE_AREA = "— Ninguna —";
 
 interface CollabForm {
-  dni: string; nombres: string; apellidos: string; telefono: string; correo: string;
+  dni: string; nombres: string; apellidos: string; telefono: string; correo: string; contrasena: string;
   area: string; areaSecundaria: string; rol: Collaborator["rol"];
   esEncargadoPrincipal: boolean; esEncargadoSecundario: boolean;
 }
 
 const emptyForm = (defaultArea: string): CollabForm => ({
-  dni: "", nombres: "", apellidos: "", telefono: "", correo: "",
+  dni: "", nombres: "", apellidos: "", telefono: "", correo: "", contrasena: "",
   area: defaultArea, areaSecundaria: NONE_AREA,
   rol: "Colaborador",
   esEncargadoPrincipal: false, esEncargadoSecundario: false,
@@ -58,7 +58,7 @@ export default function Collaborators() {
     setEditingColab(c);
     setForm({
       dni: c.dni, nombres: c.nombres, apellidos: c.apellidos,
-      telefono: c.telefono, correo: c.correo,
+      telefono: c.telefono, correo: c.correo, contrasena: "",
       area: c.area, areaSecundaria: c.areaSecundaria || NONE_AREA,
       rol: c.rol,
       esEncargadoPrincipal: !!c.esEncargadoPrincipal,
@@ -71,7 +71,7 @@ export default function Collaborators() {
   const effectiveRol = (form.esEncargadoPrincipal || form.esEncargadoSecundario) ? "Encargado" : form.rol;
 
   const handleSave = () => {
-    if (!form.dni || !form.nombres || !form.apellidos || !form.correo) return;
+    if (!form.dni || !form.nombres || !form.apellidos || !form.correo || !form.contrasena) return;
     const derivedRol: Collaborator["rol"] =
       form.esEncargadoPrincipal || form.esEncargadoSecundario ? "Encargado" : form.rol;
     const secArea = form.areaSecundaria === NONE_AREA ? undefined : form.areaSecundaria;
@@ -277,6 +277,17 @@ export default function Collaborators() {
                   placeholder="correo@empresa.com"
                   value={form.correo}
                   onChange={(e) => setForm((prev) => ({ ...prev, correo: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-600 mb-1" style={{ fontWeight: 600 }}>Nueva contraseña</label>
+                <input
+                  type="password"
+                  placeholder="Nueva contraseña"
+                  value={form.password}
+                  onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
                   className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50"
                 />
               </div>
