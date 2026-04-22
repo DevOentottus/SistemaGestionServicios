@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import { servicios as initialServices, colaboradores, Service, Task, TaskNote } from "../data/mockData";
 import { useAuth } from "../context/AuthContext";
@@ -6,6 +6,7 @@ import {
   ArrowLeft, CheckCircle2, Circle, Clock, User, MessageSquare,
   Send, AlertTriangle, Plus, X, ChevronRight, Activity,
   Pencil, Save, UserPlus, MessageCircle, BookOpen, Eye, ChevronDown,
+  Play, Timer, BarChart2,
 } from "lucide-react";
 
 const statusConfig = {
@@ -21,6 +22,44 @@ const noteTypeConfig = {
   observacion: { label: "Observación", icon: Eye, bg: "bg-purple-50", border: "border-purple-200", text: "text-purple-800", badge: "bg-purple-100 text-purple-800" },
 };
 
+// Función para parsear fecha y hora en formato "dd/mm/aaaa" y "HH:MM" a objeto Date
+const parseDateTime = (fecha: string, hora?: string): Date | null => {
+  if (!fecha) return null;
+  const [day, month, year] = fecha.split("/").map(Number);
+  if (!day || !month || !year) return null;
+  let hours = 0, minutes = 0;
+  if (hora) {
+    const [h, m] = hora.split(":").map(Number);
+    hours = h || 0;
+    minutes = m || 0;
+  }
+  return new Date(year, month - 1, day, hours, minutes);
+};
+
+// Función para calcular diferencia en horas entre dos fechas
+const diffHoras = (inicio: Date | null, fin: Date | null): number | null => {
+  if (!inicio || !fin) return null;
+  const diffMs = fin.getTime() - inicio.getTime();
+  return diffMs / (1000 * 60 * 60);
+};
+
+// Formatear duración en horas y minutos
+const formatDuracion = (horas: number | null): string => {
+  if (horas === null) return "—";
+  const h = Math.floor(horas);
+  const m = Math.round((horas - h) * 60);
+  return `${h}h ${m}m`;
+};
+
+// Formatear tiempo transcurrido en vivo
+const formatElapsed = (ms: number): string => {
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+};
+
 export default function ServiceDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -29,6 +68,7 @@ export default function ServiceDetail() {
   const [services, setServices] = useState<Service[]>(initialServices);
   const [newComment, setNewComment] = useState("");
   const [activeTab, setActiveTab] = useState<"tareas" | "flujo" | "comentarios">("tareas");
+  const [showPerformance, setShowPerformance] = useState(false);
 
   // Task editing
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
@@ -42,9 +82,29 @@ export default function ServiceDetail() {
   const [noteText, setNoteText] = useState("");
   const [noteType, setNoteType] = useState<TaskNote["tipo"]>("comentario");
 
+  // Timer state
+  const [elapsedTime, setElapsedTime] = useState<number>(0);
+
   const service = services.find((s) => s.id === id);
   const authorName = currentUser ? `${currentUser.nombre} ${currentUser.apellido}` : "Usuario";
   const authorRol  = currentUser?.rol ?? "Colaborador";
+
+  // Efecto para el temporizador en vivo
+  useEffect(() => {
+    if (!service) return;
+    const inicioReal = service.inicioReal ? parseDateTime(service.inicioReal) : parseDateTime(service.fechaInicio, service.horaInicio);
+    if (!inicioReal) return;
+
+    const updateElapsed = () => {
+      const now = new Date();
+      const diff = now.getTime() - inicioReal.getTime();
+      setElapsedTime(diff > 0 ? diff : 0);
+    };
+
+    updateElapsed();
+    const interval = setInterval(updateElapsed, 1000);
+    return () => clearInterval(interval);
+  }, [service]);
 
   if (!service) {
     return (
@@ -61,7 +121,12 @@ export default function ServiceDetail() {
   const progreso = service.tareas.length > 0 ? Math.round((completadas / service.tareas.length) * 100) : 0;
   const cfg = statusConfig[service.estado];
 
-  // Collaborators available to add (from same area, not already assigned)
+  // Parsear fechas para cálculos
+  const inicioReal = service.inicioReal ? parseDateTime(service.inicioReal) : parseDateTime(service.fechaInicio, service.horaInicio);
+  const finEstimado = service.horaEstimadaFin ? parseDateTime(service.fechaInicio, service.horaEstimadaFin) : null;
+  const duracionEstimadaHoras = diffHoras(inicioReal, finEstimado);
+
+  // Collaborators available to add
   const availableColabs = colaboradores.filter((c) =>
     c.activo &&
     c.area === service.area &&
@@ -70,6 +135,17 @@ export default function ServiceDetail() {
 
   const updateService = (updater: (s: Service) => Service) => {
     setServices((prev) => prev.map((s) => (s.id === id ? updater(s) : s)));
+  };
+
+  // Iniciar servicio (registrar hora de inicio real)
+  const iniciarServicio = () => {
+    const ahora = new Date();
+    const fechaHora = ahora.toLocaleString("es-PE");
+    updateService((s) => ({
+      ...s,
+      inicioReal: fechaHora,
+      estado: "En progreso",
+    }));
   };
 
   const toggleTask = (taskId: string) => {
@@ -150,6 +226,46 @@ export default function ServiceDetail() {
 
   const selectedTask = service.tareas.find((t) => t.id === selectedNode);
 
+  // Calcular tiempos entre tareas completadas (para desempeño)
+  const getTareasCompletadasConFechas = () => {
+    return service.tareas
+      .filter(t => t.completada && t.fechaCompletada)
+      .map(t => ({
+        ...t,
+        fecha: parseDateTime(t.fechaCompletada!)
+      }))
+      .filter(t => t.fecha !== null)
+      .sort((a, b) => a.fecha!.getTime() - b.fecha!.getTime());
+  };
+
+  const tiemposEntreTareas = () => {
+    const completadas = getTareasCompletadasConFechas();
+    if (completadas.length < 2) return [];
+    const tiempos: { desde: string; hasta: string; horas: number }[] = [];
+    for (let i = 1; i < completadas.length; i++) {
+      const prev = completadas[i - 1];
+      const curr = completadas[i];
+      const diff = diffHoras(prev.fecha!, curr.fecha!);
+      if (diff !== null) {
+        tiempos.push({
+          desde: prev.nombre,
+          hasta: curr.nombre,
+          horas: diff
+        });
+      }
+    }
+    return tiempos;
+  };
+
+  const promedioTiempoEntreTareas = () => {
+    const tiempos = tiemposEntreTareas();
+    if (tiempos.length === 0) return null;
+    const total = tiempos.reduce((sum, t) => sum + t.horas, 0);
+    return total / tiempos.length;
+  };
+
+  const isAdmin = currentUser?.rol === "Administrador";
+
   return (
     <div className="space-y-5">
       {/* Back */}
@@ -176,14 +292,35 @@ export default function ServiceDetail() {
               )}
             </div>
             <h2 className="text-gray-900 mb-1" style={{ fontWeight: 700 }}>{service.descripcion}</h2>
-            <div className="flex flex-wrap gap-3 text-sm text-gray-500">
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500">
               <span>Cliente: <span className="text-gray-700" style={{ fontWeight: 500 }}>{service.cliente}</span></span>
               <span>Área: <span className="text-gray-700" style={{ fontWeight: 500 }}>{service.area}</span></span>
               <span>Inicio: <span className="text-gray-700" style={{ fontWeight: 500 }}>{service.fechaInicio}{service.horaInicio ? ` · ${service.horaInicio}` : ""}</span></span>
               {service.fechaFin && (
-                <span>Fin: <span className="text-green-700" style={{ fontWeight: 500 }}>{service.fechaFin}{service.horaFin ? ` · ${service.horaFin}` : ""}</span></span>
+                <span>Fin real: <span className="text-green-700" style={{ fontWeight: 500 }}>{service.fechaFin}{service.horaFin ? ` · ${service.horaFin}` : ""}</span></span>
+              )}
+              {service.horaEstimadaFin && (
+                <span>Fin estimado: <span className="text-blue-700" style={{ fontWeight: 500 }}>{service.horaEstimadaFin}</span></span>
               )}
             </div>
+
+            {/* Temporizador en vivo y duración estimada */}
+            {inicioReal && (
+              <div className="flex items-center gap-4 mt-3 pt-3 border-t border-gray-100">
+                <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg">
+                  <Timer className="w-4 h-4 text-blue-600" />
+                  <span className="text-xs text-gray-600">Tiempo transcurrido:</span>
+                  <span className="text-sm font-mono text-blue-900 font-bold">{formatElapsed(elapsedTime)}</span>
+                </div>
+                {duracionEstimadaHoras !== null && (
+                  <div className="flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg">
+                    <Clock className="w-4 h-4 text-purple-600" />
+                    <span className="text-xs text-gray-600">Duración estimada:</span>
+                    <span className="text-sm text-purple-900 font-semibold">{formatDuracion(duracionEstimadaHoras)}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex-shrink-0 text-center min-w-24">
             <div className="relative inline-flex items-center justify-center w-20 h-20">
@@ -202,6 +339,20 @@ export default function ServiceDetail() {
             <p className="text-xs text-gray-500 mt-1">{completadas}/{service.tareas.length} tareas</p>
           </div>
         </div>
+
+        {/* Botón Iniciar Servicio */}
+        {service.estado === "Pendiente" && !service.inicioReal && (
+          <div className="mt-4 pt-3 border-t border-gray-100">
+            <button
+              onClick={iniciarServicio}
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl text-sm transition shadow-sm"
+            >
+              <Play className="w-4 h-4" />
+              Iniciar servicio
+            </button>
+            <p className="text-xs text-gray-400 mt-1">Al iniciar se registrará la hora actual como inicio real.</p>
+          </div>
+        )}
 
         {/* Technicians row with add button */}
         <div className="mt-4 pt-4 border-t border-gray-100">
@@ -361,6 +512,64 @@ export default function ServiceDetail() {
       {/* ──── FLOW DIAGRAM ──── */}
       {activeTab === "flujo" && (
         <div className="space-y-4">
+          {/* Panel de desempeño para admin */}
+          {isAdmin && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+              <button
+                onClick={() => setShowPerformance(!showPerformance)}
+                className="w-full flex items-center justify-between px-5 py-3 bg-gray-50 hover:bg-gray-100 transition"
+              >
+                <div className="flex items-center gap-2">
+                  <BarChart2 className="w-4 h-4 text-blue-700" />
+                  <span className="text-sm text-gray-800 font-semibold">Desempeño del servicio (vista administrador)</span>
+                </div>
+                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${showPerformance ? "rotate-180" : ""}`} />
+              </button>
+              {showPerformance && (
+                <div className="px-5 py-4 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <h4 className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Métricas generales</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Tiempo total transcurrido:</span>
+                        <span className="font-mono font-semibold">{formatElapsed(elapsedTime)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Duración estimada:</span>
+                        <span className="font-semibold text-purple-700">{duracionEstimadaHoras ? formatDuracion(duracionEstimadaHoras) : "—"}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Tareas completadas:</span>
+                        <span className="font-semibold">{completadas} / {service.tareas.length}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Promedio entre tareas:</span>
+                        <span className="font-semibold">{promedioTiempoEntreTareas() ? formatDuracion(promedioTiempoEntreTareas()!) : "—"}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <h4 className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Tiempos entre actividades</h4>
+                    {tiemposEntreTareas().length > 0 ? (
+                      <ul className="space-y-2 max-h-40 overflow-y-auto pr-2">
+                        {tiemposEntreTareas().map((t, i) => (
+                          <li key={i} className="text-xs bg-gray-50 p-2 rounded-lg">
+                            <div className="flex items-center justify-between">
+                              <span className="truncate max-w-[180px]">{t.desde} → {t.hasta}</span>
+                              <span className="font-mono font-semibold text-blue-700">{formatDuracion(t.horas)}</span>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-gray-400">No hay suficientes tareas completadas para mostrar tiempos.</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-gray-800" style={{ fontWeight: 600 }}>Diagrama de Flujo del Proceso</h3>

@@ -97,6 +97,8 @@ export interface Service {
   horaInicio?: string;
   fechaFin?: string;
   horaFin?: string;
+  horaEstimadaFin?: string;      // formato "HH:MM"
+  inicioReal?: string;
   estado: "Pendiente" | "En progreso" | "Completado" | "Bloqueado";
   tareas: Task[];
   comentarios: Comment[];
@@ -173,6 +175,8 @@ export const servicios: Service[] = [
     tecnicos: ["Pedro Torres Vega", "Sandra Vargas López"],
     fechaInicio: "2024-04-10",
     horaInicio: "08:00",
+    horaEstimadaFin: "16:30",
+    inicioReal: undefined,
     estado: "En progreso",
     progreso: 66,
     tareas: [
