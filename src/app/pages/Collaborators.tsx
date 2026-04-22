@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Colaboradores as initialData, areas, Collaborator } from "../data/mockData";
+import { colaboradores as initialData, areas, Collaborator } from "../data/mockData";
 import {
   UserPlus, Search, Edit2, ToggleLeft, ToggleRight, X, Check, ChevronDown,
-  Shield, MapPin,
+  Shield, MapPin, Key,
 } from "lucide-react";
 
 const rolColors: Record<string, string> = {
@@ -14,16 +14,20 @@ const rolColors: Record<string, string> = {
 const NONE_AREA = "— Ninguna —";
 
 interface CollabForm {
-  dni: string; nombres: string; apellidos: string; telefono: string; correo: string; contrasena: string;
+  dni: string; nombres: string; apellidos: string; telefono: string; correo: string;
   area: string; areaSecundaria: string; rol: Collaborator["rol"];
   esEncargadoPrincipal: boolean; esEncargadoSecundario: boolean;
+  password: string;
+  confirmPassword: string;
 }
 
 const emptyForm = (defaultArea: string): CollabForm => ({
-  dni: "", nombres: "", apellidos: "", telefono: "", correo: "", contrasena: "",
+  dni: "", nombres: "", apellidos: "", telefono: "", correo: "",
   area: defaultArea, areaSecundaria: NONE_AREA,
   rol: "Colaborador",
   esEncargadoPrincipal: false, esEncargadoSecundario: false,
+  password: "",
+  confirmPassword: "",
 });
 
 export default function Collaborators() {
@@ -34,6 +38,12 @@ export default function Collaborators() {
   const [showModal, setShowModal] = useState(false);
   const [editingColab, setEditingColab] = useState<Collaborator | null>(null);
   const [form, setForm] = useState<CollabForm>(emptyForm(areas[0].nombre));
+
+  // Estado para el modal de cambio de contraseña
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [selectedColabForPassword, setSelectedColabForPassword] = useState<Collaborator | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
 
   const generateUsername = (nombres: string, apellidos: string, count: number) => {
     const n = nombres.split(" ")[0].toLowerCase().replace(/[^a-z]/g, "");
@@ -58,20 +68,39 @@ export default function Collaborators() {
     setEditingColab(c);
     setForm({
       dni: c.dni, nombres: c.nombres, apellidos: c.apellidos,
-      telefono: c.telefono, correo: c.correo, contrasena: "",
+      telefono: c.telefono, correo: c.correo,
       area: c.area, areaSecundaria: c.areaSecundaria || NONE_AREA,
       rol: c.rol,
       esEncargadoPrincipal: !!c.esEncargadoPrincipal,
       esEncargadoSecundario: !!c.esEncargadoSecundario,
+      password: "",
+      confirmPassword: "",
     });
     setShowModal(true);
   };
 
-  // Derive effective role from encargado checkboxes
+  const openChangePassword = (c: Collaborator) => {
+    setSelectedColabForPassword(c);
+    setNewPassword("");
+    setConfirmNewPassword("");
+    setShowPasswordModal(true);
+  };
+
   const effectiveRol = (form.esEncargadoPrincipal || form.esEncargadoSecundario) ? "Encargado" : form.rol;
 
   const handleSave = () => {
-    if (!form.dni || !form.nombres || !form.apellidos || !form.correo || !form.contrasena) return;
+    if (!form.dni || !form.nombres || !form.apellidos || !form.correo) return;
+    // Validación de contraseña solo en creación
+    if (!editingColab) {
+      if (!form.password || form.password.length < 6) {
+        alert("La contraseña debe tener al menos 6 caracteres");
+        return;
+      }
+      if (form.password !== form.confirmPassword) {
+        alert("Las contraseñas no coinciden");
+        return;
+      }
+    }
     const derivedRol: Collaborator["rol"] =
       form.esEncargadoPrincipal || form.esEncargadoSecundario ? "Encargado" : form.rol;
     const secArea = form.areaSecundaria === NONE_AREA ? undefined : form.areaSecundaria;
@@ -90,10 +119,43 @@ export default function Collaborators() {
       const idInterno = `EMP-${String(colabs.length + 1).padStart(3, "0")}`;
       setColabs((prev) => [
         ...prev,
-        { ...form, id: newId, username, idInterno, activo: true, rol: derivedRol, areaSecundaria: secArea, esEncargadoPrincipal: form.esEncargadoPrincipal, esEncargadoSecundario: form.esEncargadoSecundario },
+        {
+          ...form,
+          id: newId,
+          username,
+          idInterno,
+          activo: true,
+          rol: derivedRol,
+          areaSecundaria: secArea,
+          esEncargadoPrincipal: form.esEncargadoPrincipal,
+          esEncargadoSecundario: form.esEncargadoSecundario,
+          password: form.password, // Guardar la contraseña
+        },
       ]);
     }
     setShowModal(false);
+  };
+
+  const handlePasswordChange = () => {
+    if (!selectedColabForPassword) return;
+    if (!newPassword || newPassword.length < 6) {
+      alert("La nueva contraseña debe tener al menos 6 caracteres");
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      alert("Las contraseñas no coinciden");
+      return;
+    }
+    setColabs((prev) =>
+      prev.map((c) =>
+        c.id === selectedColabForPassword.id
+          ? { ...c, password: newPassword }
+          : c
+      )
+    );
+    setShowPasswordModal(false);
+    // Opcional: mostrar mensaje de éxito
+    alert(`Contraseña actualizada para ${selectedColabForPassword.nombres}`);
   };
 
   const toggleActivo = (id: string) => {
@@ -107,7 +169,7 @@ export default function Collaborators() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-gray-900" style={{ fontWeight: 700 }}>Usuarios</h1>
+          <h1 className="text-gray-900" style={{ fontWeight: 700 }}>Colaboradores</h1>
           <p className="text-gray-500 text-sm">{colabs.filter((c) => c.activo).length} activos · {colabs.filter((c) => !c.activo).length} inactivos</p>
         </div>
         <button
@@ -217,6 +279,13 @@ export default function Collaborators() {
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
+                        onClick={() => openChangePassword(c)}
+                        className="p-1.5 rounded-lg hover:bg-amber-50 text-amber-700 transition"
+                        title="Cambiar contraseña"
+                      >
+                        <Key className="w-4 h-4" />
+                      </button>
+                      <button
                         onClick={() => toggleActivo(c.id)}
                         className={`p-1.5 rounded-lg transition ${c.activo ? "hover:bg-red-50 text-red-600" : "hover:bg-green-50 text-green-600"}`}
                         title={c.activo ? "Desactivar" : "Activar"}
@@ -230,12 +299,12 @@ export default function Collaborators() {
             </tbody>
           </table>
           {filtered.length === 0 && (
-            <div className="text-center py-12 text-gray-400 text-sm">No se encontraron Usuarios</div>
+            <div className="text-center py-12 text-gray-400 text-sm">No se encontraron colaboradores</div>
           )}
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Modal de Creación/Edición */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
@@ -249,7 +318,6 @@ export default function Collaborators() {
             </div>
 
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-              {/* Basic info grid */}
               <div className="grid grid-cols-2 gap-4">
                 {[
                   { label: "DNI", key: "dni", placeholder: "Ej: 74521896" },
@@ -281,25 +349,39 @@ export default function Collaborators() {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs text-gray-600 mb-1" style={{ fontWeight: 600 }}>Nueva contraseña</label>
-                <input
-                  type="password"
-                  placeholder="Nueva contraseña"
-                  value={form.password}
-                  onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50"
-                />
-              </div>
+              {/* Campos de contraseña (solo en creación) */}
+              {!editingColab && (
+                <>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1" style={{ fontWeight: 600 }}>Contraseña</label>
+                    <input
+                      type="password"
+                      placeholder="Mínimo 6 caracteres"
+                      value={form.password}
+                      onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1" style={{ fontWeight: 600 }}>Confirmar contraseña</label>
+                    <input
+                      type="password"
+                      placeholder="Repite la contraseña"
+                      value={form.confirmPassword}
+                      onChange={(e) => setForm((prev) => ({ ...prev, confirmPassword: e.target.value }))}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50"
+                    />
+                  </div>
+                </>
+              )}
 
-              {/* Area assignment section */}
+              {/* Áreas y rol */}
               <div className="border border-blue-100 rounded-xl p-4 bg-blue-50 space-y-3">
                 <p className="text-xs text-blue-800" style={{ fontWeight: 700 }}>
                   <MapPin className="w-3.5 h-3.5 inline mr-1" />
                   ASIGNACIÓN DE ÁREAS Y ROL
                 </p>
 
-                {/* Primary area */}
                 <div>
                   <label className="block text-xs text-gray-600 mb-1" style={{ fontWeight: 600 }}>Área Principal *</label>
                   <select
@@ -309,7 +391,6 @@ export default function Collaborators() {
                   >
                     {areas.map((a) => <option key={a.id}>{a.nombre}</option>)}
                   </select>
-                  {/* Encargado checkbox for primary area */}
                   <label className="flex items-center gap-2 mt-2 cursor-pointer select-none group">
                     <div
                       onClick={() => setForm((p) => ({ ...p, esEncargadoPrincipal: !p.esEncargadoPrincipal, rol: !p.esEncargadoPrincipal || p.esEncargadoSecundario ? "Encargado" : "Colaborador" }))}
@@ -324,7 +405,6 @@ export default function Collaborators() {
                   </label>
                 </div>
 
-                {/* Secondary area */}
                 <div>
                   <label className="block text-xs text-gray-600 mb-1" style={{ fontWeight: 600 }}>Área Secundaria <span className="text-gray-400" style={{ fontWeight: 400 }}>(opcional)</span></label>
                   <select
@@ -335,7 +415,6 @@ export default function Collaborators() {
                     <option>{NONE_AREA}</option>
                     {areas.filter(a => a.nombre !== form.area).map((a) => <option key={a.id}>{a.nombre}</option>)}
                   </select>
-                  {/* Encargado checkbox for secondary area */}
                   {hasSecondaryArea && (
                     <label className="flex items-center gap-2 mt-2 cursor-pointer select-none group">
                       <div
@@ -352,7 +431,6 @@ export default function Collaborators() {
                   )}
                 </div>
 
-                {/* Effective role preview */}
                 <div className="bg-white rounded-lg px-3 py-2 border border-gray-200 flex items-center justify-between">
                   <span className="text-xs text-gray-500">Rol efectivo:</span>
                   <span className={`text-xs px-2 py-0.5 rounded-full ${rolColors[effectiveRol]}`} style={{ fontWeight: 700 }}>
@@ -361,7 +439,6 @@ export default function Collaborators() {
                 </div>
               </div>
 
-              {/* Auto username preview */}
               {!editingColab && form.nombres && form.apellidos && (
                 <div className="bg-blue-50 border border-blue-100 rounded-xl p-3">
                   <p className="text-xs text-blue-700" style={{ fontWeight: 500 }}>
@@ -388,6 +465,66 @@ export default function Collaborators() {
               >
                 <Check className="w-4 h-4" />
                 {editingColab ? "Guardar cambios" : "Registrar colaborador"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Cambio de Contraseña */}
+      {showPasswordModal && selectedColabForPassword && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h3 className="text-gray-900" style={{ fontWeight: 700 }}>
+                Cambiar contraseña
+              </h3>
+              <button onClick={() => setShowPasswordModal(false)} className="p-2 rounded-lg hover:bg-gray-100">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <div className="px-6 py-4 space-y-4">
+              <p className="text-sm text-gray-600">
+                Usuario: <span className="font-semibold">{selectedColabForPassword.nombres} {selectedColabForPassword.apellidos}</span>
+              </p>
+
+              <div>
+                <label className="block text-xs text-gray-600 mb-1" style={{ fontWeight: 600 }}>Nueva contraseña</label>
+                <input
+                  type="password"
+                  placeholder="Mínimo 6 caracteres"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-amber-500 bg-gray-50"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-600 mb-1" style={{ fontWeight: 600 }}>Confirmar nueva contraseña</label>
+                <input
+                  type="password"
+                  placeholder="Repite la contraseña"
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-amber-500 bg-gray-50"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 px-6 py-4 border-t border-gray-100">
+              <button
+                onClick={() => setShowPasswordModal(false)}
+                className="flex-1 border border-gray-200 text-gray-700 rounded-xl py-2.5 text-sm hover:bg-gray-50 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handlePasswordChange}
+                className="flex-1 bg-amber-600 text-white rounded-xl py-2.5 text-sm hover:bg-amber-700 transition flex items-center justify-center gap-2"
+                style={{ fontWeight: 600 }}
+              >
+                <Key className="w-4 h-4" />
+                Actualizar contraseña
               </button>
             </div>
           </div>
