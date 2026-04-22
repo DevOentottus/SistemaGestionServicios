@@ -460,7 +460,6 @@ export default function Dashboard() {
                 { label: "En sistema", value: 100, icon: "📋" },
                 { label: "Tareas doc.", value: Math.round((tasksWithResponsable.length / allTasks.length) * 100), icon: "📝" },
                 { label: "Trazabilidad", value: Math.round((fullyTraced.length / servicios.length) * 100), icon: "🔗" },
-                { label: "Con desglose", value: Math.round((servicios.filter(s => s.tareas.length > 0).length / servicios.length) * 100), icon: "📊" },
               ].map((m) => (
                 <div key={m.label} className="bg-purple-50 rounded-xl p-2.5">
                   <div className="flex items-center justify-between mb-1">
