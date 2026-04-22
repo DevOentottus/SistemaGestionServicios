@@ -1,17 +1,10 @@
 import { useState } from "react";
-import {
-  servicios as initialServices,
-  plantillasServicio as initialTemplates,
-  ServiceTemplate,
-  Service,
-  areas,
-  colaboradores
-} from "../data/mockData";
+import { servicios as initialServices, plantillasServicio as initialTemplates, ServiceTemplate, Service, areas } from "../data/mockData";
 import { useAuth } from "../context/AuthContext";
 import {
   Briefcase, Plus, Edit2, ToggleLeft, ToggleRight, Search, X, Check, ChevronDown,
-  List, Clock, User, MapPin, Copy, Layers, ChevronRight, CheckCircle2, Circle,
-  Save, Trash2
+  List, FileText, Clock, User, MapPin, Eye, EyeOff, Save, Trash2, Copy, Layers,
+  ChevronRight, CheckCircle2, Circle,
 } from "lucide-react";
 
 const statusColors: Record<string, string> = {
@@ -40,19 +33,23 @@ export default function Business() {
   const [templates, setTemplates] = useState<ServiceTemplate[]>(initialTemplates);
   const [services, setServices] = useState<Service[]>(initialServices);
 
+  // Filtros de servicios
   const [searchService, setSearchService] = useState("");
   const [filterArea, setFilterArea] = useState("Todas");
   const [filterStatus, setFilterStatus] = useState("Todos");
   const [expandedServiceId, setExpandedServiceId] = useState<string | null>(null);
 
+  // Modal de plantilla
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<ServiceTemplate | null>(null);
   const [templateForm, setTemplateForm] = useState<TemplateForm>(emptyTemplateForm);
 
+  // Búsqueda de plantillas
   const [searchTemplate, setSearchTemplate] = useState("");
 
   const isAdmin = currentUser?.rol === "Administrador" || currentUser?.rol === "Encargado";
 
+  // ========== FILTRADO DE SERVICIOS ==========
   const filteredServices = services.filter((s) => {
     const matchSearch = `${s.codigo} ${s.descripcion} ${s.cliente}`.toLowerCase().includes(searchService.toLowerCase());
     const matchArea = filterArea === "Todas" || s.area === filterArea;
@@ -60,11 +57,13 @@ export default function Business() {
     return matchSearch && matchArea && matchStatus;
   });
 
+  // ========== FILTRADO DE PLANTILLAS ==========
   const filteredTemplates = templates.filter((t) =>
     t.nombre.toLowerCase().includes(searchTemplate.toLowerCase()) ||
     t.descripcion.toLowerCase().includes(searchTemplate.toLowerCase())
   );
 
+  // ========== MANEJO DE PLANTILLAS ==========
   const openAddTemplate = () => {
     setEditingTemplate(null);
     setTemplateForm(emptyTemplateForm);
@@ -88,18 +87,17 @@ export default function Business() {
       return;
     }
 
-    const cleanedTareas = templateForm.tareas.filter(t => t.trim() !== "");
     if (editingTemplate) {
       setTemplates(prev => prev.map(t =>
         t.id === editingTemplate.id
-          ? { ...t, ...templateForm, tareas: cleanedTareas }
+          ? { ...t, ...templateForm, tareas: templateForm.tareas.filter(t => t.trim() !== "") }
           : t
       ));
     } else {
       const newTemplate: ServiceTemplate = {
         id: `tmpl${Date.now()}`,
         ...templateForm,
-        tareas: cleanedTareas,
+        tareas: templateForm.tareas.filter(t => t.trim() !== ""),
         activo: true,
         fechaCreacion: new Date().toLocaleDateString("es-PE"),
       };
@@ -129,14 +127,15 @@ export default function Business() {
     }
   };
 
+  // ========== CREAR SERVICIO DESDE PLANTILLA ==========
   const createServiceFromTemplate = (template: ServiceTemplate) => {
     const newService: Service = {
       id: `s${Date.now()}`,
-      codigo: `SRV-${String(services.length + 1).padStart(3, "0")}`,
-      cliente: "Nuevo cliente",
+      codigo: `SERV-${String(services.length + 1).padStart(3, "0")}`,
       descripcion: template.descripcion,
+      cliente: "Cliente nuevo", // Podría abrir un modal para ingresar datos del cliente
       area: template.area,
-      fechaInicio: new Date().toISOString().split("T")[0],
+      fechaInicio: new Date().toLocaleDateString("es-PE"),
       estado: "Pendiente",
       progreso: 0,
       tecnicos: [],
@@ -144,7 +143,6 @@ export default function Business() {
         id: `t${Date.now()}${idx}`,
         nombre,
         completada: false,
-        orden: idx + 1,
       })),
       comentarios: [],
     };
@@ -152,6 +150,7 @@ export default function Business() {
     alert(`Servicio ${newService.codigo} creado a partir de la plantilla "${template.nombre}"`);
   };
 
+  // ========== TAREAS DE PLANTILLA (FORM) ==========
   const addTaskField = () => {
     setTemplateForm(prev => ({ ...prev, tareas: [...prev.tareas, ""] }));
   };
@@ -168,19 +167,24 @@ export default function Business() {
 
   return (
     <div className="space-y-6">
+      {/* Encabezado */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-gray-900 font-bold text-2xl">Negocio</h1>
           <p className="text-gray-500 text-sm">Gestión de plantillas y servicios registrados</p>
         </div>
         {isAdmin && (
-          <button onClick={openAddTemplate} className="flex items-center gap-2 bg-blue-900 hover:bg-blue-800 text-white px-4 py-2.5 rounded-xl text-sm font-semibold">
-            <Plus className="w-4 h-4" /> Nueva plantilla
+          <button
+            onClick={openAddTemplate}
+            className="flex items-center gap-2 bg-blue-900 hover:bg-blue-800 text-white px-4 py-2.5 rounded-xl text-sm transition font-semibold"
+          >
+            <Plus className="w-4 h-4" />
+            Nueva plantilla
           </button>
         )}
       </div>
 
-      {/* Plantillas */}
+      {/* ========== SECCIÓN: PLANTILLAS DE SERVICIO ========== */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-2">
@@ -215,13 +219,16 @@ export default function Business() {
               {filteredTemplates.map((t) => (
                 <tr key={t.id} className="hover:bg-gray-50 transition">
                   <td className="px-5 py-4">
-                    <p className="text-gray-900 font-semibold text-sm">{t.nombre}</p>
-                    <p className="text-gray-500 text-xs truncate max-w-xs">{t.descripcion}</p>
-                    <p className="text-gray-400 text-xs mt-1">Creado: {t.fechaCreacion}</p>
+                    <div>
+                      <p className="text-gray-900 font-semibold text-sm">{t.nombre}</p>
+                      <p className="text-gray-500 text-xs truncate max-w-xs">{t.descripcion}</p>
+                      <p className="text-gray-400 text-xs mt-1">Creado: {t.fechaCreacion}</p>
+                    </div>
                   </td>
                   <td className="px-5 py-4">
                     <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full">
-                      <MapPin className="w-3 h-3" /> {t.area}
+                      <MapPin className="w-3 h-3" />
+                      {t.area}
                     </span>
                   </td>
                   <td className="px-5 py-4">
@@ -235,21 +242,41 @@ export default function Business() {
                   </td>
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-1">
-                      <button onClick={() => createServiceFromTemplate(t)} className="p-1.5 rounded-lg hover:bg-green-50 text-green-700 transition" title="Crear servicio desde plantilla">
+                      <button
+                        onClick={() => createServiceFromTemplate(t)}
+                        className="p-1.5 rounded-lg hover:bg-green-50 text-green-700 transition"
+                        title="Crear servicio desde plantilla"
+                      >
                         <Copy className="w-4 h-4" />
                       </button>
                       {isAdmin && (
                         <>
-                          <button onClick={() => openEditTemplate(t)} className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-700 transition" title="Editar">
+                          <button
+                            onClick={() => openEditTemplate(t)}
+                            className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-700 transition"
+                            title="Editar"
+                          >
                             <Edit2 className="w-4 h-4" />
                           </button>
-                          <button onClick={() => duplicateTemplate(t)} className="p-1.5 rounded-lg hover:bg-purple-50 text-purple-700 transition" title="Duplicar">
+                          <button
+                            onClick={() => duplicateTemplate(t)}
+                            className="p-1.5 rounded-lg hover:bg-purple-50 text-purple-700 transition"
+                            title="Duplicar"
+                          >
                             <Copy className="w-4 h-4" />
                           </button>
-                          <button onClick={() => toggleTemplateActive(t.id)} className={`p-1.5 rounded-lg transition ${t.activo ? "hover:bg-red-50 text-red-600" : "hover:bg-green-50 text-green-600"}`} title={t.activo ? "Desactivar" : "Activar"}>
+                          <button
+                            onClick={() => toggleTemplateActive(t.id)}
+                            className={`p-1.5 rounded-lg transition ${t.activo ? "hover:bg-red-50 text-red-600" : "hover:bg-green-50 text-green-600"}`}
+                            title={t.activo ? "Desactivar" : "Activar"}
+                          >
                             {t.activo ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
                           </button>
-                          <button onClick={() => deleteTemplate(t.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-600 transition" title="Eliminar">
+                          <button
+                            onClick={() => deleteTemplate(t.id)}
+                            className="p-1.5 rounded-lg hover:bg-red-50 text-red-600 transition"
+                            title="Eliminar"
+                          >
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </>
@@ -260,11 +287,13 @@ export default function Business() {
               ))}
             </tbody>
           </table>
-          {filteredTemplates.length === 0 && <div className="text-center py-8 text-gray-400 text-sm">No se encontraron plantillas</div>}
+          {filteredTemplates.length === 0 && (
+            <div className="text-center py-8 text-gray-400 text-sm">No se encontraron plantillas</div>
+          )}
         </div>
       </div>
 
-      {/* Servicios registrados */}
+      {/* ========== SECCIÓN: SERVICIOS REGISTRADOS ========== */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="px-5 py-4 border-b border-gray-100">
           <div className="flex items-center gap-2 mb-3">
@@ -272,6 +301,8 @@ export default function Business() {
             <h2 className="text-gray-800 font-semibold">Servicios registrados</h2>
             <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{services.length}</span>
           </div>
+
+          {/* Filtros */}
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -284,14 +315,22 @@ export default function Business() {
               />
             </div>
             <div className="relative">
-              <select value={filterArea} onChange={(e) => setFilterArea(e.target.value)} className="appearance-none pl-3 pr-8 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-blue-500 bg-gray-50 cursor-pointer">
+              <select
+                value={filterArea}
+                onChange={(e) => setFilterArea(e.target.value)}
+                className="appearance-none pl-3 pr-8 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-blue-500 bg-gray-50 cursor-pointer"
+              >
                 <option value="Todas">Todas las áreas</option>
                 {areas.map((a) => <option key={a.id}>{a.nombre}</option>)}
               </select>
               <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             </div>
             <div className="relative">
-              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="appearance-none pl-3 pr-8 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-blue-500 bg-gray-50 cursor-pointer">
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="appearance-none pl-3 pr-8 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-blue-500 bg-gray-50 cursor-pointer"
+              >
                 <option value="Todos">Todos los estados</option>
                 <option value="Pendiente">Pendiente</option>
                 <option value="En progreso">En progreso</option>
@@ -322,16 +361,23 @@ export default function Business() {
                 return (
                   <>
                     <tr key={service.id} className="hover:bg-gray-50 transition">
-                      <td className="px-5 py-4"><span className="text-xs font-mono bg-gray-100 text-gray-700 px-2 py-1 rounded">{service.codigo}</span></td>
+                      <td className="px-5 py-4">
+                        <span className="text-xs font-mono bg-gray-100 text-gray-700 px-2 py-1 rounded">{service.codigo}</span>
+                      </td>
                       <td className="px-5 py-4">
                         <p className="text-gray-900 font-medium text-sm">{service.cliente}</p>
                         <p className="text-gray-500 text-xs truncate max-w-xs">{service.descripcion}</p>
                       </td>
-                      <td className="px-5 py-4"><span className="text-xs text-gray-600">{service.area}</span></td>
+                      <td className="px-5 py-4">
+                        <span className="text-xs text-gray-600">{service.area}</span>
+                      </td>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-2">
                           <div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                            <div className={`h-full ${service.progreso === 100 ? "bg-green-500" : "bg-blue-600"}`} style={{ width: `${service.progreso}%` }} />
+                            <div
+                              className={`h-full ${service.progreso === 100 ? "bg-green-500" : "bg-blue-600"}`}
+                              style={{ width: `${service.progreso}%` }}
+                            />
                           </div>
                           <span className="text-xs text-gray-600">{completadas}/{service.tareas.length}</span>
                         </div>
@@ -343,28 +389,46 @@ export default function Business() {
                         </span>
                       </td>
                       <td className="px-5 py-4 text-right">
-                        <button onClick={() => setExpandedServiceId(isExpanded ? null : service.id)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition">
+                        <button
+                          onClick={() => setExpandedServiceId(isExpanded ? null : service.id)}
+                          className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition"
+                          title="Ver tareas completadas"
+                        >
                           <ChevronRight className={`w-4 h-4 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
                         </button>
                       </td>
                     </tr>
+                    {/* Fila expandible: detalle de tareas completadas */}
                     {isExpanded && (
                       <tr>
                         <td colSpan={6} className="bg-gray-50 px-5 py-4 border-t border-gray-100">
                           <div className="space-y-3">
-                            <h4 className="text-xs text-gray-500 font-semibold uppercase tracking-wider flex items-center gap-2"><List className="w-4 h-4" /> Tareas documentadas</h4>
+                            <h4 className="text-xs text-gray-500 font-semibold uppercase tracking-wider flex items-center gap-2">
+                              <List className="w-4 h-4" />
+                              Tareas documentadas
+                            </h4>
                             <div className="space-y-2">
-                              {service.tareas.sort((a,b) => a.orden - b.orden).map((task) => (
+                              {service.tareas.map((task, idx) => (
                                 <div key={task.id} className={`flex items-start gap-3 p-3 rounded-xl ${task.completada ? "bg-green-50 border border-green-100" : "bg-white border border-gray-100"}`}>
                                   <div className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${task.completada ? "bg-green-500 border-green-500" : "border-gray-300"}`}>
                                     {task.completada ? <CheckCircle2 className="w-3.5 h-3.5 text-white" /> : <Circle className="w-3.5 h-3.5 text-gray-300" />}
                                   </div>
                                   <div className="flex-1">
-                                    <p className={`text-sm ${task.completada ? "text-gray-700 line-through" : "text-gray-900"}`}>{task.orden}. {task.nombre}</p>
+                                    <p className={`text-sm ${task.completada ? "text-gray-700 line-through" : "text-gray-900"}`}>
+                                      {idx + 1}. {task.nombre}
+                                    </p>
                                     {task.completada && (
                                       <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
-                                        {task.responsable && <span className="flex items-center gap-1"><User className="w-3 h-3" /> {task.responsable}</span>}
-                                        {task.fechaCompletada && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {task.fechaCompletada}</span>}
+                                        {task.responsable && (
+                                          <span className="flex items-center gap-1">
+                                            <User className="w-3 h-3" /> {task.responsable}
+                                          </span>
+                                        )}
+                                        {task.fechaCompletada && (
+                                          <span className="flex items-center gap-1">
+                                            <Clock className="w-3 h-3" /> {task.fechaCompletada}
+                                          </span>
+                                        )}
                                       </div>
                                     )}
                                   </div>
@@ -380,52 +444,109 @@ export default function Business() {
               })}
             </tbody>
           </table>
-          {filteredServices.length === 0 && <div className="text-center py-10 text-gray-400 text-sm">No se encontraron servicios</div>}
+          {filteredServices.length === 0 && (
+            <div className="text-center py-10 text-gray-400 text-sm">No se encontraron servicios</div>
+          )}
         </div>
       </div>
 
-      {/* Modal Plantilla */}
+      {/* ========== MODAL DE PLANTILLA ========== */}
       {showTemplateModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h3 className="text-gray-900 font-bold text-lg">{editingTemplate ? "Editar plantilla" : "Nueva plantilla"}</h3>
-              <button onClick={() => setShowTemplateModal(false)} className="p-2 rounded-lg hover:bg-gray-100"><X className="w-5 h-5 text-gray-500" /></button>
+              <h3 className="text-gray-900 font-bold text-lg">
+                {editingTemplate ? "Editar plantilla" : "Nueva plantilla"}
+              </h3>
+              <button onClick={() => setShowTemplateModal(false)} className="p-2 rounded-lg hover:bg-gray-100">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
             </div>
+
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
               <div>
-                <label className="block text-xs text-gray-600 mb-1 font-semibold">Nombre *</label>
-                <input type="text" value={templateForm.nombre} onChange={(e) => setTemplateForm(prev => ({ ...prev, nombre: e.target.value }))} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50" />
+                <label className="block text-xs text-gray-600 mb-1 font-semibold">Nombre de la plantilla *</label>
+                <input
+                  type="text"
+                  placeholder="Ej: Mantenimiento Preventivo HVAC"
+                  value={templateForm.nombre}
+                  onChange={(e) => setTemplateForm(prev => ({ ...prev, nombre: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50"
+                />
               </div>
               <div>
                 <label className="block text-xs text-gray-600 mb-1 font-semibold">Descripción *</label>
-                <textarea value={templateForm.descripcion} onChange={(e) => setTemplateForm(prev => ({ ...prev, descripcion: e.target.value }))} rows={2} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50 resize-none" />
+                <textarea
+                  placeholder="Breve descripción del servicio..."
+                  value={templateForm.descripcion}
+                  onChange={(e) => setTemplateForm(prev => ({ ...prev, descripcion: e.target.value }))}
+                  rows={2}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50 resize-none"
+                />
               </div>
               <div>
                 <label className="block text-xs text-gray-600 mb-1 font-semibold">Área *</label>
-                <select value={templateForm.area} onChange={(e) => setTemplateForm(prev => ({ ...prev, area: e.target.value }))} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50">
+                <select
+                  value={templateForm.area}
+                  onChange={(e) => setTemplateForm(prev => ({ ...prev, area: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50"
+                >
                   {areas.map(a => <option key={a.id}>{a.nombre}</option>)}
                 </select>
               </div>
+
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-xs text-gray-600 font-semibold">Tareas (flujo) *</label>
-                  <button type="button" onClick={addTaskField} className="text-xs text-blue-700 hover:text-blue-900 flex items-center gap-1"><Plus className="w-3 h-3" /> Añadir tarea</button>
+                  <label className="text-xs text-gray-600 font-semibold">Tareas (flujo de trabajo) *</label>
+                  <button
+                    type="button"
+                    onClick={addTaskField}
+                    className="text-xs text-blue-700 hover:text-blue-900 flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3" /> Añadir tarea
+                  </button>
                 </div>
                 <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                   {templateForm.tareas.map((tarea, idx) => (
                     <div key={idx} className="flex items-center gap-2">
                       <span className="text-xs text-gray-400 w-5">{idx + 1}.</span>
-                      <input type="text" value={tarea} onChange={(e) => updateTaskField(idx, e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-blue-500 bg-white" />
-                      {templateForm.tareas.length > 1 && <button type="button" onClick={() => removeTaskField(idx)} className="p-1 text-gray-400 hover:text-red-500"><X className="w-4 h-4" /></button>}
+                      <input
+                        type="text"
+                        value={tarea}
+                        onChange={(e) => updateTaskField(idx, e.target.value)}
+                        placeholder={`Tarea ${idx + 1}`}
+                        className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-blue-500 bg-white"
+                      />
+                      {templateForm.tareas.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeTaskField(idx)}
+                          className="p-1 text-gray-400 hover:text-red-500"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
+                <p className="text-xs text-gray-400 mt-1">Define las tareas en orden secuencial.</p>
               </div>
             </div>
+
             <div className="flex gap-3 px-6 py-4 border-t border-gray-100">
-              <button onClick={() => setShowTemplateModal(false)} className="flex-1 border border-gray-200 text-gray-700 rounded-xl py-2.5 text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={handleSaveTemplate} className="flex-1 bg-blue-900 text-white rounded-xl py-2.5 text-sm hover:bg-blue-800 flex items-center justify-center gap-2 font-semibold"><Save className="w-4 h-4" /> {editingTemplate ? "Guardar cambios" : "Crear plantilla"}</button>
+              <button
+                onClick={() => setShowTemplateModal(false)}
+                className="flex-1 border border-gray-200 text-gray-700 rounded-xl py-2.5 text-sm hover:bg-gray-50 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveTemplate}
+                className="flex-1 bg-blue-900 text-white rounded-xl py-2.5 text-sm hover:bg-blue-800 transition flex items-center justify-center gap-2 font-semibold"
+              >
+                <Save className="w-4 h-4" />
+                {editingTemplate ? "Guardar cambios" : "Crear plantilla"}
+              </button>
             </div>
           </div>
         </div>
