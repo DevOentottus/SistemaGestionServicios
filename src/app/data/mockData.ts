@@ -336,3 +336,51 @@ export const plantillas = [
   { id: "p3", nombre: "Diagnóstico y Reparación", tareas: ["Diagnóstico inicial", "Identificación de falla", "Cotización de reparación", "Reparación/Reemplazo", "Prueba post-reparación", "Entrega al cliente"] },
   { id: "p4", nombre: "Calibración", tareas: ["Recepción de instrumentos", "Verificación pre-calibración", "Proceso de calibración", "Verificación post-calibración", "Emisión de certificados", "Entrega de instrumentos"] },
 ];
+
+export const plantillasServicio: ServiceTemplate[] = [
+  {
+    id: "tmpl1",
+    nombre: "Mantenimiento Preventivo HVAC",
+    descripcion: "Revisión trimestral de equipos de aire acondicionado",
+    area: "Electrónica",
+    tareas: [
+      "Inspección visual de unidades",
+      "Limpieza de filtros",
+      "Verificación de presiones de gas",
+      "Prueba de funcionamiento",
+      "Reporte de hallazgos"
+    ],
+    activo: true,
+    fechaCreacion: "10/01/2026"
+  },
+  {
+    id: "tmpl2",
+    nombre: "Instalación de Punto de Red",
+    descripcion: "Instalación de punto de red estructurada categoría 6",
+    area: "Software",
+    tareas: [
+      "Verificar ruta de cableado",
+      "Instalar canaleta y cable UTP",
+      "Ponchar conector RJ45",
+      "Certificar cableado",
+      "Configurar puerto en switch"
+    ],
+    activo: true,
+    fechaCreacion: "05/02/2026"
+  },
+  {
+    id: "tmpl3",
+    nombre: "Limpieza de Oficinas",
+    descripcion: "Limpieza profunda semanal",
+    area: "Mecánica",
+    tareas: [
+      "Aspirado de alfombras",
+      "Limpieza de escritorios y superficies",
+      "Vaciado de papeleras",
+      "Reposición de insumos de baño",
+      "Desinfección de áreas comunes"
+    ],
+    activo: false,
+    fechaCreacion: "01/03/2026"
+  }
+];
