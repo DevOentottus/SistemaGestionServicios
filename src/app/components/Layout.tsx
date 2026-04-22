@@ -4,7 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import {
   LayoutDashboard, Users, MapPin, ClipboardList, Monitor, MessageSquare,
   Eye, BarChart2, Shield, LogOut, Menu, X, Wrench, ChevronRight,
-  Bell, Settings, UserCircle,
+  Bell, Settings, UserCircle, Briefcase,
 } from "lucide-react";
 
 const navItems = [
@@ -12,6 +12,7 @@ const navItems = [
   { path: "/collaborators", label: "Usuarios", icon: Users, roles: ["Administrador"] },
   { path: "/areas", label: "Áreas de Servicio", icon: MapPin, roles: ["Administrador", "Encargado"] },
   { path: "/services", label: "Servicios", icon: ClipboardList, roles: ["Administrador", "Encargado", "Colaborador"] },
+  { path: "/business", label: "Negocio", icon: Briefcase, roles: ["Administrador", "Encargado"] },
   { path: "/monitor", label: "Monitor / Sala", icon: Monitor, roles: ["Administrador", "Encargado"] },
   { path: "/communications", label: "Comunicación", icon: MessageSquare, roles: ["Administrador", "Encargado", "Colaborador"] },
   { path: "/supervision", label: "Supervisión", icon: Eye, roles: ["Administrador", "Encargado"] },

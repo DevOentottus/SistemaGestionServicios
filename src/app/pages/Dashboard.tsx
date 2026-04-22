@@ -359,7 +359,7 @@ export default function Dashboard() {
             <div className="bg-blue-50 rounded-xl px-3 py-2">
               <p className="text-xs text-blue-800" style={{ fontWeight: 600 }}>
                 👉 Insight: <span style={{ fontWeight: 400 }}>
-                  {topPerformers[0] ? `${topPerformers[0].nombres} ${topPerformers[0].apellidos} lidera con ${topPerformers[0].tasksCompleted} tareas completadas.` : "Sin datos aún."}
+                  {topPerformers[0] ? `${topPerformers[0].nombres} ${topPerformers[0].apellidos} y su area lideran con ${topPerformers[0].tasksCompleted} tareas completadas.` : "Sin datos aún."}
                 </span>
               </p>
             </div>
@@ -757,7 +757,6 @@ export default function Dashboard() {
               {[
                 { label: "Tareas completas y documentadas", count: completedTasks.filter(t => t.responsable).length, total: completedTasks.length, color: "bg-green-500" },
                 { label: "Tareas sin responsable", count: completedTasks.filter(t => !t.responsable).length, total: completedTasks.length, color: "bg-orange-400" },
-                { label: "Servicios con desglose", count: servicios.filter(s => s.tareas.length > 0).length, total: servicios.length, color: "bg-blue-600" },
                 { label: "Servicios trazados", count: fullyTraced.length, total: servicios.length, color: "bg-purple-600" },
               ].map((m) => (
                 <div key={m.label}>
