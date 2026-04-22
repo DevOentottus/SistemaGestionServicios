@@ -85,7 +85,6 @@ const infoKPIs = [
   { subject: "Reg. sistema", value: 100 },
   { subject: "Tareas doc.", value: Math.round((tasksWithResponsable.length / allTasks.length) * 100) },
   { subject: "Trazabilidad", value: Math.round((fullyTraced.length / servicios.length) * 100) },
-  { subject: "Con desglose", value: Math.round((servicios.filter(s => s.tareas.length > 0).length / servicios.length) * 100) },
   { subject: "Comentarios",  value: Math.round((servicios.filter(s => s.comentarios.length > 0).length / servicios.length) * 100) },
 ];
 
