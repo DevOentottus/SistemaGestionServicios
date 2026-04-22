@@ -9,6 +9,7 @@ import ServiceDetail from "./pages/ServiceDetail";
 import Monitor from "./pages/Monitor";
 import Communications from "./pages/Communications";
 import Supervision from "./pages/Supervision";
+import Business from "./pages/Business";
 import Reports from "./pages/Reports";
 import Audit from "./pages/Audit";
 import ClientView from "./pages/ClientView";
@@ -31,6 +32,7 @@ export const router = createBrowserRouter([
       { path: "monitor", Component: Monitor },
       { path: "communications", Component: Communications },
       { path: "supervision", Component: Supervision },
+      { path: "business", Component: Supervision },
       { path: "reports", Component: Reports },
       { path: "audit", Component: Audit },
       { path: "client", Component: ClientView },

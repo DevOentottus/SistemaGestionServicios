@@ -78,6 +78,16 @@ export interface Task {
   notas?: TaskNote[];
 }
 
+export interface ServiceTemplate {
+  id: string;
+  nombre: string;
+  descripcion: string;
+  area: string;
+  tareas: string[];
+  activo: boolean;
+  fechaCreacion: string;
+}
+
 export interface Comment {
   id: string;
   autor: string;
@@ -90,6 +100,7 @@ export interface Service {
   id: string;
   codigo: string;
   cliente: string;
+  telefonoCliente?: string;
   descripcion: string;
   area: string;
   tecnicos: string[];
@@ -170,6 +181,7 @@ export const servicios: Service[] = [
     id: "s1",
     codigo: "SRV-2024-001",
     cliente: "Empresa ABC S.A.",
+    telefonoCliente: "51987654321",
     descripcion: "Mantenimiento preventivo de equipos industriales - Línea de producción A",
     area: "Electrónica",
     tecnicos: ["Pedro Torres Vega", "Sandra Vargas López"],

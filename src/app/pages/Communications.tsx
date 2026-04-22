@@ -1,360 +1,406 @@
 import { useState } from "react";
-import { anuncios as initialAnuncios, solicitudes as initialSolicitudes, areas, Announcement, InternalRequest } from "../data/mockData";
 import {
-  Megaphone, MessageSquare, ArrowUpRight, Plus, Send, Clock,
-  CheckCircle2, Bell, X, ChevronDown,
-} from "lucide-react";
+  anuncios as initialAnuncios,
+  solicitudes as initialSolicitudes,
+  servicios as initialServices,
+  Announcement,
+  InternalRequest,
+  Service,
+} from "../data/mockData";
 import { useAuth } from "../context/AuthContext";
+import {
+  Send, Search, MessageCircle, Clock, ChevronDown, ExternalLink, History, Copy, Check,
+  Bell, Users, FileText, AlertCircle, CheckCircle2, User, Calendar,
+} from "lucide-react";
+
+// Mensajes predefinidos según estado del servicio
+const mensajesPredefinidos: Record<string, string> = {
+  Pendiente: "Hola {cliente}, tu servicio {codigo} ha sido registrado y está pendiente de asignación. Te mantendremos informado.",
+  "En progreso": "Hola {cliente}, tu servicio {codigo} ya está en progreso. Nuestro equipo está trabajando en ello.",
+  Completado: "Hola {cliente}, tu servicio {codigo} ha sido completado exitosamente. ¡Gracias por confiar en nosotros!",
+  Bloqueado: "Hola {cliente}, tu servicio {codigo} está temporalmente bloqueado. Nos comunicaremos contigo para resolverlo.",
+};
 
 export default function Communications() {
   const { currentUser } = useAuth();
-  const [tab, setTab] = useState<"anuncios" | "solicitudes" | "instrucciones">("anuncios");
-  const [anuncios, setAnuncios] = useState<Announcement[]>(initialAnuncios);
+  const [activeTab, setActiveTab] = useState<"interna" | "clientes">("interna");
+
+  // --- Comunicación Interna ---
+  const [anuncios] = useState<Announcement[]>(initialAnuncios);
   const [solicitudes, setSolicitudes] = useState<InternalRequest[]>(initialSolicitudes);
-  const [showModal, setShowModal] = useState(false);
-  const [modalType, setModalType] = useState<"anuncio" | "solicitud">("anuncio");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterTipoAnuncio, setFilterTipoAnuncio] = useState<"todos" | "global" | "area">("todos");
 
-  const [annForm, setAnnForm] = useState({ titulo: "", contenido: "", tipo: "global" as "global" | "area", areaDestino: areas[0].nombre });
-  const [reqForm, setReqForm] = useState({ tipo: "apoyo" as InternalRequest["tipo"], destinatario: "", contenido: "" });
+  // --- Comunicación con Clientes ---
+  const [services] = useState<Service[]>(initialServices);
+  const [searchClient, setSearchClient] = useState("");
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+  const [customMessage, setCustomMessage] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [messageHistory, setMessageHistory] = useState<{ id: string; serviceId: string; fecha: string; mensaje: string }[]>([]);
 
-  const handleSaveAnnouncement = () => {
-    if (!annForm.titulo || !annForm.contenido) return;
-    const newAnn: Announcement = {
-      id: `an${Date.now()}`,
-      titulo: annForm.titulo,
-      contenido: annForm.contenido,
-      autor: `${currentUser?.nombre} ${currentUser?.apellido}`,
+  const isAdmin = currentUser?.rol === "Administrador" || currentUser?.rol === "Encargado";
+
+  // ========== FILTROS COMUNICACIÓN INTERNA ==========
+  const filteredAnuncios = anuncios.filter((a) => {
+    const matchSearch = a.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      a.contenido.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchTipo = filterTipoAnuncio === "todos" || a.tipo === filterTipoAnuncio;
+    return matchSearch && matchTipo;
+  });
+
+  const filteredSolicitudes = solicitudes.filter((s) => {
+    const matchSearch = s.contenido.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.solicitante.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchSearch;
+  });
+
+  const marcarSolicitudAtendida = (id: string) => {
+    setSolicitudes((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, estado: "atendido" } : s))
+    );
+  };
+
+  // ========== COMUNICACIÓN CON CLIENTES ==========
+  const filteredServices = services.filter(s =>
+    s.codigo.toLowerCase().includes(searchClient.toLowerCase()) ||
+    s.descripcion.toLowerCase().includes(searchClient.toLowerCase()) ||
+    s.cliente.toLowerCase().includes(searchClient.toLowerCase())
+  );
+
+  const selectedService = services.find(s => s.id === selectedServiceId);
+
+  const handleSelectService = (id: string) => {
+    setSelectedServiceId(id);
+    const service = services.find(s => s.id === id);
+    if (service) {
+      const defaultMsg = mensajesPredefinidos[service.estado]
+        ?.replace("{cliente}", service.cliente)
+        .replace("{codigo}", service.codigo)
+        .replace("{estado}", service.estado) || "";
+      setCustomMessage(defaultMsg);
+    }
+  };
+
+  const handleSendWhatsApp = () => {
+    if (!selectedService) return;
+    // Usa el teléfono del cliente si existe, sino un demo
+    const telefono = (selectedService as any).telefonoCliente || "51987654321";
+    const mensaje = encodeURIComponent(customMessage);
+    const url = `https://wa.me/${telefono}?text=${mensaje}`;
+
+    setMessageHistory(prev => [{
+      id: `msg${Date.now()}`,
+      serviceId: selectedService.id,
       fecha: new Date().toLocaleString("es-PE"),
-      tipo: annForm.tipo,
-      areaDestino: annForm.tipo === "area" ? annForm.areaDestino : undefined,
-    };
-    setAnuncios((prev) => [newAnn, ...prev]);
-    setShowModal(false);
-    setAnnForm({ titulo: "", contenido: "", tipo: "global", areaDestino: areas[0].nombre });
+      mensaje: customMessage,
+    }, ...prev]);
+
+    window.open(url, "_blank");
   };
 
-  const handleSaveRequest = () => {
-    if (!reqForm.contenido || !reqForm.destinatario) return;
-    const newReq: InternalRequest = {
-      id: `req${Date.now()}`,
-      tipo: reqForm.tipo,
-      solicitante: `${currentUser?.nombre} ${currentUser?.apellido}`,
-      destinatario: reqForm.destinatario,
-      contenido: reqForm.contenido,
-      fecha: new Date().toLocaleString("es-PE"),
-      estado: "pendiente",
-    };
-    setSolicitudes((prev) => [newReq, ...prev]);
-    setShowModal(false);
-    setReqForm({ tipo: "apoyo", destinatario: "", contenido: "" });
+  const handleCopyMessage = () => {
+    navigator.clipboard.writeText(customMessage);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
-  const markAtendido = (id: string) => {
-    setSolicitudes((prev) => prev.map((s) => s.id === id ? { ...s, estado: "atendido" } : s));
-  };
-
-  const tipoColors: Record<string, string> = {
-    apoyo: "bg-blue-100 text-blue-800",
-    herramienta: "bg-yellow-100 text-yellow-800",
-    instruccion: "bg-purple-100 text-purple-800",
-  };
-  const tipoLabels: Record<string, string> = {
-    apoyo: "Solicitud de Apoyo",
-    herramienta: "Solicitud de Herramienta",
-    instruccion: "Instrucción",
-  };
+  const historialFiltrado = messageHistory.filter(m => m.serviceId === selectedServiceId);
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-gray-900" style={{ fontWeight: 700 }}>Comunicación Interna</h1>
-          <p className="text-gray-500 text-sm">Anuncios, solicitudes e instrucciones del equipo</p>
-        </div>
-        <div className="flex gap-2">
-          {currentUser?.rol === "Administrador" && (
-            <button
-              onClick={() => { setModalType("anuncio"); setShowModal(true); }}
-              className="flex items-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-blue-900 px-4 py-2.5 rounded-xl text-sm transition"
-              style={{ fontWeight: 700 }}
-            >
-              <Megaphone className="w-4 h-4" />
-              Publicar Anuncio
-            </button>
-          )}
-          <button
-            onClick={() => { setModalType("solicitud"); setShowModal(true); }}
-            className="flex items-center gap-2 bg-blue-900 hover:bg-blue-800 text-white px-4 py-2.5 rounded-xl text-sm transition"
-            style={{ fontWeight: 600 }}
-          >
-            <Plus className="w-4 h-4" />
-            Nueva Solicitud
-          </button>
-        </div>
+      <div>
+        <h1 className="text-gray-900 font-bold text-2xl">Comunicaciones</h1>
+        <p className="text-gray-500 text-sm">Gestión de anuncios, solicitudes y mensajes a clientes</p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { label: "Anuncios activos", value: anuncios.length, icon: Megaphone, color: "bg-blue-900" },
-          { label: "Solicitudes pendientes", value: solicitudes.filter(s => s.estado === "pendiente").length, icon: Bell, color: "bg-yellow-500" },
-          { label: "Solicitudes atendidas", value: solicitudes.filter(s => s.estado === "atendido").length, icon: CheckCircle2, color: "bg-green-600" },
-        ].map((stat) => (
-          <div key={stat.label} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-            <div className={`w-9 h-9 ${stat.color} rounded-xl flex items-center justify-center mb-2`}>
-              <stat.icon className="w-5 h-5 text-white" />
-            </div>
-            <p className="text-2xl text-gray-900" style={{ fontWeight: 700 }}>{stat.value}</p>
-            <p className="text-gray-500 text-xs">{stat.label}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Tabs */}
+      {/* Pestañas */}
       <div className="flex gap-1 bg-white rounded-xl p-1 shadow-sm border border-gray-100 w-fit">
-        {([
-          { id: "anuncios", label: "Anuncios", icon: Megaphone },
-          { id: "solicitudes", label: "Solicitudes", icon: ArrowUpRight },
-          { id: "instrucciones", label: "Instrucciones", icon: MessageSquare },
-        ] as const).map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition
-            ${tab === t.id ? "bg-blue-900 text-white" : "text-gray-600 hover:bg-gray-100"}`}
-            style={{ fontWeight: tab === t.id ? 600 : 400 }}
-          >
-            <t.icon className="w-4 h-4" />
-            {t.label}
-          </button>
-        ))}
+        <button
+          onClick={() => setActiveTab("interna")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition ${activeTab === "interna" ? "bg-blue-900 text-white shadow-sm" : "text-gray-600 hover:bg-gray-100"}`}
+        >
+          <Bell className="w-4 h-4" />
+          Comunicación Interna
+        </button>
+        <button
+          onClick={() => setActiveTab("clientes")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition ${activeTab === "clientes" ? "bg-blue-900 text-white shadow-sm" : "text-gray-600 hover:bg-gray-100"}`}
+        >
+          <Users className="w-4 h-4" />
+          Comunicación con Clientes
+        </button>
       </div>
 
-      {/* Content */}
-      {tab === "anuncios" && (
-        <div className="space-y-3">
-          {anuncios.map((ann) => (
-            <div key={ann.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-              <div className="flex items-start justify-between gap-3 mb-2">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${ann.tipo === "global" ? "bg-blue-900" : "bg-purple-600"}`}>
-                    <Megaphone className="w-5 h-5 text-yellow-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-gray-900 text-sm" style={{ fontWeight: 700 }}>{ann.titulo}</h3>
-                    <div className="flex items-center gap-2 text-xs text-gray-400">
-                      <span>{ann.autor}</span>
-                      <span>·</span>
-                      <Clock className="w-3 h-3" />
-                      <span>{ann.fecha}</span>
-                    </div>
-                  </div>
-                </div>
-                <span className={`text-xs px-2 py-1 rounded-full flex-shrink-0 ${ann.tipo === "global" ? "bg-blue-100 text-blue-800" : "bg-purple-100 text-purple-800"}`} style={{ fontWeight: 600 }}>
-                  {ann.tipo === "global" ? "Global" : `Área: ${ann.areaDestino}`}
-                </span>
+      {/* ========== COMUNICACIÓN INTERNA ========== */}
+      {activeTab === "interna" && (
+        <div className="space-y-5">
+          {/* Filtros */}
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar en anuncios y solicitudes..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-blue-500 bg-gray-50"
+                />
               </div>
-              <p className="text-gray-600 text-sm leading-relaxed ml-13 pl-13">{ann.contenido}</p>
+              <div className="relative">
+                <select
+                  value={filterTipoAnuncio}
+                  onChange={(e) => setFilterTipoAnuncio(e.target.value as any)}
+                  className="appearance-none pl-3 pr-8 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-blue-500 bg-gray-50 cursor-pointer"
+                >
+                  <option value="todos">Todos los anuncios</option>
+                  <option value="global">Globales</option>
+                  <option value="area">Por área</option>
+                </select>
+                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
             </div>
-          ))}
-          {anuncios.length === 0 && (
-            <div className="bg-white rounded-2xl p-12 text-center text-gray-400 shadow-sm border border-gray-100">
-              <Megaphone className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-              No hay anuncios publicados
-            </div>
-          )}
-        </div>
-      )}
+          </div>
 
-      {tab === "solicitudes" && (
-        <div className="space-y-3">
-          {solicitudes.filter(s => s.tipo !== "instruccion").map((req) => (
-            <div key={req.id} className={`bg-white rounded-2xl shadow-sm border p-5 ${req.estado === "atendido" ? "border-green-100 bg-green-50/30" : "border-gray-100"}`}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${req.tipo === "apoyo" ? "bg-blue-100" : "bg-yellow-100"}`}>
-                    {req.tipo === "apoyo" ? <ArrowUpRight className="w-5 h-5 text-blue-700" /> : <MessageSquare className="w-5 h-5 text-yellow-700" />}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${tipoColors[req.tipo]}`} style={{ fontWeight: 600 }}>{tipoLabels[req.tipo]}</span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${req.estado === "atendido" ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"}`} style={{ fontWeight: 600 }}>
-                        {req.estado === "atendido" ? "✓ Atendido" : "Pendiente"}
-                      </span>
-                    </div>
-                    <p className="text-gray-900 text-sm mt-1">{req.contenido}</p>
-                    <div className="flex items-center gap-3 text-xs text-gray-400 mt-1">
-                      <span>De: <span className="text-gray-600" style={{ fontWeight: 500 }}>{req.solicitante}</span></span>
-                      <span>Para: <span className="text-gray-600" style={{ fontWeight: 500 }}>{req.destinatario}</span></span>
-                      <span>{req.fecha}</span>
-                    </div>
-                  </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {/* Anuncios */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100 bg-blue-50/30">
+                <div className="flex items-center gap-2">
+                  <Bell className="w-5 h-5 text-blue-700" />
+                  <h2 className="text-gray-800 font-semibold">Anuncios y Comunicados</h2>
                 </div>
-                {req.estado === "pendiente" && (
-                  <button
-                    onClick={() => markAtendido(req.id)}
-                    className="flex-shrink-0 flex items-center gap-1.5 bg-green-600 text-white text-xs px-3 py-1.5 rounded-lg hover:bg-green-700 transition"
-                    style={{ fontWeight: 600 }}
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Marcar atendido
-                  </button>
+              </div>
+              <div className="divide-y divide-gray-50 max-h-[500px] overflow-y-auto">
+                {filteredAnuncios.length === 0 ? (
+                  <div className="px-5 py-10 text-center text-gray-400 text-sm">No hay anuncios</div>
+                ) : (
+                  filteredAnuncios.map((a) => (
+                    <div key={a.id} className="px-5 py-4 hover:bg-gray-50">
+                      <div className="flex items-start gap-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${a.tipo === "global" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}>
+                          {a.tipo === "global" ? <Bell className="w-4 h-4" /> : <Users className="w-4 h-4" />}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <h3 className="text-gray-900 font-semibold text-sm">{a.titulo}</h3>
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${a.tipo === "global" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}>
+                              {a.tipo === "global" ? "Global" : `Área: ${a.areaDestino}`}
+                            </span>
+                          </div>
+                          <p className="text-gray-600 text-sm mb-2">{a.contenido}</p>
+                          <div className="flex items-center gap-3 text-xs text-gray-400">
+                            <span className="flex items-center gap-1"><User className="w-3 h-3" /> {a.autor}</span>
+                            <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {a.fecha}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
                 )}
               </div>
             </div>
-          ))}
-        </div>
-      )}
 
-      {tab === "instrucciones" && (
-        <div className="space-y-3">
-          {solicitudes.filter(s => s.tipo === "instruccion").map((req) => (
-            <div key={req.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
-                  <MessageSquare className="w-5 h-5 text-purple-700" />
+            {/* Solicitudes Internas */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100 bg-amber-50/30">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-amber-700" />
+                  <h2 className="text-gray-800 font-semibold">Solicitudes Internas</h2>
                 </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full" style={{ fontWeight: 600 }}>Instrucción</span>
-                  </div>
-                  <p className="text-gray-900 text-sm">{req.contenido}</p>
-                  <div className="flex items-center gap-3 text-xs text-gray-400 mt-1">
-                    <span>De: <span className="text-gray-600" style={{ fontWeight: 500 }}>{req.solicitante}</span></span>
-                    <span>Para: <span className="text-gray-600" style={{ fontWeight: 500 }}>{req.destinatario}</span></span>
-                    <span>{req.fecha}</span>
-                  </div>
-                </div>
-                <span className={`text-xs px-2 py-1 rounded-full flex-shrink-0 ${req.estado === "atendido" ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"}`} style={{ fontWeight: 600 }}>
-                  {req.estado === "atendido" ? "✓ Leído" : "Sin leer"}
-                </span>
+              </div>
+              <div className="divide-y divide-gray-50 max-h-[500px] overflow-y-auto">
+                {filteredSolicitudes.length === 0 ? (
+                  <div className="px-5 py-10 text-center text-gray-400 text-sm">No hay solicitudes</div>
+                ) : (
+                  filteredSolicitudes.map((s) => (
+                    <div key={s.id} className="px-5 py-4 hover:bg-gray-50">
+                      <div className="flex items-start gap-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          s.tipo === "apoyo" ? "bg-green-100 text-green-700" :
+                          s.tipo === "herramienta" ? "bg-blue-100 text-blue-700" :
+                          "bg-purple-100 text-purple-700"
+                        }`}>
+                          {s.tipo === "apoyo" ? <Users className="w-4 h-4" /> :
+                           s.tipo === "herramienta" ? <AlertCircle className="w-4 h-4" /> :
+                           <FileText className="w-4 h-4" />}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className="text-xs font-semibold text-gray-500 uppercase">{s.tipo}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${s.estado === "pendiente" ? "bg-yellow-100 text-yellow-700" : "bg-green-100 text-green-700"}`}>
+                              {s.estado === "pendiente" ? "Pendiente" : "Atendido"}
+                            </span>
+                          </div>
+                          <p className="text-gray-800 text-sm mb-1"><span className="font-medium">{s.solicitante}</span> → <span className="font-medium">{s.destinatario}</span></p>
+                          <p className="text-gray-600 text-sm mb-2">{s.contenido}</p>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-400 flex items-center gap-1"><Clock className="w-3 h-3" /> {s.fecha}</span>
+                            {isAdmin && s.estado === "pendiente" && (
+                              <button
+                                onClick={() => marcarSolicitudAtendida(s.id)}
+                                className="text-xs bg-green-50 hover:bg-green-100 text-green-700 px-2 py-1 rounded-lg transition flex items-center gap-1"
+                              >
+                                <CheckCircle2 className="w-3 h-3" /> Marcar atendida
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
-          ))}
-          {solicitudes.filter(s => s.tipo === "instruccion").length === 0 && (
-            <div className="bg-white rounded-2xl p-12 text-center text-gray-400 shadow-sm border border-gray-100">
-              <MessageSquare className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-              No hay instrucciones registradas
-            </div>
-          )}
+          </div>
         </div>
       )}
 
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h3 className="text-gray-900" style={{ fontWeight: 700 }}>
-                {modalType === "anuncio" ? "Publicar Anuncio" : "Nueva Solicitud"}
-              </h3>
-              <button onClick={() => setShowModal(false)} className="p-2 rounded-lg hover:bg-gray-100">
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
+      {/* ========== COMUNICACIÓN CON CLIENTES ========== */}
+      {activeTab === "clientes" && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          {/* Panel izquierdo: Lista de servicios */}
+          <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-100">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar servicio..."
+                  value={searchClient}
+                  onChange={(e) => setSearchClient(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-blue-500 bg-gray-50"
+                />
+              </div>
             </div>
-            <div className="px-6 py-4 space-y-4">
-              {modalType === "anuncio" ? (
-                <>
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1" style={{ fontWeight: 600 }}>Título del anuncio *</label>
-                    <input
-                      type="text"
-                      placeholder="Título del anuncio"
-                      value={annForm.titulo}
-                      onChange={(e) => setAnnForm((p) => ({ ...p, titulo: e.target.value }))}
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500 bg-gray-50"
-                    />
+            <div className="divide-y divide-gray-50 max-h-[500px] overflow-y-auto">
+              {filteredServices.map(service => (
+                <button
+                  key={service.id}
+                  onClick={() => handleSelectService(service.id)}
+                  className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition ${selectedServiceId === service.id ? "bg-blue-50 border-l-4 border-l-blue-600" : ""}`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">{service.codigo}</p>
+                      <p className="text-xs text-gray-600 truncate">{service.cliente}</p>
+                      <p className="text-xs text-gray-400 truncate">{service.descripcion.substring(0, 40)}...</p>
+                    </div>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      service.estado === "Completado" ? "bg-green-100 text-green-800" :
+                      service.estado === "En progreso" ? "bg-blue-100 text-blue-800" :
+                      service.estado === "Pendiente" ? "bg-yellow-100 text-yellow-800" :
+                      "bg-red-100 text-red-800"
+                    }`}>
+                      {service.estado}
+                    </span>
                   </div>
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1" style={{ fontWeight: 600 }}>Contenido *</label>
-                    <textarea
-                      rows={4}
-                      placeholder="Contenido del anuncio..."
-                      value={annForm.contenido}
-                      onChange={(e) => setAnnForm((p) => ({ ...p, contenido: e.target.value }))}
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500 bg-gray-50 resize-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1" style={{ fontWeight: 600 }}>Dirigido a</label>
-                    <div className="flex gap-3">
-                      {(["global", "area"] as const).map((tipo) => (
-                        <button
-                          key={tipo}
-                          onClick={() => setAnnForm((p) => ({ ...p, tipo }))}
-                          className={`flex-1 py-2 rounded-xl border text-sm transition ${annForm.tipo === tipo ? "border-blue-600 bg-blue-50 text-blue-900" : "border-gray-200 text-gray-600 hover:border-gray-300"}`}
-                          style={{ fontWeight: annForm.tipo === tipo ? 600 : 400 }}
-                        >
-                          {tipo === "global" ? "🌐 Todos" : "📍 Área específica"}
-                        </button>
-                      ))}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Panel derecho: Composición del mensaje */}
+          <div className="lg:col-span-2 space-y-4">
+            {selectedService ? (
+              <>
+                {/* Detalle del servicio */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-mono bg-blue-100 text-blue-800 px-3 py-1 rounded-lg font-bold">{selectedService.codigo}</span>
+                        <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
+                          selectedService.estado === "Completado" ? "bg-green-100 text-green-800" :
+                          selectedService.estado === "En progreso" ? "bg-blue-100 text-blue-800" :
+                          "bg-yellow-100 text-yellow-800"
+                        }`}>
+                          {selectedService.estado}
+                        </span>
+                      </div>
+                      <h3 className="text-gray-900 font-semibold">{selectedService.cliente}</h3>
+                      <p className="text-gray-500 text-sm">{selectedService.descripcion}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-gray-400">Teléfono cliente</p>
+                      <p className="text-sm font-mono">+51 {(selectedService as any).telefonoCliente || "987 654 321"}</p>
                     </div>
                   </div>
-                  {annForm.tipo === "area" && (
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1" style={{ fontWeight: 600 }}>Área</label>
-                      <select
-                        value={annForm.areaDestino}
-                        onChange={(e) => setAnnForm((p) => ({ ...p, areaDestino: e.target.value }))}
-                        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500 bg-gray-50"
+
+                  <div className="border-t border-gray-100 pt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <MessageCircle className="w-4 h-4 text-green-600" />
+                      <span className="text-xs text-gray-500 font-semibold">MENSAJE DE WHATSAPP</span>
+                    </div>
+                    <textarea
+                      value={customMessage}
+                      onChange={(e) => setCustomMessage(e.target.value)}
+                      rows={4}
+                      className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-green-500 bg-gray-50 resize-none"
+                      placeholder="Escribe el mensaje para el cliente..."
+                    />
+                    <div className="flex items-center justify-between mt-2">
+                      <button
+                        onClick={handleCopyMessage}
+                        className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50"
                       >
-                        {areas.map((a) => <option key={a.id}>{a.nombre}</option>)}
-                      </select>
+                        {copied ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+                        {copied ? "Copiado" : "Copiar mensaje"}
+                      </button>
+                      <button
+                        onClick={handleSendWhatsApp}
+                        className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition shadow-sm"
+                      >
+                        <Send className="w-4 h-4" />
+                        Enviar por WhatsApp
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Historial de mensajes (acordeón) */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                  <button
+                    onClick={() => setShowHistory(!showHistory)}
+                    className="w-full flex items-center justify-between px-5 py-3 hover:bg-gray-50"
+                  >
+                    <div className="flex items-center gap-2">
+                      <History className="w-4 h-4 text-gray-500" />
+                      <span className="text-sm text-gray-700 font-medium">Historial de mensajes enviados</span>
+                      {historialFiltrado.length > 0 && (
+                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{historialFiltrado.length}</span>
+                      )}
+                    </div>
+                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showHistory ? "rotate-180" : ""}`} />
+                  </button>
+                  {showHistory && (
+                    <div className="border-t border-gray-100 divide-y divide-gray-50">
+                      {historialFiltrado.length === 0 ? (
+                        <div className="px-5 py-6 text-center text-gray-400 text-sm">No hay mensajes enviados para este servicio.</div>
+                      ) : (
+                        historialFiltrado.map(msg => (
+                          <div key={msg.id} className="px-5 py-4">
+                            <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
+                              <Clock className="w-3 h-3" /> {msg.fecha}
+                            </div>
+                            <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-xl border border-gray-100">{msg.mensaje}</p>
+                          </div>
+                        ))
+                      )}
                     </div>
                   )}
-                </>
-              ) : (
-                <>
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1" style={{ fontWeight: 600 }}>Tipo de solicitud</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(["apoyo", "herramienta", "instruccion"] as const).map((tipo) => (
-                        <button
-                          key={tipo}
-                          onClick={() => setReqForm((p) => ({ ...p, tipo }))}
-                          className={`py-2 px-2 rounded-xl border text-xs transition ${reqForm.tipo === tipo ? "border-blue-600 bg-blue-50 text-blue-900" : "border-gray-200 text-gray-600 hover:border-gray-300"}`}
-                          style={{ fontWeight: reqForm.tipo === tipo ? 600 : 400 }}
-                        >
-                          {tipo === "apoyo" ? "🤝 Apoyo" : tipo === "herramienta" ? "🔧 Herramienta" : "📋 Instrucción"}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1" style={{ fontWeight: 600 }}>Destinatario *</label>
-                    <input
-                      type="text"
-                      placeholder="Nombre del destinatario o área"
-                      value={reqForm.destinatario}
-                      onChange={(e) => setReqForm((p) => ({ ...p, destinatario: e.target.value }))}
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500 bg-gray-50"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-600 mb-1" style={{ fontWeight: 600 }}>Descripción *</label>
-                    <textarea
-                      rows={3}
-                      placeholder="Detalla tu solicitud..."
-                      value={reqForm.contenido}
-                      onChange={(e) => setReqForm((p) => ({ ...p, contenido: e.target.value }))}
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500 bg-gray-50 resize-none"
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-            <div className="flex gap-3 px-6 py-4 border-t border-gray-100">
-              <button onClick={() => setShowModal(false)} className="flex-1 border border-gray-200 text-gray-700 rounded-xl py-2.5 text-sm hover:bg-gray-50 transition">Cancelar</button>
-              <button
-                onClick={modalType === "anuncio" ? handleSaveAnnouncement : handleSaveRequest}
-                className="flex-1 bg-blue-900 text-white rounded-xl py-2.5 text-sm hover:bg-blue-800 transition flex items-center justify-center gap-2"
-                style={{ fontWeight: 600 }}
-              >
-                <Send className="w-4 h-4" />
-                {modalType === "anuncio" ? "Publicar" : "Enviar solicitud"}
-              </button>
-            </div>
+                </div>
+              </>
+            ) : (
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
+                <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <h3 className="text-gray-500 font-medium mb-1">Selecciona un servicio</h3>
+                <p className="text-gray-400 text-sm">Elige un servicio de la lista para redactar un mensaje</p>
+              </div>
+            )}
           </div>
         </div>
       )}
