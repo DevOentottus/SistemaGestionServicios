@@ -1,9 +1,7 @@
-import {useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "../context/AuthContext";
 import { Eye, EyeOff, Wrench, AlertCircle } from "lucide-react";
-import { supabase } from "../../lib/supabase"; // 👈 importa tu cliente
-import bcrypt from "bcryptjs";
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -19,51 +17,19 @@ export default function Login() {
     setError("");
     setLoading(true);
 
-    try {
-      // 1. Buscar el usuario por username
-      const { data: usuario, error: userError } = await supabase
-        .from("usuarios")
-        .select("id_usuario, username, password_hash, rol, activo, nombres")
-        .eq("username", username)
-        .single();
+    const success = await login(username, password);
+    setLoading(false);
 
-      if (userError || !usuario) {
-        throw new Error("Usuario no encontrado");
-      }
-
-      // 2. Verificar si la cuenta está activa
-      if (!usuario.activo) {
-        throw new Error("Cuenta desactivada. Contacte al administrador.");
-      }
-      // 3. Comparar la contraseña con el hash almacenado
-console.log('Password ingresada (longitud):', password, password.length);
-console.log('Hash desde BD (longitud):', usuario.password_hash, usuario.password_hash?.length);
-      // 3. Comparar la contraseña con el hash almacenado
-      const passwordValida = await bcrypt.compare(password, usuario.password_hash);
-      if (!passwordValida) {
-        throw new Error("Contraseña incorrecta");
-      }
-
-      // 4. Actualizar el campo ultimo_login
-      await supabase
-        .from("usuarios")
-        .update({ ultimo_login: new Date().toISOString() })
-        .eq("id_usuario", usuario.id_usuario);
-
-      // 5. Llamar al contexto para guardar la sesión
-      const userLogged = await login(username, password); // login ahora es async
-      if (userLogged) {
-        navigate(userLogged.rol === "Cliente" ? "/client" : "/dashboard");
-      } else {
-        throw new Error("No se pudo iniciar sesión");
-      }
-    } catch (err: any) {
-      setError(err.message || "Error al iniciar sesión");
-    } finally {
-      setLoading(false);
+    if (success && useAuth().currentUser) {
+      const user = useAuth().currentUser;
+      navigate(user?.rol === "Cliente" ? "/client" : "/dashboard");
+    } else {
+      setError("Usuario o contraseña incorrectos. Verifique sus credenciales.");
     }
   };
 
+  // quickLogin igual...
+  // (resto del JSX igual, con mejoras visuales y botón para mostrar/ocultar contraseña)
   // Acceso rápido para pruebas
   const quickLogin = (u: string, p: string) => {
     setUsername(u);
