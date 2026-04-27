@@ -1,3 +1,5 @@
+// ============ Modelo de Datos ============
+
 export type Role = "Administrador" | "Encargado" | "Colaborador" | "Cliente";
 
 export interface Usuarios {
@@ -144,6 +146,8 @@ export interface AuditLog {
   detalle: string;
   fecha: string;
 }
+
+// ============ Inserción de registros ============
 
 // ============ USUARIOS ============
 export const usuarios: User[] = [

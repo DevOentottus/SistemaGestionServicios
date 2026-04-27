@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "../context/AuthContext";
 import { Eye, EyeOff, Wrench, AlertCircle } from "lucide-react";
+import { supabase } from "../../lib/supabase"; // 👈 importa tu cliente
+import bcrypt from "bcryptjs";
 
 export default function Login() {
   const [username, setUsername] = useState("");
@@ -16,16 +18,51 @@ export default function Login() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 600));
-    const user = login(username, password);
-    setLoading(false);
-    if (user) {
-      navigate(user.rol === "Cliente" ? "/client" : "/dashboard");
-    } else {
-      setError("Usuario o contraseña incorrectos. Verifique sus credenciales.");
+
+    try {
+      // 1. Buscar el usuario por username
+      const { data: usuario, error: userError } = await supabase
+        .from("usuarios")
+        .select("id_usuario, username, password_hash, rol, activo, nombres")
+        .eq("username", username)
+        .single();
+
+      if (userError || !usuario) {
+        throw new Error("Usuario no encontrado");
+      }
+
+      // 2. Verificar si la cuenta está activa
+      if (!usuario.activo) {
+        throw new Error("Cuenta desactivada. Contacte al administrador.");
+      }
+
+      // 3. Comparar la contraseña con el hash almacenado
+      const passwordValida = await bcrypt.compare(password, usuario.password_hash);
+      if (!passwordValida) {
+        throw new Error("Contraseña incorrecta");
+      }
+
+      // 4. Actualizar el campo ultimo_login
+      await supabase
+        .from("usuarios")
+        .update({ ultimo_login: new Date().toISOString() })
+        .eq("id_usuario", usuario.id_usuario);
+
+      // 5. Llamar al contexto para guardar la sesión
+      const userLogged = await login(username, password); // login ahora es async
+      if (userLogged) {
+        navigate(userLogged.rol === "Cliente" ? "/client" : "/dashboard");
+      } else {
+        throw new Error("No se pudo iniciar sesión");
+      }
+    } catch (err: any) {
+      setError(err.message || "Error al iniciar sesión");
+    } finally {
+      setLoading(false);
     }
   };
 
+  // Acceso rápido para pruebas
   const quickLogin = (u: string, p: string) => {
     setUsername(u);
     setPassword(p);
@@ -33,7 +70,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex" style={{ background: "linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 50%, #2563eb 100%)" }}>
-      {/* Left panel */}
+      {/* Left panel (sin cambios) */}
       <div className="hidden lg:flex flex-col justify-center items-center w-1/2 p-12 text-white">
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-6">
@@ -131,7 +168,6 @@ export default function Login() {
             </button>
           </form>
 
-          {/* Quick access */}
           <div className="mt-6 pt-5 border-t border-gray-100">
             <p className="text-xs text-gray-400 mb-3" style={{ fontWeight: 600 }}>ACCESO RÁPIDO (DEMO)</p>
             <div className="grid grid-cols-2 gap-2">
