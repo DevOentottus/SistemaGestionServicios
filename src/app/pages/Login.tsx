@@ -35,7 +35,9 @@ export default function Login() {
       if (!usuario.activo) {
         throw new Error("Cuenta desactivada. Contacte al administrador.");
       }
-
+      // 3. Comparar la contraseña con el hash almacenado
+console.log('Password ingresada (longitud):', password, password.length);
+console.log('Hash desde BD (longitud):', usuario.password_hash, usuario.password_hash?.length);
       // 3. Comparar la contraseña con el hash almacenado
       const passwordValida = await bcrypt.compare(password, usuario.password_hash);
       if (!passwordValida) {
