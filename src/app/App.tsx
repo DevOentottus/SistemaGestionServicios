@@ -6,6 +6,8 @@ import { supabase } from '../lib/supabase';
 
 export default function App() {
   // ✅ El useEffect debe ir DENTRO del componente
+  console.log('URL:', import.meta.env.VITE_SUPABASE_URL);
+console.log('ANON:', import.meta.env.VITE_SUPABASE_ANON_KEY);
   useEffect(() => {
     const testConnection = async () => {
       const { data, error } = await supabase
