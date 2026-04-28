@@ -7,7 +7,7 @@ import {
   areas,
   colaboradores
 } from "../data/mockData";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 import {
   Briefcase, Plus, Edit2, ToggleLeft, ToggleRight, Search, X, Check, ChevronDown,
   List, Clock, User, MapPin, Copy, Layers, ChevronRight, CheckCircle2, Circle,
