@@ -44,7 +44,7 @@ export default function Login() {
               <Wrench className="w-9 h-9 text-blue-900" />
             </div>
             <div>
-              <h1 className="text-4xl text-white" style={{ fontWeight: 700 }}>STS Service</h1>
+              <h1 className="text-4xl text-white" style={{ fontWeight: 700 }}>ServicioSTS</h1>
               <p className="text-blue-200 text-sm">Sistema de Gestión Técnica</p>
             </div>
           </div>
