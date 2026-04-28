@@ -20,17 +20,15 @@ export default function Login() {
     const success = await login(username, password);
     setLoading(false);
 
-    if (success && useAuth().currentUser) {
-      const user = useAuth().currentUser;
+    if (success) {
+      const storedUser = localStorage.getItem("sgs_user");
+      const user = storedUser ? JSON.parse(storedUser) : null;
       navigate(user?.rol === "Cliente" ? "/client" : "/dashboard");
     } else {
       setError("Usuario o contraseña incorrectos. Verifique sus credenciales.");
     }
   };
 
-  // quickLogin igual...
-  // (resto del JSX igual, con mejoras visuales y botón para mostrar/ocultar contraseña)
-  // Acceso rápido para pruebas
   const quickLogin = (u: string, p: string) => {
     setUsername(u);
     setPassword(p);
@@ -38,7 +36,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex" style={{ background: "linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 50%, #2563eb 100%)" }}>
-      {/* Left panel (sin cambios) */}
+      {/* Left panel */}
       <div className="hidden lg:flex flex-col justify-center items-center w-1/2 p-12 text-white">
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-6">
