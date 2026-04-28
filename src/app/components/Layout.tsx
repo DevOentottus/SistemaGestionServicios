@@ -28,7 +28,7 @@ export default function Layout() {
   const [notifOpen, setNotifOpen] = useState(false);
 
   if (loading) return <div>Cargando...</div>;
-  if (!currentUser) return <Navigate to="/login" replace />;
+  //if (!currentUser) return <Navigate to="/login" replace />;
 
   // Cliente only gets client view
   if (currentUser?.rol === "Cliente") {
