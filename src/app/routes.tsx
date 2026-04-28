@@ -2,7 +2,7 @@ import { createBrowserRouter } from "react-router-dom";
 import Layout from "./components/Layout";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
-import Collaborators from "./pages/Collaborators";
+import Usuarios from "./pages/Usuarios";
 import Areas from "./pages/Areas";
 import Services from "./pages/Services";
 import ServiceDetail from "./pages/ServiceDetail";
@@ -29,7 +29,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, Component: Dashboard },
           { path: "dashboard", Component: Dashboard },
-          { path: "collaborators", Component: Collaborators },
+          { path: "collaborators", element: <Usuarios /> },
           { path: "areas", Component: Areas },
           { path: "services", Component: Services },
           { path: "services/:id", Component: ServiceDetail },
