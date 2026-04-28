@@ -18,7 +18,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 export const router = createBrowserRouter([
   {
     path: "/login",
-    Component: Login,
+    element: <Login />
   },
   {
     element: <ProtectedRoute />, // 👈 Protege todas las rutas hijas
