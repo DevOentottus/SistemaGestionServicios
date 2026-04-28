@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router";
+import { useParams, useNavigate } from "react-router-dom";
 import { servicios as initialServices, colaboradores, Service, Task, TaskNote } from "../data/mockData";
 import { useAuth } from "../../context/AuthContext";
 import {
