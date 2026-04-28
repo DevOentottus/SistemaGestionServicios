@@ -21,7 +21,7 @@ export const router = createBrowserRouter([
     Component: Login,
   },
   {
-    //element: <ProtectedRoute />, // 👈 Protege todas las rutas hijas
+    element: <ProtectedRoute />, // 👈 Protege todas las rutas hijas
     children: [
       {
         path: "/",
