@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { servicios as initialServices, areas, colaboradores, plantillas, Service, Task } from "../data/mockData";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 import {
   Plus, Search, ClipboardList, ChevronDown, ArrowRight, AlertTriangle,
   CheckCircle2, Clock, X, Check, Users, GripVertical, Pencil, Save, Lock,
@@ -99,10 +99,10 @@ export default function Services() {
     if (!currentUser) return [];
     if (currentUser.rol === "Administrador") return all;
     if (currentUser.rol === "Encargado") {
-      return all.filter(s => s.area === currentUser.area);
+      return false ? [] : all.filter(s => s.area === colaboradores.find(c => c.nombres === currentUser.nombres)?.area);
     }
     if (currentUser.rol === "Colaborador") {
-      const nombre = currentUser.nombre;
+      const nombre = currentUser.nombres;
       return all.filter(s => s.tecnicos.some(t => t.includes(nombre)));
     }
     return [];
@@ -186,7 +186,7 @@ export default function Services() {
             {visibleServices.length} servicios
             {currentUser?.rol !== "Administrador" && (
               <span className="ml-2 text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full" style={{ fontWeight: 500 }}>
-                {currentUser?.rol === "Encargado" ? `Área: ${currentUser.area}` : "Mis servicios"}
+                Area
               </span>
             )}
           </p>

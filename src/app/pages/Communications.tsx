@@ -7,7 +7,7 @@ import {
   InternalRequest,
   Service,
 } from "../data/mockData";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 import {
   Send, Search, MessageCircle, Clock, ChevronDown, ExternalLink, History, Copy, Check,
   Bell, Users, FileText, AlertCircle, CheckCircle2, User, Calendar,

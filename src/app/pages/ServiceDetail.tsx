@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import { servicios as initialServices, colaboradores, Service, Task, TaskNote } from "../data/mockData";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 import {
   ArrowLeft, CheckCircle2, Circle, Clock, User, MessageSquare,
   Send, AlertTriangle, Plus, X, ChevronRight, Activity,
@@ -86,7 +86,7 @@ export default function ServiceDetail() {
   const [elapsedTime, setElapsedTime] = useState<number>(0);
 
   const service = services.find((s) => s.id === id);
-  const authorName = currentUser ? `${currentUser.nombre} ${currentUser.apellido}` : "Usuario";
+  const authorName = currentUser ? `${currentUser.nombres} ${currentUser.apellido_paterno}` : "Usuario";
   const authorRol  = currentUser?.rol ?? "Colaborador";
 
   // Efecto para el temporizador en vivo

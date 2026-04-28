@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { servicios, colaboradores, areas } from "../data/mockData";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 import {
   Eye, User, CheckCircle2, Clock, AlertTriangle, TrendingUp, Award,
   ArrowUp, ArrowDown,
@@ -11,13 +11,22 @@ export default function Supervision() {
   const { currentUser } = useAuth();
   const [selectedArea, setSelectedArea] = useState(areas[0].nombre);
 
-  // Filter services by area for Encargado
-  const visibleServices = currentUser?.rol === "Encargado" && currentUser.area
-    ? servicios.filter((s) => s.area === currentUser.area)
-    : selectedArea ? servicios.filter((s) => s.area === selectedArea) : servicios;
+  const visibleServices = servicios.filter((s) => {
+    if (currentUser?.rol === "Administrador") return true;
+    if (currentUser?.rol === "Encargado") {
+      const area = colaboradores.find(c => c.nombres === currentUser.nombres)?.area;
+      return s.area === area;
+    }
+    if (currentUser?.rol === "Colaborador") {
+      const nombre = currentUser.nombres;
+      return s.tecnicos.some(t => t.includes(nombre));
+    }
+    return false;
+  }
 
-  const areaCollaborators = colaboradores.filter((c) => c.area === selectedArea && c.activo);
+  ).filter(s => s.area === selectedArea);
 
+  const areaCollaborators = colaboradores.filter(c => c.area === selectedArea);
   // Collaborator stats
   const getCollaboratorStats = (name: string) => {
     const allTasks = visibleServices.flatMap((s) =>
