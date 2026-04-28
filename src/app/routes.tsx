@@ -13,6 +13,7 @@ import Business from "./pages/Business";
 import Reports from "./pages/Reports";
 import Audit from "./pages/Audit";
 import ClientView from "./pages/ClientView";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 
 export const router = createBrowserRouter([
   {
@@ -20,22 +21,27 @@ export const router = createBrowserRouter([
     Component: Login,
   },
   {
-    path: "/",
-    Component: Layout,
+    element: <ProtectedRoute />, // 👈 Protege todas las rutas hijas
     children: [
-      { index: true, Component: Dashboard },
-      { path: "dashboard", Component: Dashboard },
-      { path: "collaborators", Component: Collaborators },
-      { path: "areas", Component: Areas },
-      { path: "services", Component: Services },
-      { path: "services/:id", Component: ServiceDetail },
-      { path: "monitor", Component: Monitor },
-      { path: "communications", Component: Communications },
-      { path: "supervision", Component: Supervision },
-      { path: "business", Component: Business },
-      { path: "reports", Component: Reports },
-      { path: "audit", Component: Audit },
-      { path: "client", Component: ClientView },
+      {
+        path: "/",
+        element: <Layout />,
+        children: [
+          { index: true, Component: Dashboard },
+          { path: "dashboard", Component: Dashboard },
+          { path: "collaborators", Component: Collaborators },
+          { path: "areas", Component: Areas },
+          { path: "services", Component: Services },
+          { path: "services/:id", Component: ServiceDetail },
+          { path: "monitor", Component: Monitor },
+          { path: "communications", Component: Communications },
+          { path: "supervision", Component: Supervision },
+          { path: "business", Component: Business },
+          { path: "reports", Component: Reports },
+          { path: "audit", Component: Audit },
+          { path: "client", Component: ClientView },
+        ],
+      },
     ],
   },
 ]);

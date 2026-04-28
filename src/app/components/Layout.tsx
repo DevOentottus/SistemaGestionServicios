@@ -21,13 +21,14 @@ const navItems = [
 ];
 
 export default function Layout() {
-  const { currentUser, logout, isAuthenticated } = useAuth();
+  const { currentUser, loading, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
 
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (loading) return <div>Cargando...</div>;
+  if (!currentUser) return <Navigate to="/login" replace />;
 
   // Cliente only gets client view
   if (currentUser?.rol === "Cliente") {
@@ -93,12 +94,12 @@ export default function Layout() {
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-yellow-400 flex items-center justify-center flex-shrink-0">
               <span className="text-blue-900 text-sm" style={{ fontWeight: 700 }}>
-                {currentUser?.nombre[0]}{currentUser?.apellido[0]}
+                {currentUser?.nombres || 'Usuario'} {currentUser?.apellido_paterno || ''}
               </span>
             </div>
             <div className="min-w-0">
               <p className="text-white text-sm truncate" style={{ fontWeight: 600 }}>
-                {currentUser?.nombre} {currentUser?.apellido}
+                {currentUser?.nombres || 'Usuario'} {currentUser?.apellido_paterno || ''}
               </p>
               <span className="inline-block bg-yellow-400/20 text-yellow-300 text-xs px-2 py-0.5 rounded-full">
                 {currentUser?.rol}
@@ -190,7 +191,7 @@ export default function Layout() {
             <button className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-100">
               <div className="w-8 h-8 rounded-full bg-blue-800 flex items-center justify-center">
                 <span className="text-white text-xs" style={{ fontWeight: 700 }}>
-                  {currentUser?.nombre[0]}{currentUser?.apellido[0]}
+                  {currentUser?.nombres || 'Usuario'} {currentUser?.apellido_paterno || ''}
                 </span>
               </div>
             </button>
