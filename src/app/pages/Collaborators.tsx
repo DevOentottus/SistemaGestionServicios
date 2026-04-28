@@ -249,13 +249,13 @@ export default function Collaborators() {
                       <div className="flex items-center gap-1">
                         <MapPin className="w-3 h-3 text-blue-600 flex-shrink-0" />
                         <span className="text-xs text-gray-700" style={{ fontWeight: 500 }}>{c.area}</span>
-                        {c.esEncargadoPrincipal && <Shield className="w-3 h-3 text-purple-600" title="Encargado de esta área" />}
+                        {c.esEncargadoPrincipal && <Shield className="w-3 h-3 text-purple-600"/>}
                       </div>
                       {c.areaSecundaria && (
                         <div className="flex items-center gap-1">
                           <MapPin className="w-3 h-3 text-gray-400 flex-shrink-0" />
                           <span className="text-xs text-gray-400">{c.areaSecundaria}</span>
-                          {c.esEncargadoSecundario && <Shield className="w-3 h-3 text-purple-400" title="Encargado de área secundaria" />}
+                          {c.esEncargadoSecundario && <Shield className="w-3 h-3 text-purple-400" />}
                         </div>
                       )}
                     </div>
@@ -330,7 +330,6 @@ export default function Collaborators() {
                     <input
                       type="text"
                       placeholder={field.placeholder}
-                      value={(form as Record<string, string>)[field.key]}
                       onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
                       className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50"
                     />
