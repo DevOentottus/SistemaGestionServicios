@@ -375,13 +375,13 @@ export default function Usuarios() {
             }`}
           >
             <span className="text-white text-xs font-bold">
-              {u.nombres?.[0] || ''}{u.apellido_paterno?.[0] || ''}
-            </span>
+  {(u.nombres?.charAt(0) ?? '')}{(u.apellido_paterno?.charAt(0) ?? '')}
+</span>
           </div>
           <div>
             <p className="text-gray-900 text-sm font-semibold">
-              {u.nombres || 'Sin nombre'} {u.apellido_paterno || ''}
-            </p>
+  {u.nombres ?? 'Sin nombre'} {u.apellido_paterno ?? ''}
+</p>
             <p className="text-gray-400 text-xs">
               @{u.username} · DNI: {u.dni || "—"}
             </p>
