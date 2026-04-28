@@ -13,7 +13,7 @@ export type User = {
 
 interface AuthContextType {
   currentUser: User | null;
-  login: (username: string, password: string) => Promise<boolean>;
+  login: (username: string, password: string) => Promise<User | null>;
   logout: () => void;
   isAuthenticated: boolean;
   loading: boolean;
@@ -25,7 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Restaurar sesión desde localStorage al iniciar
+  // Restaurar sesión
   useEffect(() => {
     const storedUser = localStorage.getItem("sgs_user");
     if (storedUser) {
@@ -34,9 +34,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
-  const login = async (username: string, password: string): Promise<boolean> => {
+  const login = async (username: string, password: string): Promise<User | null> => {
     try {
-      // Buscar usuario en Supabase
       const { data: usuario, error } = await supabase
         .from("usuarios")
         .select("id_usuario, username, password_hash, rol, activo, nombres, apellido_paterno")
@@ -45,28 +44,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error || !usuario) {
         console.error("Usuario no encontrado", error);
-        return false;
+        return null;
       }
 
       if (!usuario.activo) {
         console.error("Cuenta desactivada");
-        return false;
+        return null;
       }
 
-      // Comparar contraseña con hash
       const passwordValida = await bcrypt.compare(password, usuario.password_hash);
       if (!passwordValida) {
         console.error("Contraseña incorrecta");
-        return false;
+        return null;
       }
 
-      // Actualizar último login
-      await supabase
+      // Actualizar último login (no esperamos la respuesta)
+      supabase
         .from("usuarios")
         .update({ ultimo_login: new Date().toISOString() })
-        .eq("id_usuario", usuario.id_usuario);
+        .eq("id_usuario", usuario.id_usuario)
+        .then();
 
-      // Crear objeto usuario sin hash
+      // Crear objeto usuario
       const user: User = {
         id_usuario: usuario.id_usuario,
         username: usuario.username,
@@ -78,10 +77,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setCurrentUser(user);
       localStorage.setItem("sgs_user", JSON.stringify(user));
-      return true;
+      return user;
     } catch (err) {
       console.error("Error en login:", err);
-      return false;
+      return null;
     }
   };
 

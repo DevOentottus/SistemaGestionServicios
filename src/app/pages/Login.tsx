@@ -17,17 +17,16 @@ export default function Login() {
     setError("");
     setLoading(true);
 
-    const success = await login(username, password);
+    const user = await login(username, password);
     setLoading(false);
 
-    if (success) {
-      const storedUser = localStorage.getItem("sgs_user");
-      const user = storedUser ? JSON.parse(storedUser) : null;
-      navigate(user?.rol === "Cliente" ? "/client" : "/dashboard");
+    if (user) {
+      navigate(user.rol === "Cliente" ? "/client" : "/dashboard");
     } else {
       setError("Usuario o contraseña incorrectos. Verifique sus credenciales.");
     }
   };
+
 
   const quickLogin = (u: string, p: string) => {
     setUsername(u);
