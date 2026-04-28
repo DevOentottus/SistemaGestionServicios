@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Outlet, useNavigate, useLocation, Navigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 import {
   LayoutDashboard, Users, MapPin, ClipboardList, Monitor, MessageSquare,
   Eye, BarChart2, Shield, LogOut, Menu, X, Wrench, ChevronRight,

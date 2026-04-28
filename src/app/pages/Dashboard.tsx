@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 import { servicios, colaboradores, areas, solicitudes, auditLogs } from "../data/mockData";
 import {
   ClipboardList, Users, MapPin, CheckCircle2, Clock, AlertTriangle,
@@ -13,7 +13,8 @@ import {
   PieChart, Pie, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis,
 } from "recharts";
 
-// ─── Helpers ───────────────────────────────────────────────────────────────
+// ─── Helpers ───────────
+// ────────────────────────────────────────────────────
 const computeDays = (start: string, end?: string) => {
   const s = new Date(start);
   const e = end ? new Date(end) : new Date("2024-04-18");
@@ -102,11 +103,7 @@ export default function Dashboard() {
 
   // Non-admin views
   if (currentUser?.rol === "Colaborador" || currentUser?.rol === "Encargado") {
-    const myServices = servicios.filter((s) =>
-      currentUser.rol === "Encargado"
-        ? s.area === currentUser.area
-        : s.tecnicos.some((t) => t.includes(currentUser.nombre))
-    );
+    const myServices = servicios.filter((s) => s.tecnicos.some((t) => t.includes(currentUser.nombres)));
     const myCompleted = myServices.filter((s) => s.estado === "Completado").length;
     const myInProgress = myServices.filter((s) => s.estado === "En progreso").length;
     const myBlocked = myServices.filter((s) => s.estado === "Bloqueado").length;
@@ -114,7 +111,7 @@ export default function Dashboard() {
     return (
       <div className="space-y-5">
         <div className="bg-gradient-to-r from-blue-900 to-blue-700 rounded-2xl p-6 text-white">
-          <h1 className="text-white mb-1" style={{ fontWeight: 700 }}>¡Bienvenido, {currentUser?.nombre}!</h1>
+          <h1 className="text-white mb-1" style={{ fontWeight: 700 }}>¡Bienvenido, {currentUser?.nombres}!</h1>
           <p className="text-blue-200 text-sm">
             {new Date().toLocaleDateString("es-PE", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
           </p>
@@ -122,9 +119,7 @@ export default function Dashboard() {
             <span className="bg-yellow-400/20 text-yellow-300 text-sm px-3 py-1.5 rounded-full" style={{ fontWeight: 600 }}>
               {currentUser?.rol}
             </span>
-            {currentUser?.area && (
-              <span className="bg-white/10 text-white text-sm px-3 py-1.5 rounded-full">Área: {currentUser.area}</span>
-            )}
+            
           </div>
         </div>
 
@@ -158,7 +153,7 @@ export default function Dashboard() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
           <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
             <h3 className="text-gray-800" style={{ fontWeight: 600 }}>
-              {currentUser.rol === "Encargado" ? `Servicios — Área ${currentUser.area}` : "Mis Servicios Asignados"}
+              Area
             </h3>
             <button onClick={() => navigate("/services")} className="text-blue-700 text-sm flex items-center gap-1" style={{ fontWeight: 500 }}>
               Ver todos <ArrowRight className="w-4 h-4" />
@@ -200,7 +195,7 @@ export default function Dashboard() {
       <div className="bg-gradient-to-r from-blue-900 to-blue-700 rounded-2xl p-6 text-white">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-white mb-1" style={{ fontWeight: 700 }}>¡Bienvenido, {currentUser?.nombre}!</h1>
+            <h1 className="text-white mb-1" style={{ fontWeight: 700 }}>¡Bienvenido, {currentUser?.nombres}!</h1>
             <p className="text-blue-200 text-sm">
               Panel de Administración — {new Date().toLocaleDateString("es-PE", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
             </p>
