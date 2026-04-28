@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { supabase } from "../lib/supabase";
-import bcrypt from "bcryptjs";
+import { loginUser } from "../app/services/authService";
 
 export type User = {
   id_usuario: string;
@@ -36,36 +35,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (username: string, password: string): Promise<User | null> => {
     try {
-      const { data: usuario, error } = await supabase
-        .from("usuarios")
-        .select("id_usuario, username, password_hash, rol, activo, nombres, apellido_paterno")
-        .eq("username", username)
-        .single();
+      const usuario = await loginUser(username, password);
 
-      if (error || !usuario) {
-        console.error("Usuario no encontrado", error);
-        return null;
-      }
+      if (!usuario) return null;
 
-      if (!usuario.activo) {
-        console.error("Cuenta desactivada");
-        return null;
-      }
-
-      const passwordValida = await bcrypt.compare(password, usuario.password_hash);
-      if (!passwordValida) {
-        console.error("Contraseña incorrecta");
-        return null;
-      }
-
-      // Actualizar último login (no esperamos la respuesta)
-      supabase
-        .from("usuarios")
-        .update({ ultimo_login: new Date().toISOString() })
-        .eq("id_usuario", usuario.id_usuario)
-        .then();
-
-      // Crear objeto usuario
       const user: User = {
         id_usuario: usuario.id_usuario,
         username: usuario.username,
@@ -77,9 +50,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setCurrentUser(user);
       localStorage.setItem("sgs_user", JSON.stringify(user));
+
       return user;
-    } catch (err) {
-      console.error("Error en login:", err);
+    } catch (error) {
+      console.error("Error en login:", error);
       return null;
     }
   };
