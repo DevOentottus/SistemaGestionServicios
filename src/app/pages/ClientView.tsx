@@ -1,9 +1,68 @@
-import { useRef, useState } from "react";
-import { servicios } from "../data/mockData";
+import { useRef, useState, useEffect } from "react";
+import { supabase } from "../../lib/supabase";
 import {
   Search, CheckCircle2, Clock, AlertTriangle, Activity,
   Star, Send, FileText, Printer, MessageSquare, Eye, Lightbulb,
 } from "lucide-react";
+
+// Tipos adaptados a la base de datos
+type TareaBD = {
+  id: string;
+  id_servicio: string;
+  nombre: string;
+  completada: boolean;
+  fecha_completada: string | null;
+  responsable: string | null;
+  orden: number | null;
+};
+
+type TecnicoBD = {
+  id_usuario: string;
+  nombres: string;
+  apellido_paterno: string;
+};
+
+type ServicioBD = {
+  id: string;
+  codigo: string;
+  cliente: string;
+  telefono_cliente: string;
+  descripcion: string;
+  area: string | null;
+  fecha_inicio: string;
+  hora_inicio: string;
+  fecha_fin: string | null;
+  hora_fin: string | null;
+  hora_estimada_fin: string | null;
+  inicio_real: string | null;
+  estado: string;
+  progreso: number;
+};
+
+// Tipos para la vista (combinados)
+type TareaView = {
+  id: string;
+  nombre: string;
+  completada: boolean;
+  fechaCompletada: string | null;
+  responsable: string | null;
+};
+
+type ServicioView = {
+  id: string;
+  codigo: string;
+  cliente: string;
+  telefono_cliente: string;
+  descripcion: string;
+  area: string | null;
+  fechaInicio: string;
+  horaInicio: string;
+  fechaFin: string | null;
+  estado: string;
+  progreso: number;
+  tareas: TareaView[];
+  tecnicos: string[]; // nombres completos
+};
 
 interface ClientReview {
   estrellas: number;
@@ -13,7 +72,7 @@ interface ClientReview {
   fechaEnvio: string;
 }
 
-const statusConfig = {
+const statusConfig: Record<string, { bg: string; text: string; icon: any; label: string; barColor: string }> = {
   "En progreso": { bg: "bg-blue-100", text: "text-blue-800", icon: Activity, label: "EN PROGRESO", barColor: "#2563EB" },
   "Completado":  { bg: "bg-green-100", text: "text-green-800", icon: CheckCircle2, label: "COMPLETADO", barColor: "#16A34A" },
   "Pendiente":   { bg: "bg-yellow-100", text: "text-yellow-800", icon: Clock, label: "PENDIENTE", barColor: "#F59E0B" },
@@ -62,6 +121,11 @@ const apreciaciones = [
 export default function ClientView() {
   const [code, setCode] = useState("");
   const [searched, setSearched] = useState(false);
+  const [service, setService] = useState<ServicioView | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  // Estado para calificaciones (local, sin persistencia)
   const [reviews, setReviews] = useState<Record<string, ClientReview>>({});
   const [ratingForm, setRatingForm] = useState({
     hover: 0,
@@ -74,15 +138,99 @@ export default function ClientView() {
   const [showReport, setShowReport] = useState<Record<string, boolean>>({});
   const reportRef = useRef<HTMLDivElement>(null);
 
-  const service = servicios.find(
-    (s) => s.codigo.toLowerCase() === code.toLowerCase()
-  );
-
   const isCompleted = service?.estado === "Completado";
   const alreadyReviewed = service ? !!submitted[service.id] : false;
   const reportVisible = service ? !!showReport[service.id] : false;
   const ratingLabels = ["", "Muy malo", "Regular", "Bueno", "Muy bueno", "Excelente"];
   const currentReview = service ? reviews[service.id] : null;
+
+  // Buscar servicio por código
+  const fetchService = async (codigo: string) => {
+    setLoading(true);
+    setError("");
+    try {
+      // 1. Obtener servicio
+      const { data: servicioData, error: servicioError } = await supabase
+        .from("servicios")
+        .select("*")
+        .eq("codigo", codigo)
+        .single();
+
+      if (servicioError || !servicioData) {
+        setError("Servicio no encontrado");
+        setService(null);
+        return;
+      }
+
+      const s = servicioData as ServicioBD;
+
+      // 2. Obtener tareas del servicio
+      const { data: tareasData, error: tareasError } = await supabase
+        .from("tareas")
+        .select("*")
+        .eq("id_servicio", s.id)
+        .order("orden", { ascending: true, nullsFirst: false });
+
+      if (tareasError) throw tareasError;
+      const tareas: TareaView[] = (tareasData || []).map((t: TareaBD) => ({
+        id: t.id,
+        nombre: t.nombre,
+        completada: t.completada,
+        fechaCompletada: t.fecha_completada,
+        responsable: t.responsable,
+      }));
+
+      // 3. Obtener técnicos asignados
+      const { data: tecnicosRel, error: tecError } = await supabase
+        .from("servicio_tecnicos")
+        .select("id_usuario")
+        .eq("id_servicio", s.id);
+
+      let tecnicosNombres: string[] = [];
+      if (tecnicosRel && tecnicosRel.length > 0) {
+        const userIds = tecnicosRel.map((rel: any) => rel.id_usuario);
+        const { data: usuariosData, error: usuariosError } = await supabase
+          .from("usuarios")
+          .select("nombres, apellido_paterno")
+          .in("id_usuario", userIds);
+        if (!usuariosError && usuariosData) {
+          tecnicosNombres = usuariosData.map(
+            (u: any) => `${u.nombres} ${u.apellido_paterno}`
+          );
+        }
+      }
+
+      // 4. Armar objeto para la vista
+      const serviceView: ServicioView = {
+        id: s.id,
+        codigo: s.codigo,
+        cliente: s.cliente,
+        telefono_cliente: s.telefono_cliente,
+        descripcion: s.descripcion,
+        area: s.area,
+        fechaInicio: s.fecha_inicio,
+        horaInicio: s.hora_inicio,
+        fechaFin: s.fecha_fin,
+        estado: s.estado,
+        progreso: s.progreso,
+        tareas: tareas,
+        tecnicos: tecnicosNombres,
+      };
+      setService(serviceView);
+    } catch (err) {
+      console.error(err);
+      setError("Error al cargar el servicio");
+      setService(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSearch = () => {
+    if (!code.trim()) return;
+    setSearched(true);
+    fetchService(code.trim());
+  };
 
   const handleSubmitReview = () => {
     if (!service || ratingForm.selected === 0) return;
@@ -122,7 +270,6 @@ export default function ClientView() {
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-2xl mx-auto">
-
         {/* ─── Search header ─── */}
         <div className="text-center py-10">
           <div className="w-16 h-16 bg-blue-900 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
@@ -137,11 +284,11 @@ export default function ClientView() {
               placeholder="Ej: SRV-2024-001"
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && setSearched(true)}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
               className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 bg-white shadow-sm"
             />
             <button
-              onClick={() => setSearched(true)}
+              onClick={handleSearch}
               className="bg-blue-900 text-white rounded-xl px-5 py-3 text-sm hover:bg-blue-800 transition shadow-sm"
               style={{ fontWeight: 600 }}
             >
@@ -149,30 +296,25 @@ export default function ClientView() {
             </button>
           </div>
 
-          <div className="flex flex-wrap gap-2 justify-center">
-            <p className="text-xs text-gray-400 w-full">Servicios de ejemplo:</p>
-            {servicios.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => { setCode(s.codigo); setSearched(true); }}
-                className={`text-xs px-3 py-1.5 rounded-full transition border ${
-                  s.estado === "Completado"
-                    ? "bg-green-50 text-green-700 border-green-200 hover:bg-green-100"
-                    : "bg-blue-50 text-blue-700 border-blue-100 hover:bg-blue-100"
-                }`}
-                style={{ fontWeight: 500 }}
-              >
-                {s.codigo}{s.estado === "Completado" && " ✓"}
-              </button>
-            ))}
-          </div>
+          {/* Aquí podrías mostrar ejemplos de servicios reales, pero optional */}
         </div>
 
         {/* ─── Results ─── */}
-        {searched && code && (
-          service ? (
+        {searched && (
+          loading ? (
+            <div className="bg-white rounded-2xl p-10 text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-900 mx-auto"></div>
+              <p className="text-gray-500 mt-3">Cargando servicio...</p>
+            </div>
+          ) : error ? (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center">
+              <AlertTriangle className="w-12 h-12 text-yellow-400 mx-auto mb-3" />
+              <h3 className="text-gray-900 mb-2" style={{ fontWeight: 600 }}>Servicio no encontrado</h3>
+              <p className="text-gray-500 text-sm">El código <strong>{code}</strong> no corresponde a ningún servicio registrado.</p>
+              <p className="text-gray-400 text-xs mt-2">Verifique el código e intente nuevamente.</p>
+            </div>
+          ) : service ? (
             <div className="space-y-4 pb-10">
-
               {/* Service header */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                 <div className="mb-4">
@@ -251,11 +393,9 @@ export default function ClientView() {
                 </div>
               </div>
 
-              {/* ====== RATING SECTION (only for completed, not yet reviewed) ====== */}
+              {/* Rating section (solo para completados y no calificados) */}
               {isCompleted && !alreadyReviewed && (
                 <div className="bg-white rounded-2xl shadow-sm border-2 border-yellow-200 p-6 space-y-6">
-
-                  {/* Header */}
                   <div className="flex items-center gap-3">
                     <div className="w-11 h-11 bg-yellow-400 rounded-xl flex items-center justify-center flex-shrink-0">
                       <Star className="w-6 h-6 text-blue-900 fill-blue-900" />
@@ -265,8 +405,6 @@ export default function ClientView() {
                       <p className="text-gray-500 text-xs">Su opinión nos ayuda a mejorar continuamente</p>
                     </div>
                   </div>
-
-                  {/* Stars */}
                   <div className="text-center">
                     <StarRating />
                     <p className="mt-2.5 text-sm h-5" style={{ fontWeight: 600 }}>
@@ -276,14 +414,9 @@ export default function ClientView() {
                       }
                     </p>
                   </div>
-
-                  {/* Divider */}
                   <div className="border-t border-gray-100" />
-
-                  {/* 3 appreciation areas — always visible */}
                   <div className="space-y-4">
                     <p className="text-xs text-gray-500" style={{ fontWeight: 600 }}>ÁREAS DE APRECIACIÓN (todas opcionales)</p>
-
                     {apreciaciones.map((apr) => {
                       const Icon = apr.icon;
                       return (
@@ -310,8 +443,6 @@ export default function ClientView() {
                       );
                     })}
                   </div>
-
-                  {/* Submit button */}
                   <button
                     onClick={handleSubmitReview}
                     disabled={ratingForm.selected === 0}
@@ -327,7 +458,6 @@ export default function ClientView() {
                 </div>
               )}
 
-              {/* ====== ALREADY REVIEWED — show report link ====== */}
               {isCompleted && alreadyReviewed && !reportVisible && (
                 <div className="bg-green-50 border border-green-200 rounded-2xl p-5 text-center">
                   <CheckCircle2 className="w-10 h-10 text-green-500 mx-auto mb-2" />
@@ -341,7 +471,6 @@ export default function ClientView() {
                 </div>
               )}
 
-              {/* ====== FULL SERVICE REPORT ====== */}
               {isCompleted && alreadyReviewed && reportVisible && currentReview && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
@@ -360,8 +489,7 @@ export default function ClientView() {
                   </div>
 
                   <div ref={reportRef} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-
-                    {/* Report header */}
+                    {/* Header con degradado */}
                     <div style={{ background: "linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%)" }} className="px-6 py-5">
                       <div className="flex items-center justify-between">
                         <div>
@@ -382,67 +510,52 @@ export default function ClientView() {
                     </div>
 
                     <div className="p-6 space-y-6">
-
-                      {/* Info grid */}
+                      {/* Información cliente y fechas */}
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-3">
                           <h4 className="text-gray-500 text-xs uppercase tracking-wider" style={{ fontWeight: 700 }}>Información del Cliente</h4>
-                          {[
-                            { label: "Cliente", value: service.cliente },
-                            { label: "Código de servicio", value: service.codigo },
-                            { label: "Área de atención", value: service.area },
-                          ].map((item) => (
-                            <div key={item.label}>
-                              <p className="text-gray-400 text-xs">{item.label}</p>
-                              <p className="text-gray-900 text-sm" style={{ fontWeight: 600 }}>{item.value}</p>
-                            </div>
-                          ))}
+                          <div><p className="text-gray-400 text-xs">Cliente</p><p className="text-gray-900 text-sm font-semibold">{service.cliente}</p></div>
+                          <div><p className="text-gray-400 text-xs">Código de servicio</p><p className="text-gray-900 text-sm font-semibold">{service.codigo}</p></div>
+                          <div><p className="text-gray-400 text-xs">Área de atención</p><p className="text-gray-900 text-sm font-semibold">{service.area || "—"}</p></div>
                         </div>
                         <div className="space-y-3">
                           <h4 className="text-gray-500 text-xs uppercase tracking-wider" style={{ fontWeight: 700 }}>Fechas del Servicio</h4>
-                          {[
-                            { label: "Fecha de inicio", value: service.fechaInicio },
-                            { label: "Fecha de finalización", value: service.fechaFin || "—" },
-                            { label: "Total de tareas", value: `${service.tareas.length} tareas` },
-                          ].map((item) => (
-                            <div key={item.label}>
-                              <p className="text-gray-400 text-xs">{item.label}</p>
-                              <p className="text-gray-900 text-sm" style={{ fontWeight: 600 }}>{item.value}</p>
-                            </div>
-                          ))}
+                          <div><p className="text-gray-400 text-xs">Fecha de inicio</p><p className="text-gray-900 text-sm font-semibold">{service.fechaInicio}</p></div>
+                          <div><p className="text-gray-400 text-xs">Fecha de finalización</p><p className="text-gray-900 text-sm font-semibold">{service.fechaFin || "—"}</p></div>
+                          <div><p className="text-gray-400 text-xs">Total de tareas</p><p className="text-gray-900 text-sm font-semibold">{service.tareas.length} tareas</p></div>
                         </div>
                       </div>
 
-                      {/* Description */}
+                      {/* Descripción */}
                       <div className="bg-gray-50 rounded-xl p-4">
-                        <p className="text-gray-500 text-xs mb-1" style={{ fontWeight: 600 }}>DESCRIPCIÓN DEL SERVICIO</p>
+                        <p className="text-gray-500 text-xs font-semibold mb-1">DESCRIPCIÓN DEL SERVICIO</p>
                         <p className="text-gray-700 text-sm">{service.descripcion}</p>
                       </div>
 
-                      {/* Technicians */}
+                      {/* Técnicos */}
                       <div>
-                        <p className="text-gray-500 text-xs mb-2" style={{ fontWeight: 600 }}>TÉCNICOS ASIGNADOS</p>
+                        <p className="text-gray-500 text-xs font-semibold mb-2">TÉCNICOS ASIGNADOS</p>
                         <div className="flex flex-wrap gap-2">
-                          {service.tecnicos.map((t) => (
-                            <span key={t} className="flex items-center gap-1.5 bg-blue-50 text-blue-900 text-xs px-3 py-1.5 rounded-full border border-blue-100" style={{ fontWeight: 500 }}>
+                          {service.tecnicos.length > 0 ? service.tecnicos.map((t, idx) => (
+                            <span key={idx} className="flex items-center gap-1.5 bg-blue-50 text-blue-900 text-xs px-3 py-1.5 rounded-full border border-blue-100 font-medium">
                               👷 {t}
                             </span>
-                          ))}
+                          )) : <span className="text-xs text-gray-400">No hay técnicos asignados</span>}
                         </div>
                       </div>
 
-                      {/* Tasks */}
+                      {/* Tareas */}
                       <div>
                         <div className="flex items-center justify-between mb-3">
-                          <p className="text-gray-500 text-xs" style={{ fontWeight: 600 }}>TAREAS REALIZADAS</p>
-                          <span className="text-green-700 text-xs bg-green-50 px-2 py-1 rounded-full" style={{ fontWeight: 700 }}>
+                          <p className="text-gray-500 text-xs font-semibold">TAREAS REALIZADAS</p>
+                          <span className="text-green-700 text-xs bg-green-50 px-2 py-1 rounded-full font-bold">
                             {service.tareas.filter(t => t.completada).length}/{service.tareas.length} completadas
                           </span>
                         </div>
                         <div className="space-y-2">
                           {service.tareas.map((task, idx) => (
                             <div key={task.id} className={`flex items-center gap-3 p-3 rounded-xl ${task.completada ? "bg-green-50 border border-green-100" : "bg-gray-50"}`}>
-                              <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs ${task.completada ? "bg-green-500 text-white" : "bg-gray-200 text-gray-500"}`} style={{ fontWeight: 700 }}>
+                              <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold ${task.completada ? "bg-green-500 text-white" : "bg-gray-200 text-gray-500"}`}>
                                 {task.completada ? "✓" : idx + 1}
                               </div>
                               <div className="flex-1">
@@ -451,7 +564,7 @@ export default function ClientView() {
                                   <p className="text-xs text-green-600">{task.fechaCompletada}{task.responsable ? ` · ${task.responsable}` : ""}</p>
                                 )}
                               </div>
-                              <span className={`text-xs px-2 py-0.5 rounded-full ${task.completada ? "bg-green-200 text-green-800" : "bg-gray-200 text-gray-600"}`} style={{ fontWeight: 600 }}>
+                              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${task.completada ? "bg-green-200 text-green-800" : "bg-gray-200 text-gray-600"}`}>
                                 {task.completada ? "✓ Completada" : "Pendiente"}
                               </span>
                             </div>
@@ -459,7 +572,7 @@ export default function ClientView() {
                         </div>
                       </div>
 
-                      {/* Progress summary */}
+                      {/* Progreso resumido */}
                       <div className="bg-blue-900 rounded-xl p-4 text-white flex items-center gap-4">
                         <div className="relative w-16 h-16 flex-shrink-0">
                           <svg className="w-16 h-16 -rotate-90" viewBox="0 0 64 64">
@@ -469,27 +582,25 @@ export default function ClientView() {
                               strokeDashoffset={`${2 * Math.PI * 26 * (1 - service.progreso / 100)}`}
                             />
                           </svg>
-                          <span className="absolute inset-0 flex items-center justify-center text-white text-sm" style={{ fontWeight: 700 }}>{service.progreso}%</span>
+                          <span className="absolute inset-0 flex items-center justify-center text-white text-sm font-bold">{service.progreso}%</span>
                         </div>
                         <div>
-                          <p className="text-white text-base" style={{ fontWeight: 700 }}>Progreso final: {service.progreso}%</p>
+                          <p className="text-white text-base font-bold">Progreso final: {service.progreso}%</p>
                           <p className="text-blue-200 text-xs">Servicio ejecutado satisfactoriamente</p>
                         </div>
                       </div>
 
-                      {/* ===== CLIENT APPRECIATIONS in report ===== */}
+                      {/* Apreciaciones del cliente */}
                       <div className="border-t-2 border-dashed border-yellow-300 pt-5">
                         <div className="flex items-center gap-2 mb-5">
                           <div className="w-9 h-9 bg-yellow-400 rounded-xl flex items-center justify-center">
                             <Star className="w-5 h-5 text-blue-900 fill-blue-900" />
                           </div>
                           <div>
-                            <h4 className="text-gray-900" style={{ fontWeight: 700 }}>Apreciaciones del Cliente</h4>
+                            <h4 className="text-gray-900 font-bold">Apreciaciones del Cliente</h4>
                             <p className="text-gray-400 text-xs">Enviadas el {currentReview.fechaEnvio}</p>
                           </div>
                         </div>
-
-                        {/* Stars display */}
                         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-4 flex items-center gap-4">
                           <div className="flex gap-1">
                             {[1, 2, 3, 4, 5].map((star) => (
@@ -497,14 +608,10 @@ export default function ClientView() {
                             ))}
                           </div>
                           <div>
-                            <p className="text-gray-900 text-sm" style={{ fontWeight: 700 }}>
-                              {currentReview.estrellas}/5 estrellas — {ratingLabels[currentReview.estrellas]}
-                            </p>
+                            <p className="text-gray-900 text-sm font-bold">{currentReview.estrellas}/5 estrellas — {ratingLabels[currentReview.estrellas]}</p>
                             <p className="text-gray-400 text-xs">Calificación general del servicio</p>
                           </div>
                         </div>
-
-                        {/* 3 appreciation areas */}
                         <div className="space-y-3">
                           {apreciaciones.map((apr) => {
                             const Icon = apr.icon;
@@ -542,7 +649,6 @@ export default function ClientView() {
                 </div>
               )}
 
-              {/* Info footer (non-completed) */}
               {!isCompleted && (
                 <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 text-center">
                   <p className="text-blue-700 text-sm" style={{ fontWeight: 500 }}>
@@ -551,14 +657,7 @@ export default function ClientView() {
                 </div>
               )}
             </div>
-          ) : (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center">
-              <AlertTriangle className="w-12 h-12 text-yellow-400 mx-auto mb-3" />
-              <h3 className="text-gray-900 mb-2" style={{ fontWeight: 600 }}>Servicio no encontrado</h3>
-              <p className="text-gray-500 text-sm">El código <strong>{code}</strong> no corresponde a ningún servicio registrado.</p>
-              <p className="text-gray-400 text-xs mt-2">Verifique el código e intente nuevamente.</p>
-            </div>
-          )
+          ) : null
         )}
       </div>
     </div>
