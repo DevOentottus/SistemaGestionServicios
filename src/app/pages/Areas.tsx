@@ -11,6 +11,8 @@ import {
   Edit2,
   ChevronRight,
   Loader2,
+  Shield,
+  Check,
 } from "lucide-react";
 
 type Area = {
@@ -46,10 +48,11 @@ type Servicio = {
 type AreaForm = {
   nombre: string;
   descripcion: string;
-  encargadoId: string;
+  usuarioAsignadoId: string;
+  esEncargado: boolean;
 };
 
-const emptyForm: AreaForm = { nombre: "", descripcion: "", encargadoId: "" };
+const emptyForm: AreaForm = { nombre: "", descripcion: "", usuarioAsignadoId: "", esEncargado: true };
 
 export default function Areas() {
   const [areas, setAreas] = useState<Area[]>([]);
@@ -152,7 +155,8 @@ export default function Areas() {
     setForm({
       nombre: area.nombre,
       descripcion: area.descripcion || "",
-      encargadoId: area.encargado || "",
+      usuarioAsignadoId: area.encargado || "",
+      esEncargado: !!area.encargado,
     });
     setShowModal(true);
   };
@@ -163,24 +167,26 @@ export default function Areas() {
     setForm(emptyForm);
   };
 
-  const ensureUserIsAreaManager = async (userId: string, areaId: string) => {
+  const assignUserInArea = async (userId: string, areaId: string, isManager: boolean) => {
     const user = usuarios.find((u) => u.id_usuario === userId);
     if (!user) return;
 
-    const updateData: Partial<Usuario> = { rol: "Encargado" };
+    const updateData: Partial<Usuario> = {
+      rol: isManager ? "Encargado" : "Colaborador",
+    };
 
     if (user.id_area_principal === areaId) {
-      updateData.encargado_area_principal = true;
+      updateData.encargado_area_principal = isManager;
     } else if (user.id_area_adicional === areaId) {
-      updateData.encargado_area_adicional = true;
+      updateData.encargado_area_adicional = isManager;
     } else if (!user.id_area_principal) {
       updateData.id_area_principal = areaId;
-      updateData.encargado_area_principal = true;
+      updateData.encargado_area_principal = isManager;
     } else if (!user.id_area_adicional) {
       updateData.id_area_adicional = areaId;
-      updateData.encargado_area_adicional = true;
+      updateData.encargado_area_adicional = isManager;
     } else {
-      updateData.encargado_area_principal = true;
+      // Si ya tiene ambas áreas ocupadas, no reasignamos áreas; solo ajustamos rol según checkbox.
     }
 
     const { error } = await supabase.from("usuarios").update(updateData).eq("id_usuario", userId);
@@ -213,8 +219,8 @@ export default function Areas() {
   };
 
   const handleSave = async () => {
-    if (!form.nombre.trim() || !form.encargadoId) {
-      alert("Completa el nombre y selecciona un encargado");
+    if (!form.nombre.trim() || !form.usuarioAsignadoId) {
+      alert("Completa el nombre y selecciona un usuario");
       return;
     }
 
@@ -223,7 +229,7 @@ export default function Areas() {
       const areaPayload = {
         nombre: form.nombre.trim(),
         descripcion: form.descripcion.trim() || null,
-        encargado: form.encargadoId,
+        encargado: form.esEncargado ? form.usuarioAsignadoId : null,
       };
 
       let savedArea: Area;
@@ -246,10 +252,10 @@ export default function Areas() {
         savedArea = data as Area;
       }
 
-      if (editingArea?.encargado && editingArea.encargado !== form.encargadoId) {
+      if (editingArea?.encargado && editingArea.encargado !== form.usuarioAsignadoId) {
         await maybeDemotePreviousManager(editingArea.encargado, savedArea.id);
       }
-      await ensureUserIsAreaManager(form.encargadoId, savedArea.id);
+      await assignUserInArea(form.usuarioAsignadoId, savedArea.id, form.esEncargado);
 
       closeModal();
       await fetchData();
@@ -466,21 +472,59 @@ export default function Areas() {
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-600 mb-1" style={{ fontWeight: 600 }}>Encargado *</label>
-                <select
-                  value={form.encargadoId}
-                  onChange={(e) => setForm((p) => ({ ...p, encargadoId: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500 bg-gray-50"
-                >
-                  <option value="">Seleccione encargado</option>
-                  {usuarios
-                    .filter((u) => u.activo)
-                    .map((u) => (
-                      <option key={u.id_usuario} value={u.id_usuario}>
-                        {getUserDisplayName(u)} (@{u.username})
-                      </option>
-                    ))}
-                </select>
+                <div className="border border-blue-100 rounded-xl p-4 bg-blue-50 space-y-3">
+                  <p className="text-xs text-blue-800" style={{ fontWeight: 700 }}>
+                    <MapPin className="w-3.5 h-3.5 inline mr-1" />
+                    ASIGNACION DE USUARIO Y ROL
+                  </p>
+
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1" style={{ fontWeight: 600 }}>Usuario asignado *</label>
+                    <select
+                      value={form.usuarioAsignadoId}
+                      onChange={(e) => setForm((p) => ({ ...p, usuarioAsignadoId: e.target.value }))}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500 bg-white"
+                    >
+                      <option value="">Seleccione usuario</option>
+                      {usuarios
+                        .filter((u) => u.activo)
+                        .map((u) => (
+                          <option key={u.id_usuario} value={u.id_usuario}>
+                            {getUserDisplayName(u)} (@{u.username})
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+
+                  <label className="flex items-center gap-2 mt-1 cursor-pointer select-none group">
+                    <div
+                      onClick={() => setForm((p) => ({ ...p, esEncargado: !p.esEncargado }))}
+                      className={`w-5 h-5 rounded border-2 flex items-center justify-center transition ${
+                        form.esEncargado ? "bg-purple-600 border-purple-600" : "bg-white border-gray-300 group-hover:border-purple-400"
+                      }`}
+                    >
+                      {form.esEncargado && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                    <span className="text-xs text-gray-700">
+                      <Shield className="w-3 h-3 inline mr-1 text-purple-600" />
+                      Es <span style={{ fontWeight: 600 }}>Encargado</span> del area
+                    </span>
+                  </label>
+
+                  <div className="bg-white rounded-lg px-3 py-2 border border-gray-200 flex items-center justify-between">
+                    <span className="text-xs text-gray-500">Rol efectivo:</span>
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full ${
+                        form.esEncargado
+                          ? "bg-purple-100 text-purple-800"
+                          : "bg-yellow-100 text-yellow-800"
+                      }`}
+                      style={{ fontWeight: 700 }}
+                    >
+                      {form.esEncargado ? "Encargado" : "Colaborador"}
+                    </span>
+                  </div>
+                </div>
               </div>
               <div>
                 <label className="block text-xs text-gray-600 mb-1" style={{ fontWeight: 600 }}>Descripción</label>
