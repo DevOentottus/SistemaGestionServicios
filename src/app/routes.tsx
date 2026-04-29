@@ -29,7 +29,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, Component: Dashboard },
           { path: "dashboard", Component: Dashboard },
-          { path: "collaborators", element: <Usuarios /> },
+          { path: "usuarios", element: <Usuarios /> },
           { path: "areas", Component: Areas },
           { path: "services", Component: Services },
           { path: "services/:id", Component: ServiceDetail },

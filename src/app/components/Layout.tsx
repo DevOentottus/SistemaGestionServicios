@@ -9,7 +9,7 @@ import {
 
 const navItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["Administrador", "Encargado", "Colaborador"] },
-  { path: "/collaborators", label: "Usuarios", icon: Users, roles: ["Administrador"] },
+  { path: "/usuarios", label: "Usuarios", icon: Users, roles: ["Administrador"] },
   { path: "/areas", label: "Áreas de Servicio", icon: MapPin, roles: ["Administrador", "Encargado"] },
   { path: "/services", label: "Servicios", icon: ClipboardList, roles: ["Administrador", "Encargado", "Colaborador"] },
   { path: "/business", label: "Negocio", icon: Briefcase, roles: ["Administrador", "Encargado"] },
