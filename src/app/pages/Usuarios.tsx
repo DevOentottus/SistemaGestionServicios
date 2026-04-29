@@ -350,7 +350,7 @@ export default function Usuarios() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-gray-900" style={{ fontWeight: 700 }}>Colaboradores</h1>
+          <h1 className="text-gray-900" style={{ fontWeight: 700 }}>Usuarios</h1>
           <p className="text-gray-500 text-sm">{usuarios.filter((u) => u.activo).length} activos · {usuarios.filter((u) => !u.activo).length} inactivos</p>
         </div>
         <button
@@ -483,7 +483,7 @@ export default function Usuarios() {
             </tbody>
           </table>
           {filtered.length === 0 && (
-            <div className="text-center py-12 text-gray-400 text-sm">No se encontraron colaboradores</div>
+            <div className="text-center py-12 text-gray-400 text-sm">No se encontraron usuarios</div>
           )}
         </div>
       </div>
