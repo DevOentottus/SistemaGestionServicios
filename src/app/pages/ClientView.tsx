@@ -16,12 +16,6 @@ type TareaBD = {
   orden: number | null;
 };
 
-type TecnicoBD = {
-  id_usuario: string;
-  nombres: string;
-  apellido_paterno: string;
-};
-
 type ServicioBD = {
   id: string;
   codigo: string;
@@ -39,7 +33,6 @@ type ServicioBD = {
   progreso: number;
 };
 
-// Tipos para la vista (combinados)
 type TareaView = {
   id: string;
   nombre: string;
@@ -61,7 +54,7 @@ type ServicioView = {
   estado: string;
   progreso: number;
   tareas: TareaView[];
-  tecnicos: string[]; // nombres completos
+  tecnicos: string[];
 };
 
 interface ClientReview {
@@ -125,7 +118,6 @@ export default function ClientView() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Estado para calificaciones (local, sin persistencia)
   const [reviews, setReviews] = useState<Record<string, ClientReview>>({});
   const [ratingForm, setRatingForm] = useState({
     hover: 0,
@@ -137,6 +129,7 @@ export default function ClientView() {
   const [submitted, setSubmitted] = useState<Record<string, boolean>>({});
   const [showReport, setShowReport] = useState<Record<string, boolean>>({});
   const reportRef = useRef<HTMLDivElement>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isCompleted = service?.estado === "Completado";
   const alreadyReviewed = service ? !!submitted[service.id] : false;
@@ -144,7 +137,106 @@ export default function ClientView() {
   const ratingLabels = ["", "Muy malo", "Regular", "Bueno", "Muy bueno", "Excelente"];
   const currentReview = service ? reviews[service.id] : null;
 
-  // Buscar servicio por código
+  // Función para obtener datos del servicio (tareas y técnicos)
+  const fetchServiceData = async (servicioId: string): Promise<{ tareas: TareaView[]; tecnicos: string[]; estado: string; progreso: number; fechaFin: string | null } | null> => {
+    try {
+      // Obtener tareas actualizadas
+      const { data: tareasData, error: tareasError } = await supabase
+        .from("tareas")
+        .select("*")
+        .eq("id_servicio", servicioId)
+        .order("orden", { ascending: true, nullsFirst: false });
+      if (tareasError) throw tareasError;
+      const tareas: TareaView[] = (tareasData || []).map((t: TareaBD) => ({
+        id: t.id,
+        nombre: t.nombre,
+        completada: t.completada,
+        fechaCompletada: t.fecha_completada,
+        responsable: t.responsable,
+      }));
+
+      // Obtener técnicos
+      const { data: tecnicosRel, error: tecError } = await supabase
+        .from("servicio_tecnicos")
+        .select("id_usuario")
+        .eq("id_servicio", servicioId);
+      let tecnicosNombres: string[] = [];
+      if (tecnicosRel && tecnicosRel.length > 0) {
+        const userIds = tecnicosRel.map((rel: any) => rel.id_usuario);
+        const { data: usuariosData, error: usuariosError } = await supabase
+          .from("usuarios")
+          .select("nombres, apellido_paterno")
+          .in("id_usuario", userIds);
+        if (!usuariosError && usuariosData) {
+          tecnicosNombres = usuariosData.map(
+            (u: any) => `${u.nombres} ${u.apellido_paterno}`
+          );
+        }
+      }
+
+      // También necesitamos el estado actualizado, progreso y fecha_fin del servicio
+      const { data: servicioActual, error: servError } = await supabase
+        .from("servicios")
+        .select("estado, progreso, fecha_fin")
+        .eq("id", servicioId)
+        .single();
+      if (servError) throw servError;
+
+      return {
+        tareas,
+        tecnicos: tecnicosNombres,
+        estado: servicioActual.estado,
+        progreso: servicioActual.progreso,
+        fechaFin: servicioActual.fecha_fin,
+      };
+    } catch (err) {
+      console.error("Error refreshing service data:", err);
+      return null;
+    }
+  };
+
+  // Función para refrescar los datos del servicio actual (sin perder estado local de calificación)
+  const refreshService = async () => {
+    if (!service) return;
+    const newData = await fetchServiceData(service.id);
+    if (newData) {
+      setService((prev) => {
+        if (!prev) return prev;
+        // Mantener el mismo objeto pero actualizando tareas, técnicos, estado, progreso, fechaFin
+        return {
+          ...prev,
+          tareas: newData.tareas,
+          tecnicos: newData.tecnicos,
+          estado: newData.estado,
+          progreso: newData.progreso,
+          fechaFin: newData.fechaFin,
+        };
+      });
+    }
+  };
+
+  // Efecto para iniciar la actualización automática cuando service está cargado y no está completado
+  useEffect(() => {
+    if (service && !isCompleted) {
+      // Actualizar cada 5 segundos
+      intervalRef.current = setInterval(() => {
+        refreshService();
+      }, 5000);
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    }
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [service, isCompleted]);
+
+  // Función principal para buscar servicio por código (carga inicial)
   const fetchService = async (codigo: string) => {
     setLoading(true);
     setError("");
@@ -164,43 +256,11 @@ export default function ClientView() {
 
       const s = servicioData as ServicioBD;
 
-      // 2. Obtener tareas del servicio
-      const { data: tareasData, error: tareasError } = await supabase
-        .from("tareas")
-        .select("*")
-        .eq("id_servicio", s.id)
-        .order("orden", { ascending: true, nullsFirst: false });
+      // 2. Obtener tareas y técnicos mediante la función auxiliar
+      const fullData = await fetchServiceData(s.id);
+      if (!fullData) throw new Error("Error al cargar tareas o técnicos");
 
-      if (tareasError) throw tareasError;
-      const tareas: TareaView[] = (tareasData || []).map((t: TareaBD) => ({
-        id: t.id,
-        nombre: t.nombre,
-        completada: t.completada,
-        fechaCompletada: t.fecha_completada,
-        responsable: t.responsable,
-      }));
-
-      // 3. Obtener técnicos asignados
-      const { data: tecnicosRel, error: tecError } = await supabase
-        .from("servicio_tecnicos")
-        .select("id_usuario")
-        .eq("id_servicio", s.id);
-
-      let tecnicosNombres: string[] = [];
-      if (tecnicosRel && tecnicosRel.length > 0) {
-        const userIds = tecnicosRel.map((rel: any) => rel.id_usuario);
-        const { data: usuariosData, error: usuariosError } = await supabase
-          .from("usuarios")
-          .select("nombres, apellido_paterno")
-          .in("id_usuario", userIds);
-        if (!usuariosError && usuariosData) {
-          tecnicosNombres = usuariosData.map(
-            (u: any) => `${u.nombres} ${u.apellido_paterno}`
-          );
-        }
-      }
-
-      // 4. Armar objeto para la vista
+      // 3. Armar objeto para la vista
       const serviceView: ServicioView = {
         id: s.id,
         codigo: s.codigo,
@@ -210,11 +270,11 @@ export default function ClientView() {
         area: s.area,
         fechaInicio: s.fecha_inicio,
         horaInicio: s.hora_inicio,
-        fechaFin: s.fecha_fin,
-        estado: s.estado,
-        progreso: s.progreso,
-        tareas: tareas,
-        tecnicos: tecnicosNombres,
+        fechaFin: fullData.fechaFin,
+        estado: fullData.estado,
+        progreso: fullData.progreso,
+        tareas: fullData.tareas,
+        tecnicos: fullData.tecnicos,
       };
       setService(serviceView);
     } catch (err) {
@@ -228,6 +288,11 @@ export default function ClientView() {
 
   const handleSearch = () => {
     if (!code.trim()) return;
+    // Limpiar intervalos previos
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
     setSearched(true);
     fetchService(code.trim());
   };
@@ -295,8 +360,6 @@ export default function ClientView() {
               Buscar
             </button>
           </div>
-
-          {/* Aquí podrías mostrar ejemplos de servicios reales, pero optional */}
         </div>
 
         {/* ─── Results ─── */}
