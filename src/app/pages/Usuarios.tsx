@@ -363,7 +363,7 @@ export default function Usuarios() {
           style={{ fontWeight: 600 }}
         >
           <UserPlus className="w-4 h-4" />
-          Nuevo Colaborador
+          Nuevo Usuario
         </button>
       </div>
 
@@ -414,7 +414,7 @@ export default function Usuarios() {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                {["ID Interno", "Colaborador", "Áreas", "Rol", "Contacto", "Estado", "Acciones"].map((h) => (
+                {["Identificador", "Usuario", "Áreas", "Rol", "Contacto", "Estado", "Acciones"].map((h) => (
                   <th key={h} className="text-left text-xs text-gray-500 px-4 py-3" style={{ fontWeight: 600 }}>{h}</th>
                 ))}
               </tr>
@@ -606,7 +606,7 @@ export default function Usuarios() {
                 style={{ fontWeight: 600 }}
               >
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                {editingUser ? "Guardar cambios" : "Registrar colaborador"}
+                {editingUser ? "Guardar cambios" : "Registrar usuario"}
               </button>
             </div>
           </div>
