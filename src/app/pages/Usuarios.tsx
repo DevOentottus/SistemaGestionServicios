@@ -494,7 +494,7 @@ export default function Usuarios() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
               <h3 className="text-gray-900" style={{ fontWeight: 700 }}>
-                {editingUser ? "Editar Colaborador" : "Nuevo Colaborador"}
+                {editingUser ? "Editar usuario" : "Nuevo Usuario"}
               </h3>
               <button onClick={() => setShowModal(false)} className="p-2 rounded-lg hover:bg-gray-100">
                 <X className="w-5 h-5 text-gray-500" />
