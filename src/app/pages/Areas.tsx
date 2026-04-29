@@ -11,8 +11,6 @@ import {
   Edit2,
   ChevronRight,
   Loader2,
-  Shield,
-  Check,
 } from "lucide-react";
 
 type Area = {
@@ -49,7 +47,6 @@ type AreaForm = {
   nombre: string;
   descripcion: string;
   usuarioAsignadoId: string;
-  esEncargado: boolean;
   collaboratorIds: string[];
 };
 
@@ -57,7 +54,6 @@ const emptyForm: AreaForm = {
   nombre: "",
   descripcion: "",
   usuarioAsignadoId: "",
-  esEncargado: true,
   collaboratorIds: [],
 };
 
@@ -168,7 +164,6 @@ export default function Areas() {
       nombre: area.nombre,
       descripcion: area.descripcion || "",
       usuarioAsignadoId: area.encargado || "",
-      esEncargado: !!area.encargado,
       collaboratorIds: getAreaCollaborators(area.id).map((u) => u.id_usuario),
     });
     setShowModal(true);
@@ -180,26 +175,26 @@ export default function Areas() {
     setForm(emptyForm);
   };
 
-  const assignUserInArea = async (userId: string, areaId: string, isManager: boolean) => {
+  const assignUserInArea = async (userId: string, areaId: string) => {
     const user = usuarios.find((u) => u.id_usuario === userId);
     if (!user) return;
 
     const updateData: Partial<Usuario> = {
-      rol: isManager ? "Encargado" : "Colaborador",
+      rol: "Encargado",
     };
 
     if (user.id_area_principal === areaId) {
-      updateData.encargado_area_principal = isManager;
+      updateData.encargado_area_principal = true;
     } else if (user.id_area_adicional === areaId) {
-      updateData.encargado_area_adicional = isManager;
+      updateData.encargado_area_adicional = true;
     } else if (!user.id_area_principal) {
       updateData.id_area_principal = areaId;
-      updateData.encargado_area_principal = isManager;
+      updateData.encargado_area_principal = true;
     } else if (!user.id_area_adicional) {
       updateData.id_area_adicional = areaId;
-      updateData.encargado_area_adicional = isManager;
+      updateData.encargado_area_adicional = true;
     } else {
-      // Si ya tiene ambas áreas ocupadas, no reasignamos áreas; solo ajustamos rol según checkbox.
+      // Si ya tiene ambas áreas ocupadas, no reasignamos áreas.
     }
 
     const { error } = await supabase.from("usuarios").update(updateData).eq("id_usuario", userId);
@@ -291,7 +286,7 @@ export default function Areas() {
       const areaPayload = {
         nombre: form.nombre.trim(),
         descripcion: form.descripcion.trim() || null,
-        encargado: form.esEncargado ? form.usuarioAsignadoId : null,
+        encargado: form.usuarioAsignadoId,
       };
 
       let savedArea: Area;
@@ -317,7 +312,7 @@ export default function Areas() {
       if (editingArea?.encargado && editingArea.encargado !== form.usuarioAsignadoId) {
         await maybeDemotePreviousManager(editingArea.encargado, savedArea.id);
       }
-      await assignUserInArea(form.usuarioAsignadoId, savedArea.id, form.esEncargado);
+      await assignUserInArea(form.usuarioAsignadoId, savedArea.id);
       await syncAreaCollaborators(savedArea.id, form.collaboratorIds);
 
       closeModal();
@@ -559,32 +554,13 @@ export default function Areas() {
                     </select>
                   </div>
 
-                  <label className="flex items-center gap-2 mt-1 cursor-pointer select-none group">
-                    <div
-                      onClick={() => setForm((p) => ({ ...p, esEncargado: !p.esEncargado }))}
-                      className={`w-5 h-5 rounded border-2 flex items-center justify-center transition ${
-                        form.esEncargado ? "bg-purple-600 border-purple-600" : "bg-white border-gray-300 group-hover:border-purple-400"
-                      }`}
-                    >
-                      {form.esEncargado && <Check className="w-3 h-3 text-white" />}
-                    </div>
-                    <span className="text-xs text-gray-700">
-                      <Shield className="w-3 h-3 inline mr-1 text-purple-600" />
-                      Es <span style={{ fontWeight: 600 }}>Encargado</span> del area
-                    </span>
-                  </label>
-
                   <div className="bg-white rounded-lg px-3 py-2 border border-gray-200 flex items-center justify-between">
                     <span className="text-xs text-gray-500">Rol efectivo:</span>
                     <span
-                      className={`text-xs px-2 py-0.5 rounded-full ${
-                        form.esEncargado
-                          ? "bg-purple-100 text-purple-800"
-                          : "bg-yellow-100 text-yellow-800"
-                      }`}
+                      className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-800"
                       style={{ fontWeight: 700 }}
                     >
-                      {form.esEncargado ? "Encargado" : "Colaborador"}
+                      Encargado
                     </span>
                   </div>
                 </div>

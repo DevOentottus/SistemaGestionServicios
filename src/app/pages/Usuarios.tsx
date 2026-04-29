@@ -156,9 +156,13 @@ export default function Usuarios() {
     return area ? area.nombre : NONE_AREA;
   };
 
-  // Deriva el rol final cuando se marca encargado en alguna área
-  const effectiveRol: Usuario["rol"] =
-    form.encargado_area_principal || form.encargado_area_adicional ? "Encargado" : form.rol;
+  const isAdmin = form.rol === "Administrador";
+  // Administrador tiene prioridad sobre encargado para el rol efectivo.
+  const effectiveRol: Usuario["rol"] = isAdmin
+    ? "Administrador"
+    : form.encargado_area_principal || form.encargado_area_adicional
+      ? "Encargado"
+      : "Colaborador";
 
   const hasSecondaryArea = !!form.id_area_adicional;
   const canSave = !!form.nombres && !!form.apellido_paterno && !!form.correo;
@@ -526,6 +530,28 @@ export default function Usuarios() {
                   onChange={(e) => setForm((prev) => ({ ...prev, correo: e.target.value }))}
                   className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50"
                 />
+              </div>
+
+              <div className="border border-blue-100 rounded-xl p-4 bg-blue-50">
+                <label className="flex items-center gap-2 cursor-pointer select-none group">
+                  <div
+                    onClick={() =>
+                      setForm((p) => ({
+                        ...p,
+                        rol: p.rol === "Administrador" ? "Colaborador" : "Administrador",
+                      }))
+                    }
+                    className={`w-5 h-5 rounded border-2 flex items-center justify-center transition ${
+                      isAdmin ? "bg-blue-700 border-blue-700" : "bg-white border-gray-300 group-hover:border-blue-400"
+                    }`}
+                  >
+                    {isAdmin && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                  <span className="text-xs text-gray-700">
+                    <Shield className="w-3 h-3 inline mr-1 text-blue-700" />
+                    Es <span style={{ fontWeight: 600 }}>Administrador</span>
+                  </span>
+                </label>
               </div>
 
               {/* Contraseña solo en creación */}
