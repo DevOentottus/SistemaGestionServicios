@@ -50,9 +50,16 @@ type AreaForm = {
   descripcion: string;
   usuarioAsignadoId: string;
   esEncargado: boolean;
+  collaboratorIds: string[];
 };
 
-const emptyForm: AreaForm = { nombre: "", descripcion: "", usuarioAsignadoId: "", esEncargado: true };
+const emptyForm: AreaForm = {
+  nombre: "",
+  descripcion: "",
+  usuarioAsignadoId: "",
+  esEncargado: true,
+  collaboratorIds: [],
+};
 
 export default function Areas() {
   const [areas, setAreas] = useState<Area[]>([]);
@@ -142,7 +149,12 @@ export default function Areas() {
   };
 
   const getAreaCollaborators = (areaId: string) =>
-    usuarios.filter((u) => u.activo && (u.id_area_principal === areaId || u.id_area_adicional === areaId));
+    usuarios.filter(
+      (u) =>
+        u.activo &&
+        u.rol === "Colaborador" &&
+        (u.id_area_principal === areaId || u.id_area_adicional === areaId)
+    );
 
   const openCreate = () => {
     setEditingArea(null);
@@ -157,6 +169,7 @@ export default function Areas() {
       descripcion: area.descripcion || "",
       usuarioAsignadoId: area.encargado || "",
       esEncargado: !!area.encargado,
+      collaboratorIds: getAreaCollaborators(area.id).map((u) => u.id_usuario),
     });
     setShowModal(true);
   };
@@ -218,6 +231,55 @@ export default function Areas() {
     if (error) throw error;
   };
 
+  const syncAreaCollaborators = async (areaId: string, collaboratorIds: string[]) => {
+    const currentCollaborators = getAreaCollaborators(areaId);
+    const currentIds = new Set(currentCollaborators.map((u) => u.id_usuario));
+    const targetIds = new Set(collaboratorIds);
+
+    const toAdd = collaboratorIds.filter((id) => !currentIds.has(id));
+    const toRemove = currentCollaborators.filter((u) => !targetIds.has(u.id_usuario));
+
+    for (const userId of toAdd) {
+      const user = usuarios.find((u) => u.id_usuario === userId);
+      if (!user) continue;
+
+      const updateData: Partial<Usuario> = { rol: "Colaborador" };
+      if (user.id_area_principal === areaId || user.id_area_adicional === areaId) {
+        // already assigned
+      } else if (!user.id_area_principal) {
+        updateData.id_area_principal = areaId;
+        updateData.encargado_area_principal = false;
+      } else if (!user.id_area_adicional) {
+        updateData.id_area_adicional = areaId;
+        updateData.encargado_area_adicional = false;
+      } else {
+        continue;
+      }
+
+      const { error } = await supabase.from("usuarios").update(updateData).eq("id_usuario", userId);
+      if (error) throw error;
+    }
+
+    for (const user of toRemove) {
+      const updateData: Partial<Usuario> = {};
+      if (user.id_area_principal === areaId) {
+        updateData.id_area_principal = null;
+        updateData.encargado_area_principal = false;
+      }
+      if (user.id_area_adicional === areaId) {
+        updateData.id_area_adicional = null;
+        updateData.encargado_area_adicional = false;
+      }
+      if (Object.keys(updateData).length === 0) continue;
+
+      const { error } = await supabase
+        .from("usuarios")
+        .update(updateData)
+        .eq("id_usuario", user.id_usuario);
+      if (error) throw error;
+    }
+  };
+
   const handleSave = async () => {
     if (!form.nombre.trim() || !form.usuarioAsignadoId) {
       alert("Completa el nombre y selecciona un usuario");
@@ -256,6 +318,7 @@ export default function Areas() {
         await maybeDemotePreviousManager(editingArea.encargado, savedArea.id);
       }
       await assignUserInArea(form.usuarioAsignadoId, savedArea.id, form.esEncargado);
+      await syncAreaCollaborators(savedArea.id, form.collaboratorIds);
 
       closeModal();
       await fetchData();
@@ -475,7 +538,7 @@ export default function Areas() {
                 <div className="border border-blue-100 rounded-xl p-4 bg-blue-50 space-y-3">
                   <p className="text-xs text-blue-800" style={{ fontWeight: 700 }}>
                     <MapPin className="w-3.5 h-3.5 inline mr-1" />
-                    ASIGNACION DE USUARIO Y ROL
+                    ASIGNAR ENCARGADO
                   </p>
 
                   <div>
@@ -523,6 +586,38 @@ export default function Areas() {
                     >
                       {form.esEncargado ? "Encargado" : "Colaborador"}
                     </span>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div className="border border-gray-200 rounded-xl p-4 bg-gray-50 space-y-2">
+                  <p className="text-xs text-gray-700" style={{ fontWeight: 700 }}>
+                    COLABORADORES DEL AREA (SOLO ROL COLABORADOR)
+                  </p>
+                  <div className="max-h-36 overflow-y-auto space-y-2 pr-1">
+                    {usuarios
+                      .filter((u) => u.activo && u.rol === "Colaborador")
+                      .map((u) => {
+                        const checked = form.collaboratorIds.includes(u.id_usuario);
+                        return (
+                          <label key={u.id_usuario} className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) =>
+                                setForm((prev) => ({
+                                  ...prev,
+                                  collaboratorIds: e.target.checked
+                                    ? [...prev.collaboratorIds, u.id_usuario]
+                                    : prev.collaboratorIds.filter((id) => id !== u.id_usuario),
+                                }))
+                              }
+                              className="rounded border-gray-300 text-blue-700 focus:ring-blue-500"
+                            />
+                            <span>{getUserDisplayName(u)} (@{u.username})</span>
+                          </label>
+                        );
+                      })}
                   </div>
                 </div>
               </div>
