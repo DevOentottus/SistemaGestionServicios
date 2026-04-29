@@ -246,6 +246,10 @@ export default function Usuarios() {
     setSaving(true);
     try {
       const username = editingUser?.username || generateUsername(form.nombres, form.apellido_paterno, editingUser?.id_usuario);
+      const normalizedAreaPrincipal = isAdmin ? null : form.id_area_principal || null;
+      const normalizedAreaAdicional = isAdmin ? null : form.id_area_adicional || null;
+      const normalizedEncargadoPrincipal = isAdmin ? false : form.encargado_area_principal;
+      const normalizedEncargadoAdicional = isAdmin ? false : form.encargado_area_adicional;
       const userData: Partial<Usuario> = {
         dni: form.dni || null,
         nombres: form.nombres,
@@ -255,10 +259,10 @@ export default function Usuarios() {
         correo: form.correo,
         username,
         rol: effectiveRol,
-        id_area_principal: form.id_area_principal || null,
-        id_area_adicional: form.id_area_adicional || null,
-        encargado_area_principal: form.encargado_area_principal,
-        encargado_area_adicional: form.encargado_area_adicional,
+        id_area_principal: normalizedAreaPrincipal,
+        id_area_adicional: normalizedAreaAdicional,
+        encargado_area_principal: normalizedEncargadoPrincipal,
+        encargado_area_adicional: normalizedEncargadoAdicional,
         activo: editingUser ? editingUser.activo : true,
       };
 
@@ -539,6 +543,10 @@ export default function Usuarios() {
                       setForm((p) => ({
                         ...p,
                         rol: p.rol === "Administrador" ? "Colaborador" : "Administrador",
+                        id_area_principal: p.rol === "Administrador" ? p.id_area_principal : "",
+                        id_area_adicional: p.rol === "Administrador" ? p.id_area_adicional : "",
+                        encargado_area_principal: p.rol === "Administrador" ? p.encargado_area_principal : false,
+                        encargado_area_adicional: p.rol === "Administrador" ? p.encargado_area_adicional : false,
                       }))
                     }
                     className={`w-5 h-5 rounded border-2 flex items-center justify-center transition ${
