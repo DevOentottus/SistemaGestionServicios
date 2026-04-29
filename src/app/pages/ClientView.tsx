@@ -221,7 +221,7 @@ export default function ClientView() {
       // Actualizar cada 5 segundos
       intervalRef.current = setInterval(() => {
         refreshService();
-      }, 5000);
+      }, 1000);
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
