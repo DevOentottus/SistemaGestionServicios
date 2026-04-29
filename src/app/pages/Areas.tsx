@@ -568,11 +568,11 @@ export default function Areas() {
               <div>
                 <div className="border border-gray-200 rounded-xl p-4 bg-gray-50 space-y-2">
                   <p className="text-xs text-gray-700" style={{ fontWeight: 700 }}>
-                    COLABORADORES DEL AREA (SOLO ROL COLABORADOR)
+                    COLABORADORES DEL AREA
                   </p>
                   <div className="max-h-36 overflow-y-auto space-y-2 pr-1">
                     {usuarios
-                      .filter((u) => u.activo && u.rol === "Colaborador")
+                      .filter((u) => u.activo && u.rol === "Colaborador" )
                       .map((u) => {
                         const checked = form.collaboratorIds.includes(u.id_usuario);
                         return (
