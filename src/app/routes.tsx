@@ -21,25 +21,29 @@ export const router = createBrowserRouter([
     element: <Login />
   },
   {
-    element: <ProtectedRoute />, // 👈 Protege todas las rutas hijas
+    path: "/client",          // ✅ Ruta pública
+    element: <ClientView />
+  },
+  {
+    element: <ProtectedRoute />, // 🔒 Rutas protegidas
     children: [
       {
         path: "/",
         element: <Layout />,
         children: [
-          { index: true, Component: Dashboard },
-          { path: "dashboard", Component: Dashboard },
+          { index: true, element: <Dashboard /> },
+          { path: "dashboard", element: <Dashboard /> },
           { path: "usuarios", element: <Usuarios /> },
-          { path: "areas", Component: Areas },
-          { path: "services", Component: Services },
-          { path: "services/:id", Component: ServiceDetail },
-          { path: "monitor", Component: Monitor },
-          { path: "communications", Component: Communications },
-          { path: "supervision", Component: Supervision },
-          { path: "business", Component: Business },
-          { path: "reports", Component: Reports },
-          { path: "audit", Component: Audit },
-          { path: "client", Component: ClientView },
+          { path: "areas", element: <Areas /> },
+          { path: "services", element: <Services /> },
+          { path: "services/:id", element: <ServiceDetail /> },
+          { path: "monitor", element: <Monitor /> },
+          { path: "communications", element: <Communications /> },
+          { path: "supervision", element: <Supervision /> },
+          { path: "business", element: <Business /> },
+          { path: "reports", element: <Reports /> },
+          { path: "audit", element: <Audit /> },
+          // ⚠️ Eliminamos /client de aquí porque ahora es pública
         ],
       },
     ],
