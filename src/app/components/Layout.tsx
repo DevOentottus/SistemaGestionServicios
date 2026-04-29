@@ -18,6 +18,7 @@ const navItems = [
   { path: "/supervision", label: "Supervisión", icon: Eye, roles: ["Administrador", "Encargado"] },
   { path: "/reports", label: "Reportes", icon: BarChart2, roles: ["Administrador", "Encargado"] },
   { path: "/audit", label: "Auditoría", icon: Shield, roles: ["Administrador"] },
+  { path: "/client", label: "Vista Cliente", icon: Monitor, roles: ["Administrador", "Encargado", "Colaborador"] },
 ];
 
 export default function Layout() {
