@@ -253,60 +253,51 @@ function GeneralView({ services, currentTime }: { services: Servicio[]; currentT
 }
 
 function WaitingRoomView({ services, currentTime }: { services: Servicio[]; currentTime: Date }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const highlightedService = services[currentIndex];
-
-  // Rotar servicios cada 15 segundos (más lento)
-  useEffect(() => {
-    if (services.length === 0) return;
-    const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % services.length);
-    }, 15000);
-    return () => clearInterval(interval);
-  }, [services]);
-
-  if (!highlightedService) {
-    return (
-      <div className="bg-gradient-to-b from-blue-900 to-blue-950 min-h-96 p-8 rounded-xl flex flex-col items-center justify-center text-center">
-        <p className="text-white">No hay servicios activos en este momento.</p>
-      </div>
-    );
-  }
-
-  const cfg = statusConfig[highlightedService.estado];
-  const completadas = highlightedService.tareas.filter(t => t.completada).length;
+  // Mostrar hasta 6 servicios (todos los activos, limitados a 6)
+  const displayedServices = services.slice(0, 6);
 
   return (
-    <div className="bg-gradient-to-b from-blue-900 to-blue-950 min-h-96 p-8 rounded-xl flex flex-col items-center justify-center text-center">
-      <p className="text-blue-300 text-sm mb-2">TechService — Sala de Espera</p>
-      <p className="text-yellow-400 text-5xl mb-6 font-bold font-mono">
-        {currentTime.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}
-      </p>
-
-      <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 w-full max-w-md border border-white/20">
-        <p className="text-blue-200 text-sm mb-1">Servicio en atención</p>
-        <p className="text-yellow-400 text-2xl mb-3 font-bold">{highlightedService.codigo}</p>
-        <p className="text-white text-sm mb-4">{highlightedService.cliente}</p>
-
-        <div className={`inline-block px-4 py-2 rounded-full ${cfg.bg} ${cfg.text} text-sm mb-4 font-bold`}>
-          {cfg.label}
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-blue-300">Progreso</span>
-            <span className="text-white font-bold">{highlightedService.progreso}%</span>
-          </div>
-          <div className="h-3 bg-blue-950 rounded-full overflow-hidden">
-            <div className="h-full bg-yellow-400 rounded-full transition-all" style={{ width: `${highlightedService.progreso}%` }} />
-          </div>
-          <p className="text-blue-300 text-xs">
-            {completadas} de {highlightedService.tareas.length} tareas completadas
-          </p>
-        </div>
+    <div className="bg-gradient-to-b from-blue-900 to-blue-950 min-h-96 p-8 rounded-xl">
+      <div className="text-center mb-6">
+        <p className="text-blue-300 text-sm mb-2">TechService — Sala de Espera</p>
+        <p className="text-yellow-400 text-5xl mb-2 font-bold font-mono">
+          {currentTime.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}
+        </p>
+        <p className="text-blue-200 text-sm">Servicios en proceso</p>
       </div>
 
-      <p className="text-blue-400 text-xs mt-6">Los técnicos están trabajando en su servicio. Gracias por su espera.</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {displayedServices.map((srv) => {
+          const cfg = statusConfig[srv.estado];
+          const completadas = srv.tareas.filter(t => t.completada).length;
+          return (
+            <div key={srv.id} className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
+              <p className="text-blue-200 text-sm mb-1">Servicio</p>
+              <p className="text-yellow-400 text-xl mb-2 font-bold">{srv.codigo}</p>
+              <p className="text-white text-sm mb-3 truncate">{srv.cliente}</p>
+              <div className={`inline-block px-3 py-1 rounded-full ${cfg.bg} ${cfg.text} text-xs mb-3 font-bold`}>
+                {cfg.label}
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-blue-300">Progreso</span>
+                  <span className="text-white font-bold">{srv.progreso}%</span>
+                </div>
+                <div className="h-2 bg-blue-950 rounded-full overflow-hidden">
+                  <div className="h-full bg-yellow-400 rounded-full transition-all" style={{ width: `${srv.progreso}%` }} />
+                </div>
+                <p className="text-blue-300 text-xs">
+                  {completadas} de {srv.tareas.length} tareas
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {services.length === 0 && (
+        <div className="text-center text-white">No hay servicios activos en este momento.</div>
+      )}
     </div>
   );
 }
