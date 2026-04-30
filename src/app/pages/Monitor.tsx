@@ -209,7 +209,7 @@ function GeneralView({ services, currentTime }: { services: Servicio[]; currentT
             <Monitor className="w-6 h-6 text-blue-900" />
           </div>
           <div>
-            <p className="text-white text-lg font-bold">TechService — Panel General</p>
+            <p className="text-white text-lg font-bold">Servicios STS — Panel General</p>
             <p className="text-blue-300 text-sm">{currentTime.toLocaleDateString("es-PE", { weekday: "long", day: "numeric", month: "long" })}</p>
           </div>
         </div>
@@ -259,7 +259,7 @@ function WaitingRoomView({ services, currentTime }: { services: Servicio[]; curr
   return (
     <div className="bg-gradient-to-b from-blue-900 to-blue-950 min-h-96 p-8 rounded-xl">
       <div className="text-center mb-6">
-        <p className="text-blue-300 text-sm mb-2">TechService — Sala de Espera</p>
+        <p className="text-blue-300 text-sm mb-2">Servicios STS — Sala de Espera</p>
         <p className="text-yellow-400 text-5xl mb-2 font-bold font-mono">
           {currentTime.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}
         </p>
