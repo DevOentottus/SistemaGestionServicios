@@ -284,13 +284,13 @@ function GeneralView({ services, currentTime }: { services: Servicio[]; currentT
 function WaitingRoomView({ services, currentTime }: { services: Servicio[]; currentTime: Date }) {
   return (
     <div className="bg-gradient-to-b from-blue-900 to-blue-950 min-h-96 p-6 rounded-xl overflow-y-auto max-h-[80vh]">
-      <div className="text-center mb-6 sticky top-0 bg-blue-900/90 py-2 rounded-lg z-10">
+      
         <p className="text-blue-300 text-sm mb-1">Servicios STS — Sala de Espera</p>
         <p className="text-yellow-400 text-4xl font-bold font-mono">
           {currentTime.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}
         </p>
         <p className="text-blue-200 text-xs">{services.length} servicio{services.length !== 1 ? 's' : ''} en proceso o finalizados hoy</p>
-      </div>
+      
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {services.map((srv) => {
