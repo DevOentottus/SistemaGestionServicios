@@ -272,11 +272,14 @@ function WaitingRoomView({ services, currentTime }: { services: Servicio[]; curr
           const completadas = srv.tareas.filter(t => t.completada).length;
           return (
             <div key={srv.id} className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-              <p className="text-yellow-400 text-xl mb-2 font-bold">{srv.codigo}</p>
-              <p className="text-white text-sm mb-3 truncate">{srv.cliente}</p>
-              <div className={`inline-block px-3 py-1 rounded-full ${cfg.bg} ${cfg.text} text-xs mb-3 font-bold`}>
-                {cfg.label}
-              </div>
+              <div className="flex items-center justify-between mb-2">
+              <p className="text-yellow-400 text-xl font-bold">{srv.codigo}</p>
+              <span className={`px-3 py-1 rounded-full ${cfg.bg} ${cfg.text} text-xs font-bold`}>
+              {cfg.label}
+              </span>
+            </div>
+
+            <p className="text-white text-sm mb-3 truncate">{srv.cliente}</p>
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-blue-300">Progreso</span>
