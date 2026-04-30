@@ -24,6 +24,7 @@ type Servicio = {
   descripcion: string;
   area: string | null;
   fecha_inicio: string;
+  fecha_fin: string | null;
   estado: string;
   progreso: number;
   tareas: Tarea[];
@@ -38,7 +39,6 @@ const statusConfig: Record<string, { bg: string; text: string; label: string; do
   "Bloqueado": { bg: "bg-red-600", text: "text-white", label: "BLOQUEADO", dot: "bg-red-300" },
 };
 
-// Función para extraer iniciales del nombre del cliente
 const getInitials = (cliente: string) => {
   if (!cliente) return "?";
   const words = cliente.trim().split(/\s+/);
@@ -52,16 +52,18 @@ export default function MonitorPage() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [services, setServices] = useState<Servicio[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+  const today = new Date().toISOString().split("T")[0];
 
   const fetchServices = useCallback(async () => {
     try {
-      // Obtener servicios del día actual
+      // Obtener servicios: 
+      //   - No completados (cualquier fecha de inicio)
+      //   - Con estado = 'Completado' y fecha_fin = hoy
+      // Usamos una condición OR: (estado != 'Completado') OR (estado = 'Completado' AND fecha_fin = hoy)
       const { data: serviciosData, error: servError } = await supabase
         .from("servicios")
         .select("*")
-        .eq("fecha_inicio", today)
+        .or(`estado.neq.Completado,and(estado.eq.Completado,fecha_fin.eq.${today})`)
         .order("fecha_inicio", { ascending: false });
 
       if (servError) throw servError;
@@ -113,6 +115,7 @@ export default function MonitorPage() {
           descripcion: s.descripcion,
           area: s.area,
           fecha_inicio: s.fecha_inicio,
+          fecha_fin: s.fecha_fin,
           estado: s.estado,
           progreso: s.progreso,
           tareas: tareas || [],
@@ -122,9 +125,10 @@ export default function MonitorPage() {
       }
 
       // Ordenar por última actualización (más reciente primero)
+      // Si no tiene ninguna tarea completada, usar fecha_inicio como respaldo
       const sorted = [...serviciosConDetalles].sort((a, b) => {
-        const dateA = a.ultima_actualizacion ? new Date(a.ultima_actualizacion).getTime() : 0;
-        const dateB = b.ultima_actualizacion ? new Date(b.ultima_actualizacion).getTime() : 0;
+        const dateA = a.ultima_actualizacion ? new Date(a.ultima_actualizacion).getTime() : new Date(a.fecha_inicio).getTime();
+        const dateB = b.ultima_actualizacion ? new Date(b.ultima_actualizacion).getTime() : new Date(b.fecha_inicio).getTime();
         return dateB - dateA;
       });
 
@@ -136,21 +140,19 @@ export default function MonitorPage() {
     }
   }, [today]);
 
-  // Refrescar cada 30 segundos
   useEffect(() => {
     fetchServices();
     const interval = setInterval(fetchServices, 30000);
     return () => clearInterval(interval);
   }, [fetchServices]);
 
-  // Reloj actual
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
   const activeServices = services.filter(s => s.estado !== "Completado");
-  const waitingServices = services; // Todos los servicios del día (para sala de espera)
+  const waitingServices = services; // Todos los servicios filtrados (no completados + completados hoy)
 
   if (isFullscreen) {
     return <FullscreenMonitor mode={mode} currentTime={currentTime} services={services} onExit={() => setIsFullscreen(false)} />;
@@ -226,9 +228,8 @@ export default function MonitorPage() {
   );
 }
 
-// Vista General (sin cambios, solo ajuste de tipos)
+// Vista General (sin cambios respecto a lo que ya tenías, se usa activeServices)
 function GeneralView({ services, currentTime }: { services: Servicio[]; currentTime: Date }) {
-  // ... (igual que antes, pero usando Servicio)
   return (
     <div className="bg-blue-950 min-h-96 p-6 rounded-xl">
       <div className="flex items-center justify-between mb-6">
@@ -237,7 +238,7 @@ function GeneralView({ services, currentTime }: { services: Servicio[]; currentT
             <Monitor className="w-6 h-6 text-blue-900" />
           </div>
           <div>
-            <p className="text-white text-lg font-bold">TechService — Panel General</p>
+            <p className="text-white text-lg font-bold">Servicios STS — Panel General</p>
             <p className="text-blue-300 text-sm">{currentTime.toLocaleDateString("es-PE", { weekday: "long", day: "numeric", month: "long" })}</p>
           </div>
         </div>
@@ -279,92 +280,61 @@ function GeneralView({ services, currentTime }: { services: Servicio[]; currentT
   );
 }
 
-// Sala de Espera (MODIFICADA según requerimientos)
+// Sala de Espera – una sola lista, sin secciones
 function WaitingRoomView({ services, currentTime }: { services: Servicio[]; currentTime: Date }) {
-  const enCurso = services.filter(s => s.estado !== "Completado");
-  const completados = services.filter(s => s.estado === "Completado");
-
   return (
     <div className="bg-gradient-to-b from-blue-900 to-blue-950 min-h-96 p-6 rounded-xl overflow-y-auto max-h-[80vh]">
       <div className="text-center mb-6 sticky top-0 bg-blue-900/90 py-2 rounded-lg z-10">
-        <p className="text-blue-300 text-sm mb-1">TechService — Sala de Espera</p>
+        <p className="text-blue-300 text-sm mb-1">Servicios STS — Sala de Espera</p>
         <p className="text-yellow-400 text-4xl font-bold font-mono">
           {currentTime.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}
         </p>
-        <p className="text-blue-200 text-xs">{services.length} servicios registrados hoy</p>
+        <p className="text-blue-200 text-xs">{services.length} servicio{services.length !== 1 ? 's' : ''} en proceso o finalizados hoy</p>
       </div>
 
-      {/* Servicios en curso */}
-      <div className="mb-8">
-        <h3 className="text-white text-lg font-semibold mb-3 flex items-center gap-2">
-          <Activity className="w-5 h-5 text-yellow-400" /> En curso
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {enCurso.map((srv) => (
-            <ServiceCard key={srv.id} service={srv} />
-          ))}
-        </div>
-        {enCurso.length === 0 && (
-          <p className="text-blue-300 text-sm text-center py-4">No hay servicios en curso.</p>
-        )}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {services.map((srv) => {
+          const cfg = statusConfig[srv.estado];
+          const completadas = srv.tareas.filter(t => t.completada).length;
+          return (
+            <div key={srv.id} className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20 hover:bg-white/15 transition">
+              <div className="flex justify-between items-start mb-2">
+                <p className="text-yellow-400 text-sm font-bold">
+                  {srv.codigo} <span className="text-blue-200 text-xs">({srv.cliente_iniciales})</span>
+                </p>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text} font-bold`}>
+                  {cfg.label}
+                </span>
+              </div>
+              <div className="space-y-2 mt-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-blue-300">Progreso</span>
+                  <span className="text-white font-bold">{srv.progreso}%</span>
+                </div>
+                <div className="h-2 bg-blue-950 rounded-full overflow-hidden">
+                  <div className="h-full bg-yellow-400 rounded-full transition-all" style={{ width: `${srv.progreso}%` }} />
+                </div>
+                <p className="text-blue-300 text-xs">
+                  {completadas} de {srv.tareas.length} tareas
+                </p>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Servicios completados */}
-      <div>
-        <h3 className="text-white text-lg font-semibold mb-3 flex items-center gap-2">
-          <CheckCircle2 className="w-5 h-5 text-green-400" /> Completados hoy
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {completados.map((srv) => (
-            <ServiceCard key={srv.id} service={srv} />
-          ))}
-        </div>
-        {completados.length === 0 && (
-          <p className="text-blue-300 text-sm text-center py-4">No hay servicios completados hoy.</p>
-        )}
-      </div>
+      {services.length === 0 && (
+        <p className="text-blue-300 text-center py-8">No hay servicios registrados para mostrar hoy.</p>
+      )}
     </div>
   );
 }
 
-// Componente tarjeta de servicio (reutilizable)
-function ServiceCard({ service }: { service: Servicio }) {
-  const cfg = statusConfig[service.estado];
-  const completadas = service.tareas.filter(t => t.completada).length;
-  const initials = service.cliente_iniciales;
-
-  return (
-    <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20 hover:bg-white/15 transition">
-      <div className="flex justify-between items-start mb-2">
-        <p className="text-yellow-400 text-sm font-bold">
-          {service.codigo} <span className="text-blue-200 text-xs">({initials})</span>
-        </p>
-        <span className={`text-xs px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.text} font-bold`}>
-          {cfg.label}
-        </span>
-      </div>
-      <div className="space-y-2 mt-2">
-        <div className="flex justify-between text-sm">
-          <span className="text-blue-300">Progreso</span>
-          <span className="text-white font-bold">{service.progreso}%</span>
-        </div>
-        <div className="h-2 bg-blue-950 rounded-full overflow-hidden">
-          <div className="h-full bg-yellow-400 rounded-full transition-all" style={{ width: `${service.progreso}%` }} />
-        </div>
-        <p className="text-blue-300 text-xs">
-          {completadas} de {service.tareas.length} tareas
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// Sala de Trabajo (sin cambios)
+// Sala de Trabajo (idéntica a la versión anterior, pero usando Servicio)
 function WorkRoomView({ services, currentTime }: { services: Servicio[]; currentTime: Date }) {
   const activeServices = services.filter(s => s.estado === "En progreso" || s.estado === "Bloqueado");
   return (
     <div className="bg-gray-950 min-h-96 p-6 rounded-xl overflow-y-auto">
-      {/* ... mismo código que antes, usando Servicio ... */}
       <div className="flex items-center justify-between mb-5">
         <div>
           <p className="text-white text-lg font-bold">Panel Técnico Interno</p>
@@ -410,7 +380,7 @@ function WorkRoomView({ services, currentTime }: { services: Servicio[]; current
   );
 }
 
-// Fullscreen Monitor (adaptado)
+// Fullscreen (idéntico)
 function FullscreenMonitor({ mode, currentTime, services, onExit }: { mode: MonitorMode; currentTime: Date; services: Servicio[]; onExit: () => void }) {
   const [time, setTime] = useState(currentTime);
   useEffect(() => {
