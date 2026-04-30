@@ -142,7 +142,7 @@ export default function MonitorPage() {
 
   useEffect(() => {
     fetchServices();
-    const interval = setInterval(fetchServices, 30000);
+    const interval = setInterval(fetchServices, 500);
     return () => clearInterval(interval);
   }, [fetchServices]);
 

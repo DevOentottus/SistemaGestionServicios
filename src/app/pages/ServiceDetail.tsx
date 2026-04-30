@@ -4,7 +4,21 @@ import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
 import { ArrowLeft, CheckCircle2, Circle, Clock, MessageSquare, Play, Send, UserPlus, X } from "lucide-react";
 
-type Servicio = { id: string; codigo: string | null; cliente: string | null; descripcion: string | null; area: string | null; fecha_inicio: string | null; hora_inicio: string | null; hora_estimada_fin: string | null; inicio_real: string | null; estado: "Pendiente" | "En progreso" | "Completado" | "Bloqueado"; progreso: number | null };
+type Servicio = { 
+  id: string; 
+  codigo: string | null; 
+  cliente: string | null; 
+  descripcion: string | null; 
+  area: string | null; 
+  fecha_inicio: string | null; 
+  hora_inicio: string | null; 
+  hora_estimada_fin: string | null; 
+  inicio_real: string | null; 
+  fecha_fin: string | null;
+  hora_fin: string | null;
+  estado: "Pendiente" | "En progreso" | "Completado" | "Bloqueado"; 
+  progreso: number | null 
+};
 type Tarea = { id: string; id_servicio: string; nombre: string; completada: boolean; fecha_completada: string | null; responsable: string | null; orden: number | null };
 type Comentario = { id: string; id_servicio: string; autor: string | null; rol: string | null; texto: string | null; fecha: string | null };
 type Note = { id: string; id_tarea: string; autor: string | null; rol: string | null; texto: string | null; tipo: "instruccion" | "comentario" | "observacion"; fecha: string | null };
@@ -37,7 +51,7 @@ export default function ServiceDetail() {
     setLoading(true);
     try {
       const [s, t, c, n, r, u] = await Promise.all([
-        supabase.from("servicios").select("id, codigo, cliente, descripcion, area, fecha_inicio, hora_inicio, hora_estimada_fin, inicio_real, estado, progreso").eq("id", id).maybeSingle(),
+        supabase.from("servicios").select("id, codigo, cliente, descripcion, area, fecha_inicio, hora_inicio, hora_estimada_fin, inicio_real, fecha_fin, hora_fin, estado, progreso").eq("id", id).maybeSingle(),
         supabase.from("tareas").select("id, id_servicio, nombre, completada, fecha_completada, responsable, orden").eq("id_servicio", id).order("orden"),
         supabase.from("comentarios").select("id, id_servicio, autor, rol, texto, fecha").eq("id_servicio", id).order("fecha"),
         supabase.from("task_notes").select("id, id_tarea, autor, rol, texto, tipo, fecha"),
@@ -68,14 +82,41 @@ export default function ServiceDetail() {
   const progress = tasks.length ? Math.round((completed / tasks.length) * 100) : 0;
   const selectedTaskNotes = notes.filter((n) => n.id_tarea === selectedTaskId);
 
-  const recalcProgressAndState = async (nextTasks: Tarea[]) => {
+  // Actualiza progreso, estado y fechas de inicio/fin según tareas
+  const updateServiceProgressAndDates = async (nextTasks: Tarea[]) => {
     if (!service) return;
-    const done = nextTasks.filter((t) => t.completada).length;
-    const prog = nextTasks.length ? Math.round((done / nextTasks.length) * 100) : 0;
-    const estado: Servicio["estado"] = prog === 100 ? "Completado" : prog > 0 ? "En progreso" : service.inicio_real ? "En progreso" : "Pendiente";
-    const { error } = await supabase.from("servicios").update({ progreso: prog, estado }).eq("id", service.id);
+    
+    const done = nextTasks.filter(t => t.completada).length;
+    const total = nextTasks.length;
+    const prog = total === 0 ? 0 : Math.round((done / total) * 100);
+    
+    let estado: Servicio["estado"] = prog === 100 ? "Completado" : (prog > 0 ? "En progreso" : "Pendiente");
+    let fecha_fin = service.fecha_fin;
+    let hora_fin = service.hora_fin;
+    let inicio_real = service.inicio_real;
+    
+    if (prog === 100 && !service.fecha_fin) {
+      const now = new Date();
+      fecha_fin = now.toISOString().split('T')[0];
+      hora_fin = now.toTimeString().split(' ')[0].slice(0,5);
+    }
+    if (prog !== 100 && service.fecha_fin) {
+      fecha_fin = null;
+      hora_fin = null;
+    }
+    if (prog > 0 && !service.inicio_real) {
+      inicio_real = new Date().toISOString();
+    }
+    
+    const updateData: any = { progreso: prog, estado };
+    if (fecha_fin !== undefined) updateData.fecha_fin = fecha_fin;
+    if (hora_fin !== undefined) updateData.hora_fin = hora_fin;
+    if (inicio_real !== undefined) updateData.inicio_real = inicio_real;
+    
+    const { error } = await supabase.from("servicios").update(updateData).eq("id", service.id);
     if (error) throw error;
-    setService((prev) => prev ? { ...prev, progreso: prog, estado } : prev);
+    
+    setService(prev => prev ? { ...prev, ...updateData } : prev);
   };
 
   const startService = async () => {
@@ -98,12 +139,17 @@ export default function ServiceDetail() {
     if (!service) return;
     setSaving(true);
     try {
-      const update = { completada: !task.completada, fecha_completada: !task.completada ? new Date().toISOString() : null, responsable: !task.completada ? currentUser?.id_usuario || null : null };
-      const { error } = await supabase.from("tareas").update(update).eq("id", task.id);
-      if (error) throw error;
-      const next = tasks.map((t) => t.id === task.id ? { ...t, ...update } : t);
+      const update = {
+        completada: !task.completada,
+        fecha_completada: !task.completada ? new Date().toISOString() : null,
+        responsable: !task.completada ? currentUser?.id_usuario || null : null
+      };
+      const { error: tError } = await supabase.from("tareas").update(update).eq("id", task.id);
+      if (tError) throw tError;
+      
+      const next = tasks.map(t => t.id === task.id ? { ...t, ...update } : t);
       setTasks(next);
-      await recalcProgressAndState(next);
+      await updateServiceProgressAndDates(next);
     } catch (err) {
       console.error(err);
       alert("Error actualizando tarea");
@@ -183,7 +229,7 @@ export default function ServiceDetail() {
             <p className="text-xs text-blue-700 bg-blue-100 inline-block px-2 py-1 rounded-lg" style={{ fontWeight: 700 }}>{service.codigo || "SIN-CODIGO"}</p>
             <h2 className="text-gray-900 mt-2" style={{ fontWeight: 700 }}>{service.descripcion}</h2>
             <p className="text-sm text-gray-500">{service.cliente} · Estado: {service.estado}</p>
-            <p className="text-xs text-gray-400 mt-1">Progreso {progress}% ({completed}/{tasks.length}) · Inicio {service.fecha_inicio || "—"} {service.hora_inicio || ""} · Fin estimado {service.hora_estimada_fin || "—"}</p>
+            <p className="text-xs text-gray-400 mt-1">Progreso {progress}% ({completed}/{tasks.length}) · Inicio {service.fecha_inicio || "—"} {service.hora_inicio || ""} · Fin estimado {service.hora_estimada_fin || "—"} {service.fecha_fin && `· Finalizado ${service.fecha_fin} ${service.hora_fin || ""}`}</p>
           </div>
           {service.estado === "Pendiente" && (
             <button disabled={saving} onClick={startService} className="bg-green-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:bg-green-700">
