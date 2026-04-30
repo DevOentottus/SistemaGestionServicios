@@ -105,7 +105,7 @@ export default function MonitorPage() {
   // Refrescar cada 30 segundos
   useEffect(() => {
     fetchServices();
-    const interval = setInterval(fetchServices, 30000);
+    const interval = setInterval(fetchServices, 1000);
     return () => clearInterval(interval);
   }, [fetchServices]);
 
