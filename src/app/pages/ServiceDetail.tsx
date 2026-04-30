@@ -44,8 +44,6 @@ export default function ServiceDetail() {
   const [noteType, setNoteType] = useState<Note["tipo"]>("comentario");
   const [showAddTech, setShowAddTech] = useState(false);
 
-  const authorName = currentUser ? `${currentUser.nombres} ${currentUser.apellido_paterno || ""}`.trim() : "Usuario";
-
   const fetchData = async () => {
     if (!id) return;
     setLoading(true);
@@ -77,12 +75,11 @@ export default function ServiceDetail() {
     fetchData();
   }, [id]);
 
-  const techNames = useMemo(() => rels.map((r) => users.find((u) => u.id_usuario === r.id_usuario)).filter(Boolean).map((u) => `${u!.nombres} ${u!.apellido_paterno || ""}`.trim()), [rels, users]);
   const completed = tasks.filter((t) => t.completada).length;
   const progress = tasks.length ? Math.round((completed / tasks.length) * 100) : 0;
   const selectedTaskNotes = notes.filter((n) => n.id_tarea === selectedTaskId);
 
-  // Actualiza progreso, estado y fechas de inicio/fin según tareas
+  // Actualiza progreso, estado y fechas de inicio/fin
   const updateServiceProgressAndDates = async (nextTasks: Tarea[]) => {
     if (!service) return;
     
@@ -95,17 +92,23 @@ export default function ServiceDetail() {
     let hora_fin = service.hora_fin;
     let inicio_real = service.inicio_real;
     
+    // Si alcanzó 100% y aún no tiene fecha_fin, registrar ahora
     if (prog === 100 && !service.fecha_fin) {
       const now = new Date();
       fecha_fin = now.toISOString().split('T')[0];
       hora_fin = now.toTimeString().split(' ')[0].slice(0,5);
+      console.log(`✅ Servicio completado. Fecha fin: ${fecha_fin} ${hora_fin}`);
     }
+    // Si baja del 100% y tenía fecha_fin, limpiar
     if (prog !== 100 && service.fecha_fin) {
       fecha_fin = null;
       hora_fin = null;
+      console.log(`🔄 Progreso < 100%, se eliminó fecha_fin/hora_fin`);
     }
+    // Si hay progreso >0 y no tiene inicio_real, asignar ahora (por si nunca se presionó "Iniciar")
     if (prog > 0 && !service.inicio_real) {
       inicio_real = new Date().toISOString();
+      console.log(`🕒 Asignando inicio_real automático: ${inicio_real}`);
     }
     
     const updateData: any = { progreso: prog, estado };
@@ -127,6 +130,7 @@ export default function ServiceDetail() {
       const { error } = await supabase.from("servicios").update({ inicio_real: nowIso, estado: "En progreso" }).eq("id", service.id);
       if (error) throw error;
       setService({ ...service, inicio_real: nowIso, estado: "En progreso" });
+      console.log(`🚀 Servicio iniciado manualmente a las ${nowIso}`);
     } catch (err) {
       console.error(err);
       alert("Error iniciando servicio");
@@ -139,17 +143,20 @@ export default function ServiceDetail() {
     if (!service) return;
     setSaving(true);
     try {
+      const newCompletada = !task.completada;
       const update = {
-        completada: !task.completada,
-        fecha_completada: !task.completada ? new Date().toISOString() : null,
-        responsable: !task.completada ? currentUser?.id_usuario || null : null
+        completada: newCompletada,
+        fecha_completada: newCompletada ? new Date().toISOString() : null,
+        responsable: newCompletada ? currentUser?.id_usuario || null : null
       };
       const { error: tError } = await supabase.from("tareas").update(update).eq("id", task.id);
       if (tError) throw tError;
       
-      const next = tasks.map(t => t.id === task.id ? { ...t, ...update } : t);
-      setTasks(next);
-      await updateServiceProgressAndDates(next);
+      // Actualizar estado local de tareas
+      const updatedTasks = tasks.map(t => t.id === task.id ? { ...t, ...update } : t);
+      setTasks(updatedTasks);
+      // Recalcular progreso y fechas del servicio
+      await updateServiceProgressAndDates(updatedTasks);
     } catch (err) {
       console.error(err);
       alert("Error actualizando tarea");
@@ -219,6 +226,10 @@ export default function ServiceDetail() {
   const available = areaCandidates.filter((u) => !assigned.has(u.id_usuario));
   const canManage = currentUser?.rol === "Administrador" || currentUser?.rol === "Encargado";
 
+  // Formatear fecha/hora para mostrar (local)
+  const formatDate = (iso: string | null) => iso ? new Date(iso).toLocaleDateString() : "—";
+  const formatTime = (iso: string | null) => iso ? new Date(iso).toLocaleTimeString() : "—";
+
   return (
     <div className="space-y-5">
       <button onClick={() => navigate("/services")} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800"><ArrowLeft className="w-4 h-4" /> Volver</button>
@@ -229,7 +240,12 @@ export default function ServiceDetail() {
             <p className="text-xs text-blue-700 bg-blue-100 inline-block px-2 py-1 rounded-lg" style={{ fontWeight: 700 }}>{service.codigo || "SIN-CODIGO"}</p>
             <h2 className="text-gray-900 mt-2" style={{ fontWeight: 700 }}>{service.descripcion}</h2>
             <p className="text-sm text-gray-500">{service.cliente} · Estado: {service.estado}</p>
-            <p className="text-xs text-gray-400 mt-1">Progreso {progress}% ({completed}/{tasks.length}) · Inicio {service.fecha_inicio || "—"} {service.hora_inicio || ""} · Fin estimado {service.hora_estimada_fin || "—"} {service.fecha_fin && `· Finalizado ${service.fecha_fin} ${service.hora_fin || ""}`}</p>
+            <p className="text-xs text-gray-400 mt-1">
+              Progreso {progress}% ({completed}/{tasks.length}) · 
+              Inicio planificado: {service.fecha_inicio || "—"} {service.hora_inicio || ""} · 
+              Inicio real: {formatDate(service.inicio_real)} {formatTime(service.inicio_real)} · 
+              Fin real: {service.fecha_fin || "—"} {service.hora_fin || ""}
+            </p>
           </div>
           {service.estado === "Pendiente" && (
             <button disabled={saving} onClick={startService} className="bg-green-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:bg-green-700">
@@ -275,9 +291,15 @@ export default function ServiceDetail() {
           {tasks.map((t, idx) => (
             <div key={t.id} className="border border-gray-100 rounded-xl p-3">
               <div className="flex items-center gap-3">
-                <button disabled={saving} onClick={() => toggleTask(t)}>{t.completada ? <CheckCircle2 className="w-5 h-5 text-green-600" /> : <Circle className="w-5 h-5 text-gray-400" />}</button>
-                <p className={`text-sm flex-1 ${t.completada ? "line-through text-gray-400" : "text-gray-800"}`}><span className="text-gray-400 mr-1">{idx + 1}.</span>{t.nombre}</p>
-                <button onClick={() => setSelectedTaskId(selectedTaskId === t.id ? null : t.id)} className="text-xs text-blue-700"><MessageSquare className="w-4 h-4" /></button>
+                <button disabled={saving} onClick={() => toggleTask(t)}>
+                  {t.completada ? <CheckCircle2 className="w-5 h-5 text-green-600" /> : <Circle className="w-5 h-5 text-gray-400" />}
+                </button>
+                <p className={`text-sm flex-1 ${t.completada ? "line-through text-gray-400" : "text-gray-800"}`}>
+                  <span className="text-gray-400 mr-1">{idx + 1}.</span>{t.nombre}
+                </p>
+                <button onClick={() => setSelectedTaskId(selectedTaskId === t.id ? null : t.id)} className="text-xs text-blue-700">
+                  <MessageSquare className="w-4 h-4" />
+                </button>
               </div>
               {selectedTaskId === t.id && (
                 <div className="mt-3 border-t border-gray-100 pt-3 space-y-2">
