@@ -102,10 +102,10 @@ export default function MonitorPage() {
     }
   }, []);
 
-  // Refrescar cada 30 segundos
+  // Refrescar cada 5 milisegundos (0.5 segundos) para tener datos casi en tiempo real
   useEffect(() => {
     fetchServices();
-    const interval = setInterval(fetchServices, 1000);
+    const interval = setInterval(fetchServices, 500);
     return () => clearInterval(interval);
   }, [fetchServices]);
 
@@ -272,7 +272,6 @@ function WaitingRoomView({ services, currentTime }: { services: Servicio[]; curr
           const completadas = srv.tareas.filter(t => t.completada).length;
           return (
             <div key={srv.id} className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-              <p className="text-blue-200 text-sm mb-1">Servicio</p>
               <p className="text-yellow-400 text-xl mb-2 font-bold">{srv.codigo}</p>
               <p className="text-white text-sm mb-3 truncate">{srv.cliente}</p>
               <div className={`inline-block px-3 py-1 rounded-full ${cfg.bg} ${cfg.text} text-xs mb-3 font-bold`}>
