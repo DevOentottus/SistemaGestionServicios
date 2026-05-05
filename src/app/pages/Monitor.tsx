@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../../lib/supabase";
 import {
   Monitor, Clock, CheckCircle2, AlertTriangle, Activity,
@@ -29,7 +29,7 @@ type Servicio = {
   progreso: number;
   tareas: Tarea[];
   tecnicos: string[];
-  ultima_actualizacion: string | null; // última fecha de tarea completada
+  ultima_actualizacion: string | null;
 };
 
 const statusConfig: Record<string, { bg: string; text: string; label: string; dot: string }> = {
@@ -47,6 +47,7 @@ const getInitials = (cliente: string) => {
 };
 
 export default function MonitorPage() {
+  const containerRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<MonitorMode>("general");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -56,10 +57,6 @@ export default function MonitorPage() {
 
   const fetchServices = useCallback(async () => {
     try {
-      // Obtener servicios: 
-      //   - No completados (cualquier fecha de inicio)
-      //   - Con estado = 'Completado' y fecha_fin = hoy
-      // Usamos una condición OR: (estado != 'Completado') OR (estado = 'Completado' AND fecha_fin = hoy)
       const { data: serviciosData, error: servError } = await supabase
         .from("servicios")
         .select("*")
@@ -70,7 +67,6 @@ export default function MonitorPage() {
 
       const serviciosConDetalles: Servicio[] = [];
       for (const s of serviciosData || []) {
-        // Obtener tareas
         const { data: tareas, error: tareasError } = await supabase
           .from("tareas")
           .select("*")
@@ -78,7 +74,6 @@ export default function MonitorPage() {
           .order("orden", { ascending: true });
         if (tareasError) throw tareasError;
 
-        // Calcular última actualización (máximo fecha_completada entre tareas)
         let ultimaActualizacion: string | null = null;
         if (tareas && tareas.length > 0) {
           const fechas = tareas
@@ -90,7 +85,6 @@ export default function MonitorPage() {
           }
         }
 
-        // Obtener técnicos
         const { data: tecRel, error: tecError } = await supabase
           .from("servicio_tecnicos")
           .select("id_usuario")
@@ -124,8 +118,6 @@ export default function MonitorPage() {
         });
       }
 
-      // Ordenar por última actualización (más reciente primero)
-      // Si no tiene ninguna tarea completada, usar fecha_inicio como respaldo
       const sorted = [...serviciosConDetalles].sort((a, b) => {
         const dateA = a.ultima_actualizacion ? new Date(a.ultima_actualizacion).getTime() : new Date(a.fecha_inicio).getTime();
         const dateB = b.ultima_actualizacion ? new Date(b.ultima_actualizacion).getTime() : new Date(b.fecha_inicio).getTime();
@@ -151,12 +143,29 @@ export default function MonitorPage() {
     return () => clearInterval(timer);
   }, []);
 
-  const activeServices = services.filter(s => s.estado !== "Completado");
-  const waitingServices = services; // Todos los servicios filtrados (no completados + completados hoy)
+  // Listen for native fullscreen changes
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
 
-  if (isFullscreen) {
-    return <FullscreenMonitor mode={mode} currentTime={currentTime} services={services} onExit={() => setIsFullscreen(false)} />;
-  }
+  const enterFullscreen = async () => {
+    try {
+      await containerRef.current?.requestFullscreen();
+    } catch {
+      // Fallback: use the old fullscreen overlay
+    }
+  };
+
+  const exitFullscreen = async () => {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+    }
+  };
+
+  const activeServices = services.filter(s => s.estado !== "Completado");
+  const waitingServices = services;
 
   if (loading) {
     return (
@@ -167,7 +176,7 @@ export default function MonitorPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div ref={containerRef} className="space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
@@ -175,11 +184,11 @@ export default function MonitorPage() {
           <p className="text-gray-500 text-sm">Visualización en tiempo real para pantallas y sala de espera</p>
         </div>
         <button
-          onClick={() => setIsFullscreen(true)}
+          onClick={isFullscreen ? exitFullscreen : enterFullscreen}
           className="flex items-center gap-2 bg-blue-900 hover:bg-blue-800 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition"
         >
-          <Maximize2 className="w-4 h-4" />
-          Modo Pantalla Completa
+          {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+          {isFullscreen ? "Salir de Pantalla Completa" : "Modo Pantalla Completa"}
         </button>
       </div>
 
@@ -205,30 +214,47 @@ export default function MonitorPage() {
         ))}
       </div>
 
-      {/* Preview */}
-      <div className="bg-gray-900 rounded-2xl overflow-hidden shadow-xl border-4 border-gray-800">
-        <div className="bg-gray-800 px-4 py-2 flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-red-500" />
-          <div className="w-3 h-3 rounded-full bg-yellow-500" />
-          <div className="w-3 h-3 rounded-full bg-green-500" />
-          <span className="ml-2 text-gray-400 text-xs">Monitor Preview — {mode === "general" ? "Vista General" : mode === "sala-espera" ? "Sala de Espera" : "Sala de Trabajo"}</span>
-          <div className="ml-auto flex items-center gap-1.5 text-green-400 text-xs">
-            <Wifi className="w-3 h-3" />
-            <span>En vivo</span>
-            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-          </div>
-        </div>
-        <div style={{ minHeight: "500px" }} className="p-1">
+      {/* Preview / Content */}
+      {isFullscreen ? (
+        /* Fullscreen: no browser frame, direct content with floating exit */
+        <div className="relative min-h-screen">
+          <button
+            onClick={exitFullscreen}
+            className="fixed top-4 right-4 z-[9999] flex items-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white px-3 py-2 rounded-xl text-sm transition"
+          >
+            <Minimize2 className="w-4 h-4" />
+            Salir (Esc)
+          </button>
           {mode === "general" && <GeneralView services={activeServices} currentTime={currentTime} />}
           {mode === "sala-espera" && <WaitingRoomView services={waitingServices} currentTime={currentTime} />}
           {mode === "sala-trabajo" && <WorkRoomView services={services} currentTime={currentTime} />}
         </div>
-      </div>
+      ) : (
+        /* Normal: browser-frame preview */
+        <div className="bg-gray-900 rounded-2xl overflow-hidden shadow-xl border-4 border-gray-800">
+          <div className="bg-gray-800 px-4 py-2 flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-red-500" />
+            <div className="w-3 h-3 rounded-full bg-yellow-500" />
+            <div className="w-3 h-3 rounded-full bg-green-500" />
+            <span className="ml-2 text-gray-400 text-xs">Monitor — {mode === "general" ? "Vista General" : mode === "sala-espera" ? "Sala de Espera" : "Sala de Trabajo"}</span>
+            <div className="ml-auto flex items-center gap-1.5 text-green-400 text-xs">
+              <Wifi className="w-3 h-3" />
+              <span>En vivo</span>
+              <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+            </div>
+          </div>
+          <div style={{ minHeight: "500px" }} className="p-1">
+            {mode === "general" && <GeneralView services={activeServices} currentTime={currentTime} />}
+            {mode === "sala-espera" && <WaitingRoomView services={waitingServices} currentTime={currentTime} />}
+            {mode === "sala-trabajo" && <WorkRoomView services={services} currentTime={currentTime} />}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// Vista General (sin cambios respecto a lo que ya tenías, se usa activeServices)
+// Vista General
 function GeneralView({ services, currentTime }: { services: Servicio[]; currentTime: Date }) {
   return (
     <div className="bg-blue-950 min-h-96 p-6 rounded-xl">
@@ -280,26 +306,19 @@ function GeneralView({ services, currentTime }: { services: Servicio[]; currentT
   );
 }
 
-// Sala de Espera – una sola lista, sin secciones
+// Sala de Espera
 function WaitingRoomView({ services, currentTime }: { services: Servicio[]; currentTime: Date }) {
   return (
     <div className="bg-gradient-to-b from-blue-900 to-blue-950 min-h-96 p-6 rounded-xl overflow-y-auto max-h-[80vh]">
       <div className="text-center mb-6 sticky top-0 z-10">
-  <p className="text-blue-300 text-sm mb-1">
-    Servicios STS — Sala de Espera
-  </p>
-
-  <p className="text-yellow-400 text-4xl font-bold font-mono">
-    {currentTime.toLocaleTimeString("es-PE", {
-      hour: "2-digit",
-      minute: "2-digit",
-    })}
-  </p>
-
-  <p className="text-blue-200 text-xs">
-    {services.length} servicio{services.length !== 1 ? "s" : ""} en proceso o finalizados hoy
-  </p>
-</div>
+        <p className="text-blue-300 text-sm mb-1">Servicios STS — Sala de Espera</p>
+        <p className="text-yellow-400 text-4xl font-bold font-mono">
+          {currentTime.toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}
+        </p>
+        <p className="text-blue-200 text-xs">
+          {services.length} servicio{services.length !== 1 ? "s" : ""} en proceso o finalizados hoy
+        </p>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {services.map((srv) => {
@@ -339,7 +358,7 @@ function WaitingRoomView({ services, currentTime }: { services: Servicio[]; curr
   );
 }
 
-// Sala de Trabajo (idéntica a la versión anterior, pero usando Servicio)
+// Sala de Trabajo
 function WorkRoomView({ services, currentTime }: { services: Servicio[]; currentTime: Date }) {
   const activeServices = services.filter(s => s.estado === "En progreso" || s.estado === "Bloqueado");
   return (
@@ -385,33 +404,6 @@ function WorkRoomView({ services, currentTime }: { services: Servicio[]; current
           );
         })}
       </div>
-    </div>
-  );
-}
-
-// Fullscreen (idéntico)
-function FullscreenMonitor({ mode, currentTime, services, onExit }: { mode: MonitorMode; currentTime: Date; services: Servicio[]; onExit: () => void }) {
-  const [time, setTime] = useState(currentTime);
-  useEffect(() => {
-    const t = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(t);
-  }, []);
-
-  const activeServices = services.filter(s => s.estado !== "Completado");
-  const waitingServices = services;
-
-  return (
-    <div className="fixed inset-0 z-50 bg-blue-950 overflow-auto">
-      <button
-        onClick={onExit}
-        className="absolute top-4 right-4 z-10 flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-3 py-2 rounded-xl text-sm transition"
-      >
-        <Minimize2 className="w-4 h-4" />
-        Salir de pantalla completa
-      </button>
-      {mode === "general" && <GeneralView services={activeServices} currentTime={time} />}
-      {mode === "sala-espera" && <WaitingRoomView services={waitingServices} currentTime={time} />}
-      {mode === "sala-trabajo" && <WorkRoomView services={services} currentTime={time} />}
     </div>
   );
 }
