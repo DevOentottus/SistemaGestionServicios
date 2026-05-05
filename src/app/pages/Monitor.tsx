@@ -192,28 +192,6 @@ export default function MonitorPage() {
         </button>
       </div>
 
-      {/* Mode selector */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {([
-          { id: "general", label: "Vista General", desc: "Todos los servicios en curso", icon: Monitor },
-          { id: "sala-espera", label: "Sala de Espera", desc: "Vista para clientes", icon: Clock },
-          { id: "sala-trabajo", label: "Sala de Trabajo", desc: "Vista interna para técnicos", icon: Users },
-        ] as const).map((m) => (
-          <button
-            key={m.id}
-            onClick={() => setMode(m.id)}
-            className={`p-4 rounded-2xl border-2 text-left transition
-            ${mode === m.id ? "border-blue-600 bg-blue-50" : "border-gray-100 bg-white hover:border-gray-200"}`}
-          >
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${mode === m.id ? "bg-blue-900" : "bg-gray-100"}`}>
-              <m.icon className={`w-5 h-5 ${mode === m.id ? "text-yellow-400" : "text-gray-500"}`} />
-            </div>
-            <p className="text-gray-900 text-sm font-semibold">{m.label}</p>
-            <p className="text-gray-500 text-xs">{m.desc}</p>
-          </button>
-        ))}
-      </div>
-
       {/* Preview / Content */}
       {isFullscreen ? (
         /* Fullscreen: no browser frame, direct content with floating exit */
@@ -225,6 +203,26 @@ export default function MonitorPage() {
             <Minimize2 className="w-4 h-4" />
             Salir (Esc)
           </button>
+
+          {/* Mode selector — only visible in fullscreen */}
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex gap-2">
+            {([
+              { id: "general", label: "Vista General", icon: Monitor },
+              { id: "sala-espera", label: "Sala de Espera", icon: Clock },
+              { id: "sala-trabajo", label: "Sala de Trabajo", icon: Users },
+            ] as const).map((m) => (
+              <button
+                key={m.id}
+                onClick={() => setMode(m.id)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold backdrop-blur-sm transition
+                ${mode === m.id ? "bg-yellow-400 text-blue-900" : "bg-white/10 hover:bg-white/20 text-white"}`}
+              >
+                <m.icon className="w-4 h-4" />
+                {m.label}
+              </button>
+            ))}
+          </div>
+
           {mode === "general" && <GeneralView services={activeServices} currentTime={currentTime} />}
           {mode === "sala-espera" && <WaitingRoomView services={waitingServices} currentTime={currentTime} />}
           {mode === "sala-trabajo" && <WorkRoomView services={services} currentTime={currentTime} />}
@@ -236,7 +234,7 @@ export default function MonitorPage() {
             <div className="w-3 h-3 rounded-full bg-red-500" />
             <div className="w-3 h-3 rounded-full bg-yellow-500" />
             <div className="w-3 h-3 rounded-full bg-green-500" />
-            <span className="ml-2 text-gray-400 text-xs">Monitor — {mode === "general" ? "Vista General" : mode === "sala-espera" ? "Sala de Espera" : "Sala de Trabajo"}</span>
+            <span className="ml-2 text-gray-400 text-xs">Vista previa del monitor</span>
             <div className="ml-auto flex items-center gap-1.5 text-green-400 text-xs">
               <Wifi className="w-3 h-3" />
               <span>En vivo</span>
@@ -244,9 +242,13 @@ export default function MonitorPage() {
             </div>
           </div>
           <div style={{ minHeight: "500px" }} className="p-1">
-            {mode === "general" && <GeneralView services={activeServices} currentTime={currentTime} />}
-            {mode === "sala-espera" && <WaitingRoomView services={waitingServices} currentTime={currentTime} />}
-            {mode === "sala-trabajo" && <WorkRoomView services={services} currentTime={currentTime} />}
+            <div className="bg-blue-950 p-6 rounded-xl min-h-96 flex items-center justify-center">
+              <div className="text-center text-blue-300">
+                <Monitor className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p className="text-lg font-semibold">Selecciona "Pantalla Completa"</p>
+                <p className="text-sm mt-1">para visualizar el monitor</p>
+              </div>
+            </div>
           </div>
         </div>
       )}
