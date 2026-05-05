@@ -17,7 +17,7 @@ import {
 // ────────────────────────────────────────────────────
 const computeDays = (start: string, end?: string) => {
   const s = new Date(start);
-  const e = end ? new Date(end) : new Date("2024-04-18");
+  const e = end ? new Date(end) : new Date();
   return Math.max(0, Math.floor((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)));
 };
 
@@ -88,6 +88,12 @@ const infoKPIs = [
   { subject: "Trazabilidad", value: Math.round((fullyTraced.length / servicios.length) * 100) },
   { subject: "Comentarios",  value: Math.round((servicios.filter(s => s.comentarios.length > 0).length / servicios.length) * 100) },
 ];
+
+const COLOR_MAP: Record<string, { bg: string; text700: string; text400: string }> = {
+  green: { bg: "bg-green-50", text700: "text-green-700", text400: "text-green-400" },
+  orange: { bg: "bg-orange-50", text700: "text-orange-700", text400: "text-orange-400" },
+  red: { bg: "bg-red-50", text700: "text-red-700", text400: "text-red-400" },
+};
 
 const sectionIds = ["alertas", "kpis", "operativo", "equipo", "realtime", "trazabilidad"];
 const sectionLabels = ["🚨 Alertas", "📊 KPIs", "📈 Operativo", "👥 Equipo", "⏱ Tiempo Real", "🔍 Trazabilidad"];
@@ -376,13 +382,16 @@ export default function Dashboard() {
                 { label: "Días prom.", value: avgDays, sub: "por servicio", color: avgDays <= 7 ? "green" : "orange" },
                 { label: "A tiempo", value: `${completedServices.length > 0 ? Math.round((completedServices.filter(s => computeDays(s.fechaInicio, s.fechaFin) <= 10).length / completedServices.length) * 100) : 0}%`, sub: "completados", color: "green" },
                 { label: "Retrasados", value: delayedServices.length, sub: "en progreso", color: delayedServices.length > 0 ? "red" : "green" },
-              ].map((m) => (
-                <div key={m.label} className={`rounded-xl p-3 text-center bg-${m.color}-50`}>
-                  <p className={`text-${m.color}-700 text-2xl`} style={{ fontWeight: 800 }}>{m.value}</p>
-                  <p className={`text-${m.color}-700 text-xs`} style={{ fontWeight: 600 }}>{m.label}</p>
-                  <p className={`text-${m.color}-400 text-xs`}>{m.sub}</p>
+              ].map((m) => {
+                const c = COLOR_MAP[m.color] ?? COLOR_MAP.green;
+                return (
+                <div key={m.label} className={`rounded-xl p-3 text-center ${c.bg}`}>
+                  <p className={`${c.text700} text-2xl`} style={{ fontWeight: 800 }}>{m.value}</p>
+                  <p className={`${c.text700} text-xs`} style={{ fontWeight: 600 }}>{m.label}</p>
+                  <p className={`${c.text400} text-xs`}>{m.sub}</p>
                 </div>
-              ))}
+                );
+              })}
             </div>
             <div className="bg-green-50 rounded-xl px-3 py-2">
               <p className="text-xs text-green-800" style={{ fontWeight: 600 }}>

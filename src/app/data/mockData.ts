@@ -1,40 +1,6 @@
-// ============ Modelo de Datos ============
+// ============ Modelo de Datos Unificado ============
 
 export type Role = "Administrador" | "Encargado" | "Colaborador" | "Cliente";
-
-export interface Usuarios {
-  id_usuario: string;
-  dni: string;
-  nombres: string;
-  apellido_paterno: string;
-  apellido_materno: string;
-  telefono: string;
-  correo: string;
-  id_area_principal: string;
-  id_area_adicional: string;
-  encargado_area_principal: boolean;
-  encargado_area_adicional: boolean;
-  rol: Role;
-  username: string;
-  password_hash: string;
-  fecha_actualizacion_password: Date;
-  ultimo_login: Date;
-  fecha_creacion: Date;
-  activo: boolean;
-  ocupado: boolean;
-}
-
-export interface User {
-  id: string;
-  username: string;
-  password: string;
-  nombre: string;
-  apellido: string;
-  rol: Role;
-  email: string;
-  area?: string;
-  activo: boolean;
-}
 
 export interface Collaborator {
   id: string;
@@ -148,17 +114,6 @@ export interface AuditLog {
 }
 
 // ============ Inserción de registros ============
-
-// ============ USUARIOS ============
-export const usuarios: User[] = [
-  { id: "u1", username: "admin", password: "admin123", nombre: "Carlos", apellido: "Mendoza", rol: "Administrador", email: "admin@techservice.com", activo: true },
-  { id: "u2", username: "jlopez01", password: "pass123", nombre: "Juan", apellido: "López", rol: "Encargado", email: "jlopez@techservice.com", area: "Electrónica", activo: true },
-  { id: "u3", username: "mramirez01", password: "pass123", nombre: "María", apellido: "Ramírez", rol: "Encargado", email: "mramirez@techservice.com", area: "Mecánica", activo: true },
-  { id: "u4", username: "ptorres01", password: "pass123", nombre: "Pedro", apellido: "Torres", rol: "Colaborador", email: "ptorres@techservice.com", area: "Electrónica", activo: true },
-  { id: "u5", username: "lcastillo01", password: "pass123", nombre: "Lucía", apellido: "Castillo", rol: "Colaborador", email: "lcastillo@techservice.com", area: "Mecánica", activo: true },
-  { id: "u6", username: "rgarcia01", password: "pass123", nombre: "Roberto", apellido: "García", rol: "Colaborador", email: "rgarcia@techservice.com", area: "Software", activo: true },
-  { id: "u7", username: "cliente", password: "cliente123", nombre: "Ana", apellido: "García", rol: "Cliente", email: "ana.garcia@empresa.com", activo: true },
-];
 
 // ============ COLABORADORES ============
 export const colaboradores: Collaborator[] = [

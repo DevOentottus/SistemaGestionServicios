@@ -33,6 +33,8 @@ export default function Login() {
     setPassword(p);
   };
 
+  const isDemoMode = import.meta.env.VITE_DEMO_MODE === "true";
+
   return (
     <div className="min-h-screen flex" style={{ background: "linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 50%, #2563eb 100%)" }}>
       {/* Left panel */}
@@ -133,27 +135,29 @@ export default function Login() {
             </button>
           </form>
 
-          <div className="mt-6 pt-5 border-t border-gray-100">
-            <p className="text-xs text-gray-400 mb-3" style={{ fontWeight: 600 }}>ACCESO RÁPIDO (DEMO)</p>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { label: "Administrador", u: "JUPEREZ", p: "12345678", color: "bg-blue-100 text-blue-800" },
-                { label: "Encargado", u: "jlopez01", p: "pass123", color: "bg-amber-100 text-amber-800" },
-                { label: "Colaborador", u: "ptorres01", p: "pass123", color: "bg-green-100 text-green-800" },
-                { label: "Cliente", u: "cliente", p: "cliente123", color: "bg-purple-100 text-purple-800" },
-              ].map((r) => (
-                <button
-                  key={r.label}
-                  onClick={() => quickLogin(r.u, r.p)}
-                  className={`${r.color} rounded-lg px-3 py-2 text-xs text-left transition hover:opacity-80`}
-                  style={{ fontWeight: 600 }}
-                >
-                  {r.label}
-                  <span className="block text-xs opacity-70" style={{ fontWeight: 400 }}>{r.u}</span>
-                </button>
-              ))}
+          {isDemoMode && (
+            <div className="mt-6 pt-5 border-t border-gray-100">
+              <p className="text-xs text-gray-400 mb-3" style={{ fontWeight: 600 }}>ACCESO RÁPIDO (DEMO)</p>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: "Administrador", u: "JUPEREZ", p: "12345678", color: "bg-blue-100 text-blue-800" },
+                  { label: "Encargado", u: "jlopez01", p: "pass123", color: "bg-amber-100 text-amber-800" },
+                  { label: "Colaborador", u: "ptorres01", p: "pass123", color: "bg-green-100 text-green-800" },
+                  { label: "Cliente", u: "cliente", p: "cliente123", color: "bg-purple-100 text-purple-800" },
+                ].map((r) => (
+                  <button
+                    key={r.label}
+                    onClick={() => quickLogin(r.u, r.p)}
+                    className={`${r.color} rounded-lg px-3 py-2 text-xs text-left transition hover:opacity-80`}
+                    style={{ fontWeight: 600 }}
+                  >
+                    {r.label}
+                    <span className="block text-xs opacity-70" style={{ fontWeight: 400 }}>{r.u}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
