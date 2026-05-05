@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
+import bcrypt from "bcryptjs";
 import {
   UserPlus, Search, Edit2, ToggleLeft, ToggleRight, X, Check, ChevronDown,
   Shield, MapPin, Key, Loader2,
@@ -279,28 +280,14 @@ export default function Usuarios() {
           )
         );
       } else {
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: form.correo.includes("@") ? form.correo : `${username}@sgs.local`,
-          password: form.password,
-          options: {
-            data: { username, rol: effectiveRol, nombres: form.nombres },
-          },
-        });
-        if (authError) throw authError;
-        if (!authData.user) throw new Error("No se pudo crear el usuario");
-
-        const { error: profileError } = await supabase
+        const password_hash = bcrypt.hashSync(form.password, 10);
+        const { data, error } = await supabase
           .from("usuarios")
-          .insert([{ ...userData, id_usuario: authData.user.id }]);
-        if (profileError) throw profileError;
-
-        const { data: newUser } = await supabase
-          .from("usuarios")
-          .select()
-          .eq("id_usuario", authData.user.id)
-          .single();
-        if (newUser) {
-          setUsuarios(prev => [...prev, newUser as Usuario]);
+          .insert([{ ...userData, password_hash }])
+          .select();
+        if (error) throw error;
+        if (data && data[0]) {
+          setUsuarios(prev => [...prev, data[0] as Usuario]);
         }
       }
       setShowModal(false);
@@ -325,16 +312,17 @@ export default function Usuarios() {
 
     setSaving(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(
-        selectedUserForPassword.correo,
-        { redirectTo: window.location.origin + "/login" }
-      );
+      const password_hash = bcrypt.hashSync(newPassword, 10);
+      const { error } = await supabase
+        .from("usuarios")
+        .update({ password_hash, fecha_actualizacion_password: new Date().toISOString() })
+        .eq("id_usuario", selectedUserForPassword.id_usuario);
       if (error) throw error;
-      alert("Se ha enviado un enlace de restablecimiento de contraseña al correo del usuario.");
+      alert("Contraseña actualizada correctamente");
       closePasswordModal();
     } catch (err) {
       console.error(err);
-      alert("Error al enviar el enlace de restablecimiento");
+      alert("Error al actualizar la contraseña");
     } finally {
       setSaving(false);
     }
