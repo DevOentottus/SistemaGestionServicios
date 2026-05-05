@@ -119,11 +119,11 @@ export default function Usuarios() {
     fetchData();
   }, []);
 
-  // Generar username único
+  // Generar username único: 3 primeras letras del nombre + apellido paterno
   const generateUsername = (nombres: string, apellido_paterno: string, currentId?: string) => {
-    const firstName = nombres.split(" ")[0]?.toLowerCase().replace(/[^a-z]/g, "") || "u";
+    const firstName = nombres.split(" ")[0]?.toLowerCase().replace(/[^a-z]/g, "") || "usu";
     const firstLastName = apellido_paterno.split(" ")[0]?.toLowerCase().replace(/[^a-z]/g, "") || "user";
-    const base = `${firstName[0] || "u"}${firstLastName}`;
+    const base = `${firstName.slice(0, 3)}${firstLastName}`;
     let candidate = `${base}${String(1).padStart(2, "0")}`;
     let counter = 1;
     while (usuarios.some(u => u.username === candidate && u.id_usuario !== currentId)) {
