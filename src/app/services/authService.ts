@@ -18,7 +18,12 @@ export const loginUser = async (username: string, password: string): Promise<Use
     .eq("username", username)
     .single();
 
-  if (error || !usuario || !usuario.activo) return null;
+  if (error) {
+    console.error("Error de autenticación (posible RLS en Supabase):", error);
+    return null;
+  }
+
+  if (!usuario || !usuario.activo) return null;
 
   const valid = await bcrypt.compare(password, usuario.password_hash);
   if (!valid) return null;
