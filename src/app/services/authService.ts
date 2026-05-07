@@ -1,15 +1,11 @@
 import { supabase } from "../../lib/supabase";
-import bcrypt from "bcryptjs";
 import type { User } from "../../context/AuthContext";
 
 /**
- * Autenticación por tabla `usuarios` con bcrypt.
+ * Autenticación por tabla `usuarios` con comparación directa de texto plano.
  *
- * ⚠️ NOTA: La comparación de hash se ejecuta en el CLIENTE, lo cual no es
- * ideal desde el punto de vista de seguridad (el hash viaja a la máquina del
- * usuario). La forma correcta es usar Supabase Auth nativo o una Edge Function.
- *
- * PENDIENTE: Migrar usuarios existentes a Supabase Auth y eliminar bcrypt.
+ * ⚠️ AVISO DE SEGURIDAD: Las contraseñas viajan por red y se comparan
+ * directamente. No usar en producción sin migrar a Supabase Auth.
  */
 export const loginUser = async (username: string, password: string): Promise<User | null> => {
   const { data: usuario, error } = await supabase
@@ -25,8 +21,8 @@ export const loginUser = async (username: string, password: string): Promise<Use
 
   if (!usuario || !usuario.usuario_activo) return null;
 
-  const valid = await bcrypt.compare(password, usuario.usuario_contrasena);
-  if (!valid) return null;
+  // Comparación directa de texto plano
+  if (password !== usuario.usuario_contrasena) return null;
 
   return {
     id_usuario: usuario.usuario_id,
