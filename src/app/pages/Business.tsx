@@ -86,6 +86,8 @@ export default function Business() {
 
   const isAdmin = currentUser?.rol === "Administrador" || currentUser?.rol === "Encargado";
 
+  const getAreaName = (id: string | null) => areas.find(a => a.id === id)?.nombre || "—";
+
   // Carga inicial de datos
   const fetchAreas = useCallback(async () => {
     const { data, error } = await supabase.from("areas").select("id, nombre").order("nombre");
@@ -432,7 +434,7 @@ export default function Business() {
     setTemplateForm({
       nombre: "",
       descripcion: "",
-      area: areas[0]?.nombre || "",
+      area: areas[0]?.id || "",
       tareas: [{ nombre: "", orden: 1 }],
     });
     setShowTemplateModal(true);
@@ -533,7 +535,7 @@ export default function Business() {
               {filteredTemplates.map(t => (
                 <tr key={t.id} className="hover:bg-gray-50 transition">
                   <td className="px-5 py-4"><p className="text-gray-900 font-semibold text-sm">{t.nombre}</p><p className="text-gray-500 text-xs truncate max-w-xs">{t.descripcion}</p><p className="text-gray-400 text-xs mt-1">Creado: {t.fecha_creacion?.split("T")[0]}</p></td>
-                  <td className="px-5 py-4"><span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full"><MapPin className="w-3 h-3" /> {t.area || "Sin área"}</span></td>
+                  <td className="px-5 py-4"><span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full"><MapPin className="w-3 h-3" /> {getAreaName(t.area)}</span></td>
                   <td className="px-5 py-4"><span className="text-xs text-gray-600">{t.tareas.length} tareas</span></td>
                   <td className="px-5 py-4"><span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${t.activo ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}><span className={`w-1.5 h-1.5 rounded-full ${t.activo ? "bg-green-500" : "bg-gray-400"}`} />{t.activo ? "Activa" : "Inactiva"}</span></td>
                   <td className="px-5 py-4"><div className="flex items-center gap-1">
@@ -554,7 +556,7 @@ export default function Business() {
           <div className="flex items-center gap-2 mb-3"><Briefcase className="w-5 h-5 text-blue-700" /><h2 className="text-gray-800 font-semibold">Servicios registrados</h2><span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{services.length}</span></div>
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><input type="text" placeholder="Buscar por código, descripción o cliente..." value={searchService} onChange={e => setSearchService(e.target.value)} className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-blue-500 bg-gray-50" /></div>
-            <div className="relative"><select value={filterArea} onChange={e => setFilterArea(e.target.value)} className="appearance-none pl-3 pr-8 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-blue-500 bg-gray-50 cursor-pointer"><option value="Todas">Todas las áreas</option>{areas.map(a => <option key={a.id} value={a.nombre}>{a.nombre}</option>)}</select><ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /></div>
+            <div className="relative"><select value={filterArea} onChange={e => setFilterArea(e.target.value)} className="appearance-none pl-3 pr-8 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-blue-500 bg-gray-50 cursor-pointer"><option value="Todas">Todas las áreas</option>{areas.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}</select><ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /></div>
             <div className="relative"><select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="appearance-none pl-3 pr-8 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-blue-500 bg-gray-50 cursor-pointer"><option value="Todos">Todos los estados</option><option>Pendiente</option><option>En progreso</option><option>Completado</option><option>Bloqueado</option></select><ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /></div>
           </div>
         </div>
@@ -571,7 +573,7 @@ export default function Business() {
                     <tr className="hover:bg-gray-50 transition">
                       <td className="px-5 py-4"><span className="text-xs font-mono bg-gray-100 text-gray-700 px-2 py-1 rounded">{service.codigo}</span></td>
                       <td className="px-5 py-4"><p className="text-gray-900 font-medium text-sm">{service.cliente}</p><p className="text-gray-500 text-xs truncate max-w-xs">{service.descripcion}</p></td>
-                      <td className="px-5 py-4"><span className="text-xs text-gray-600">{service.area || "—"}</span></td>
+                      <td className="px-5 py-4"><span className="text-xs text-gray-600">{getAreaName(service.area)}</span></td>
                       <td className="px-5 py-4"><div className="flex items-center gap-2"><div className="w-16 h-1.5 bg-gray-200 rounded-full overflow-hidden"><div className={`h-full ${service.progreso === 100 ? "bg-green-500" : "bg-blue-600"}`} style={{ width: `${service.progreso}%` }} /></div><span className="text-xs text-gray-600">{completadas}/{service.tareas.length}</span></div></td>
                       <td className="px-5 py-4"><span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${statusColors[service.estado]}`}><span className={`w-1.5 h-1.5 rounded-full ${service.estado === "Completado" ? "bg-green-600" : service.estado === "En progreso" ? "bg-blue-600" : service.estado === "Pendiente" ? "bg-yellow-600" : "bg-red-600"}`} />{service.estado}</span></td>
                       <td className="px-5 py-4 text-right"><button onClick={() => setExpandedServiceId(isExpanded ? null : service.id)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition"><ChevronRight className={`w-4 h-4 transition-transform ${isExpanded ? "rotate-90" : ""}`} /></button></td>
@@ -624,7 +626,7 @@ export default function Business() {
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
               <div><label className="block text-xs text-gray-600 mb-1 font-semibold">Nombre *</label><input type="text" value={templateForm.nombre} onChange={e => setTemplateForm(p => ({ ...p, nombre: e.target.value }))} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50" /></div>
               <div><label className="block text-xs text-gray-600 mb-1 font-semibold">Descripción *</label><textarea value={templateForm.descripcion} onChange={e => setTemplateForm(p => ({ ...p, descripcion: e.target.value }))} rows={2} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50 resize-none" /></div>
-              <div><label className="block text-xs text-gray-600 mb-1 font-semibold">Área</label><select value={templateForm.area} onChange={e => setTemplateForm(p => ({ ...p, area: e.target.value }))} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50"><option value="">Sin área</option>{areas.map(a => <option key={a.id} value={a.nombre}>{a.nombre}</option>)}</select></div>
+              <div><label className="block text-xs text-gray-600 mb-1 font-semibold">Área</label><select value={templateForm.area} onChange={e => setTemplateForm(p => ({ ...p, area: e.target.value }))} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50"><option value="">Sin área</option>{areas.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}</select></div>
               <div><div className="flex items-center justify-between mb-2"><label className="text-xs text-gray-600 font-semibold">Tareas *</label><button type="button" onClick={addTaskField} className="text-xs text-blue-700 hover:text-blue-900 flex items-center gap-1"><Plus className="w-3 h-3" /> Añadir tarea</button></div>
               <div className="space-y-2 max-h-60 overflow-y-auto pr-1">{templateForm.tareas.map((tarea, idx) => (<div key={idx} className="flex items-center gap-2"><span className="text-xs text-gray-400 w-5">{idx+1}.</span><input type="text" value={tarea.nombre} onChange={e => updateTaskField(idx, e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-blue-500 bg-white" />{templateForm.tareas.length > 1 && <button type="button" onClick={() => removeTaskField(idx)} className="p-1 text-gray-400 hover:text-red-500"><X className="w-4 h-4" /></button>}</div>))}</div></div>
             </div>
