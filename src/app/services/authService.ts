@@ -14,8 +14,8 @@ import type { User } from "../../context/AuthContext";
 export const loginUser = async (username: string, password: string): Promise<User | null> => {
   const { data: usuario, error } = await supabase
     .from("usuarios")
-    .select("id_usuario, username, rol, nombres, apellido_paterno, activo, password_hash")
-    .eq("username", username)
+    .select("usuario_id, usuario_username, usuario_rol, usuario_nombres, usuario_apellido_paterno, usuario_activo, usuario_contrasena")
+    .eq("usuario_username", username)
     .single();
 
   if (error) {
@@ -23,17 +23,17 @@ export const loginUser = async (username: string, password: string): Promise<Use
     return null;
   }
 
-  if (!usuario || !usuario.activo) return null;
+  if (!usuario || !usuario.usuario_activo) return null;
 
-  const valid = await bcrypt.compare(password, usuario.password_hash);
+  const valid = await bcrypt.compare(password, usuario.usuario_contrasena);
   if (!valid) return null;
 
   return {
-    id_usuario: usuario.id_usuario,
-    username: usuario.username,
-    rol: usuario.rol,
-    nombres: usuario.nombres,
-    apellido_paterno: usuario.apellido_paterno,
-    activo: usuario.activo,
+    id_usuario: usuario.usuario_id,
+    username: usuario.usuario_username,
+    rol: usuario.usuario_rol,
+    nombres: usuario.usuario_nombres,
+    apellido_paterno: usuario.usuario_apellido_paterno,
+    activo: usuario.usuario_activo,
   };
 };
