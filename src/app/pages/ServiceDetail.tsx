@@ -2,28 +2,82 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
-import { ArrowLeft, CheckCircle2, Circle, Clock, MessageSquare, Play, Send, UserPlus, X } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Circle, MessageSquare, Play, Send, UserPlus, X } from "lucide-react";
 
-type Servicio = { 
-  id: string; 
-  codigo: string | null; 
-  cliente: string | null; 
-  descripcion: string | null; 
-  area: string | null; 
-  fecha_inicio: string | null; 
-  hora_inicio: string | null; 
-  hora_estimada_fin: string | null; 
-  inicio_real: string | null; 
-  fecha_fin: string | null;
-  hora_fin: string | null;
-  estado: "Pendiente" | "En progreso" | "Completado" | "Bloqueado"; 
-  progreso: number | null 
+// ── Types (NEW schema) ──
+
+type Servicio = {
+  servicio_id: number;
+  servicio_codigo: string | null;
+  servicio_descripcion: string | null;
+  area_id: number | null;
+  cliente_id: number | null;
+  servicio_fecha_inicio: string | null;
+  servicio_hora_inicio: string | null;
+  servicio_tiempo_estimado: number | null;
+  servicio_fecha_fin: string | null;
+  servicio_hora_fin: string | null;
+  servicio_estado: string;
 };
-type Tarea = { id: string; id_servicio: string; nombre: string; completada: boolean; fecha_completada: string | null; responsable: string | null; orden: number | null };
-type Comentario = { id: string; id_servicio: string; autor: string | null; rol: string | null; texto: string | null; fecha: string | null };
-type Note = { id: string; id_tarea: string; autor: string | null; rol: string | null; texto: string | null; tipo: "instruccion" | "comentario" | "observacion"; fecha: string | null };
-type TecnicoRel = { id_servicio: string; id_usuario: string };
-type Usuario = { id_usuario: string; nombres: string; apellido_paterno: string | null; apellido_materno: string | null; rol: string; activo: boolean; id_area_principal: string | null; id_area_adicional: string | null };
+
+type Tarea = {
+  tarea_id: number;
+  servicio_id: number;
+  tarea_titulo: string;
+  tarea_estado: string;
+  tarea_fecha_completado: string | null;
+  tarea_completado_por: number | null;
+  tarea_orden: number | null;
+};
+
+type Comentario = {
+  serviciocomentario_id: number;
+  servicio_id: number;
+  usuario_id: number | null;
+  serviciocomentario_contenido: string | null;
+  serviciocomentario_fecha: string | null;
+};
+
+type Note = {
+  tareacomentario_id: number;
+  tarea_id: number;
+  usuario_id: number | null;
+  tareacomentario_contenido: string | null;
+  tareacomentario_fecha: string | null;
+};
+
+type TecnicoRel = { servicio_id: number; colaborador_id: number };
+
+type Usuario = {
+  usuario_id: number;
+  usuario_nombres: string;
+  usuario_apellido_paterno: string | null;
+  usuario_rol: string;
+};
+
+type Area = { area_id: number; area_nombre: string };
+
+type Cliente = {
+  cliente_id: number;
+  cliente_nombres: string;
+  cliente_apellido_paterno: string | null;
+  cliente_apellido_materno: string | null;
+};
+
+// ── Display helpers ──
+
+const estadoLabel = (e: string) =>
+  e.charAt(0).toUpperCase() + e.slice(1).replace(/_/g, " ");
+
+const userName = (u: Usuario | undefined) =>
+  u ? `${u.usuario_nombres} ${u.usuario_apellido_paterno || ""}`.trim() : "—";
+
+const clienteName = (c: Cliente | undefined) =>
+  c
+    ? `${c.cliente_nombres} ${c.cliente_apellido_paterno || ""} ${c.cliente_apellido_materno || ""}`.trim()
+    : "Cliente no especificado";
+
+// ── Component ──
 
 export default function ServiceDetail() {
   const { id } = useParams<{ id: string }>();
@@ -36,33 +90,76 @@ export default function ServiceDetail() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [rels, setRels] = useState<TecnicoRel[]>([]);
   const [users, setUsers] = useState<Usuario[]>([]);
+  const [areas, setAreas] = useState<Area[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [newComment, setNewComment] = useState("");
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [newNote, setNewNote] = useState("");
-  const [noteType, setNoteType] = useState<Note["tipo"]>("comentario");
   const [showAddTech, setShowAddTech] = useState(false);
+
+  // ── Data fetching ──
 
   const fetchData = async () => {
     if (!id) return;
     setLoading(true);
     try {
-      const [s, t, c, n, r, u] = await Promise.all([
-        supabase.from("servicios").select("id, codigo, cliente, descripcion, area, fecha_inicio, hora_inicio, hora_estimada_fin, inicio_real, fecha_fin, hora_fin, estado, progreso").eq("id", id).maybeSingle(),
-        supabase.from("tareas").select("id, id_servicio, nombre, completada, fecha_completada, responsable, orden").eq("id_servicio", id).order("orden"),
-        supabase.from("comentarios").select("id, id_servicio, autor, rol, texto, fecha").eq("id_servicio", id).order("fecha"),
-        supabase.from("task_notes").select("id, id_tarea, autor, rol, texto, tipo, fecha"),
-        supabase.from("servicio_tecnicos").select("id_servicio, id_usuario").eq("id_servicio", id),
-        supabase.from("usuarios").select("id_usuario, nombres, apellido_paterno, apellido_materno, rol, activo, id_area_principal, id_area_adicional"),
+      const [s, t, c, n, r, u, a, cl] = await Promise.all([
+        supabase
+          .from("servicios")
+          .select(
+            "servicio_id, servicio_codigo, servicio_descripcion, servicio_estado, servicio_fecha_inicio, servicio_hora_inicio, servicio_fecha_fin, servicio_hora_fin, servicio_tiempo_estimado, cliente_id, area_id"
+          )
+          .eq("servicio_id", id)
+          .maybeSingle(),
+        supabase
+          .from("tareas")
+          .select(
+            "tarea_id, servicio_id, tarea_titulo, tarea_estado, tarea_fecha_completado, tarea_completado_por, tarea_orden"
+          )
+          .eq("servicio_id", id)
+          .order("tarea_orden"),
+        supabase
+          .from("ServicioComentarios")
+          .select(
+            "serviciocomentario_id, servicio_id, usuario_id, serviciocomentario_contenido, serviciocomentario_fecha"
+          )
+          .eq("servicio_id", id)
+          .order("serviciocomentario_fecha"),
+        supabase
+          .from("TareaComentarios")
+          .select(
+            "tareacomentario_id, tarea_id, usuario_id, tareacomentario_contenido, tareacomentario_fecha"
+          ),
+        supabase
+          .from("ServicioColaboradores")
+          .select("servicio_id, colaborador_id")
+          .eq("servicio_id", id),
+        supabase
+          .from("usuarios")
+          .select("usuario_id, usuario_nombres, usuario_apellido_paterno, usuario_rol"),
+        supabase.from("areas").select("area_id, area_nombre"),
+        supabase
+          .from("clientes")
+          .select(
+            "cliente_id, cliente_nombres, cliente_apellido_paterno, cliente_apellido_materno"
+          ),
       ]);
-      if (s.error || t.error || c.error || n.error || r.error || u.error) throw (s.error || t.error || c.error || n.error || r.error || u.error);
-      setService((s.data || null) as Servicio | null);
+
+      if (s.error || t.error || c.error || n.error || r.error || u.error || a.error || cl.error)
+        throw (
+          s.error || t.error || c.error || n.error || r.error || u.error || a.error || cl.error
+        );
+
+      setService(s.data as Servicio | null);
       setTasks((t.data || []) as Tarea[]);
       setComments((c.data || []) as Comentario[]);
       setNotes((n.data || []) as Note[]);
       setRels((r.data || []) as TecnicoRel[]);
       setUsers((u.data || []) as Usuario[]);
+      setAreas((a.data || []) as Area[]);
+      setClientes((cl.data || []) as Cliente[]);
     } catch (err) {
       console.error(err);
       alert("Error cargando detalle de servicio");
@@ -75,62 +172,106 @@ export default function ServiceDetail() {
     fetchData();
   }, [id]);
 
-  const completed = tasks.filter((t) => t.completada).length;
-  const progress = tasks.length ? Math.round((completed / tasks.length) * 100) : 0;
-  const selectedTaskNotes = notes.filter((n) => n.id_tarea === selectedTaskId);
+  // ── Derived state ──
 
-  // Actualiza progreso, estado y fechas de inicio/fin
+  const completed = tasks.filter((t) => t.tarea_estado === "completado").length;
+  const progress = tasks.length ? Math.round((completed / tasks.length) * 100) : 0;
+  const selectedTaskNotes = notes.filter((n) => n.tarea_id === selectedTaskId);
+
+  const areasMap = useMemo(() => {
+    const map: Record<number, string> = {};
+    areas.forEach((a) => {
+      map[a.area_id] = a.area_nombre;
+    });
+    return map;
+  }, [areas]);
+
+  const clientesMap = useMemo(() => {
+    const map: Record<number, Cliente> = {};
+    clientes.forEach((cl) => {
+      map[cl.cliente_id] = cl;
+    });
+    return map;
+  }, [clientes]);
+
+  const usersMap = useMemo(() => {
+    const map: Record<number, Usuario> = {};
+    users.forEach((u) => {
+      map[u.usuario_id] = u;
+    });
+    return map;
+  }, [users]);
+
+  // ── Service progress & date updates ──
+
   const updateServiceProgressAndDates = async (nextTasks: Tarea[]) => {
     if (!service) return;
-    
-    const done = nextTasks.filter(t => t.completada).length;
+
+    const done = nextTasks.filter((t) => t.tarea_estado === "completado").length;
     const total = nextTasks.length;
     const prog = total === 0 ? 0 : Math.round((done / total) * 100);
-    
-    let estado: Servicio["estado"] = prog === 100 ? "Completado" : (prog > 0 ? "En progreso" : "Pendiente");
-    let fecha_fin = service.fecha_fin;
-    let hora_fin = service.hora_fin;
-    let inicio_real = service.inicio_real;
-    
-    // Si alcanzó 100% y aún no tiene fecha_fin, registrar ahora
-    if (prog === 100 && !service.fecha_fin) {
+
+    const estado =
+      prog === 100 ? "completado" : prog > 0 ? "en_progreso" : "pendiente";
+
+    let fecha_fin: string | null = service.servicio_fecha_fin;
+    let hora_fin: string | null = service.servicio_hora_fin;
+
+    // Alcanzó 100% → registrar fecha/hora de fin si aún no tiene
+    if (prog === 100 && !service.servicio_fecha_fin) {
       const now = new Date();
-      fecha_fin = now.toISOString().split('T')[0];
-      hora_fin = now.toTimeString().split(' ')[0].slice(0,5);
-      console.log(`✅ Servicio completado. Fecha fin: ${fecha_fin} ${hora_fin}`);
+      fecha_fin = now.toISOString().split("T")[0];
+      hora_fin = now.toTimeString().split(" ")[0].slice(0, 5);
     }
-    // Si baja del 100% y tenía fecha_fin, limpiar
-    if (prog !== 100 && service.fecha_fin) {
+
+    // Bajó de 100% → limpiar fecha/hora de fin
+    if (prog !== 100 && service.servicio_fecha_fin) {
       fecha_fin = null;
       hora_fin = null;
-      console.log(`🔄 Progreso < 100%, se eliminó fecha_fin/hora_fin`);
     }
-    // Si hay progreso >0 y no tiene inicio_real, asignar ahora (por si nunca se presionó "Iniciar")
-    if (prog > 0 && !service.inicio_real) {
-      inicio_real = new Date().toISOString();
-      console.log(`🕒 Asignando inicio_real automático: ${inicio_real}`);
-    }
-    
-    const updateData: any = { progreso: prog, estado };
-    if (fecha_fin !== undefined) updateData.fecha_fin = fecha_fin;
-    if (hora_fin !== undefined) updateData.hora_fin = hora_fin;
-    if (inicio_real !== undefined) updateData.inicio_real = inicio_real;
-    
-    const { error } = await supabase.from("servicios").update(updateData).eq("id", service.id);
+
+    const updateData: any = { servicio_estado: estado };
+    if (fecha_fin !== undefined) updateData.servicio_fecha_fin = fecha_fin;
+    if (hora_fin !== undefined) updateData.servicio_hora_fin = hora_fin;
+
+    const { error } = await supabase
+      .from("servicios")
+      .update(updateData)
+      .eq("servicio_id", service.servicio_id);
+
     if (error) throw error;
-    
-    setService(prev => prev ? { ...prev, ...updateData } : prev);
+
+    setService((prev) => (prev ? { ...prev, ...updateData } : prev));
   };
+
+  // ── Actions ──
 
   const startService = async () => {
     if (!service) return;
     setSaving(true);
     try {
       const nowIso = new Date().toISOString();
-      const { error } = await supabase.from("servicios").update({ inicio_real: nowIso, estado: "En progreso" }).eq("id", service.id);
+      const { error } = await supabase
+        .from("servicios")
+        .update({
+          servicio_estado: "en_progreso",
+          servicio_fecha_inicio: nowIso.split("T")[0],
+          servicio_hora_inicio: nowIso.split("T")[1]?.slice(0, 5),
+        })
+        .eq("servicio_id", service.servicio_id);
+
       if (error) throw error;
-      setService({ ...service, inicio_real: nowIso, estado: "En progreso" });
-      console.log(`🚀 Servicio iniciado manualmente a las ${nowIso}`);
+
+      setService((prev) =>
+        prev
+          ? {
+              ...prev,
+              servicio_estado: "en_progreso",
+              servicio_fecha_inicio: nowIso.split("T")[0],
+              servicio_hora_inicio: nowIso.split("T")[1]?.slice(0, 5),
+            }
+          : prev
+      );
     } catch (err) {
       console.error(err);
       alert("Error iniciando servicio");
@@ -143,19 +284,40 @@ export default function ServiceDetail() {
     if (!service) return;
     setSaving(true);
     try {
-      const newCompletada = !task.completada;
-      const update = {
-        completada: newCompletada,
-        fecha_completada: newCompletada ? new Date().toISOString() : null,
-        responsable: newCompletada ? currentUser?.id_usuario || null : null
+      const newEstado = task.tarea_estado === "completado" ? "pendiente" : "completado";
+      const now = new Date();
+
+      const dbUpdate = {
+        tarea_estado: newEstado,
+        tarea_fecha_completado:
+          newEstado === "completado" ? now.toISOString().split("T")[0] : null,
+        tarea_hora_completado:
+          newEstado === "completado"
+            ? now.toTimeString().split(" ")[0].slice(0, 5)
+            : null,
+        tarea_completado_por:
+          newEstado === "completado" ? currentUser?.id_usuario || null : null,
       };
-      const { error: tError } = await supabase.from("tareas").update(update).eq("id", task.id);
+
+      const { error: tError } = await supabase
+        .from("tareas")
+        .update(dbUpdate)
+        .eq("tarea_id", task.tarea_id);
+
       if (tError) throw tError;
-      
-      // Actualizar estado local de tareas
-      const updatedTasks = tasks.map(t => t.id === task.id ? { ...t, ...update } : t);
+
+      // Actualización local (solo campos que existen en Tarea)
+      const updatedTasks = tasks.map((t) =>
+        t.tarea_id === task.tarea_id
+          ? {
+              ...t,
+              tarea_estado: newEstado,
+              tarea_fecha_completado: dbUpdate.tarea_fecha_completado,
+              tarea_completado_por: dbUpdate.tarea_completado_por,
+            }
+          : t
+      );
       setTasks(updatedTasks);
-      // Recalcular progreso y fechas del servicio
       await updateServiceProgressAndDates(updatedTasks);
     } catch (err) {
       console.error(err);
@@ -168,8 +330,19 @@ export default function ServiceDetail() {
   const addComment = async () => {
     if (!service || !newComment.trim()) return;
     try {
-      const payload = { id_servicio: service.id, autor: currentUser?.id_usuario || null, rol: currentUser?.rol || null, texto: newComment.trim() };
-      const { data, error } = await supabase.from("comentarios").insert([payload]).select("id, id_servicio, autor, rol, texto, fecha").single();
+      const payload = {
+        servicio_id: service.servicio_id,
+        usuario_id: currentUser?.id_usuario || null,
+        serviciocomentario_contenido: newComment.trim(),
+      };
+      const { data, error } = await supabase
+        .from("ServicioComentarios")
+        .insert([payload])
+        .select(
+          "serviciocomentario_id, servicio_id, usuario_id, serviciocomentario_contenido, serviciocomentario_fecha"
+        )
+        .single();
+
       if (error) throw error;
       setComments((prev) => [...prev, data as Comentario]);
       setNewComment("");
@@ -182,8 +355,19 @@ export default function ServiceDetail() {
   const addTaskNote = async () => {
     if (!selectedTaskId || !newNote.trim()) return;
     try {
-      const payload = { id_tarea: selectedTaskId, autor: currentUser?.id_usuario || null, rol: currentUser?.rol || null, texto: newNote.trim(), tipo: noteType };
-      const { data, error } = await supabase.from("task_notes").insert([payload]).select("id, id_tarea, autor, rol, texto, tipo, fecha").single();
+      const payload = {
+        tarea_id: selectedTaskId,
+        usuario_id: currentUser?.id_usuario || null,
+        tareacomentario_contenido: newNote.trim(),
+      };
+      const { data, error } = await supabase
+        .from("TareaComentarios")
+        .insert([payload])
+        .select(
+          "tareacomentario_id, tarea_id, usuario_id, tareacomentario_contenido, tareacomentario_fecha"
+        )
+        .single();
+
       if (error) throw error;
       setNotes((prev) => [...prev, data as Note]);
       setNewNote("");
@@ -193,12 +377,18 @@ export default function ServiceDetail() {
     }
   };
 
-  const addTechnician = async (userId: string) => {
+  const addTechnician = async (userId: number) => {
     if (!service) return;
     try {
-      const { error } = await supabase.from("servicio_tecnicos").insert([{ id_servicio: service.id, id_usuario: userId }]);
+      const { error } = await supabase
+        .from("ServicioColaboradores")
+        .insert([{ servicio_id: service.servicio_id, colaborador_id: userId }]);
+
       if (error) throw error;
-      setRels((prev) => [...prev, { id_servicio: service.id, id_usuario: userId }]);
+      setRels((prev) => [
+        ...prev,
+        { servicio_id: service.servicio_id, colaborador_id: userId },
+      ]);
       setShowAddTech(false);
     } catch (err) {
       console.error(err);
@@ -206,78 +396,135 @@ export default function ServiceDetail() {
     }
   };
 
-  const removeTechnician = async (userId: string) => {
+  const removeTechnician = async (userId: number) => {
     if (!service) return;
     try {
-      const { error } = await supabase.from("servicio_tecnicos").delete().eq("id_servicio", service.id).eq("id_usuario", userId);
+      const { error } = await supabase
+        .from("ServicioColaboradores")
+        .delete()
+        .eq("servicio_id", service.servicio_id)
+        .eq("colaborador_id", userId);
+
       if (error) throw error;
-      setRels((prev) => prev.filter((r) => !(r.id_servicio === service.id && r.id_usuario === userId)));
+      setRels((prev) =>
+        prev.filter(
+          (r) => !(r.servicio_id === service.servicio_id && r.colaborador_id === userId)
+        )
+      );
     } catch (err) {
       console.error(err);
       alert("Error quitando colaborador");
     }
   };
 
+  // ── Loading / Error states ──
+
   if (loading) return <div className="py-10 text-center text-gray-500">Cargando detalle...</div>;
   if (!service) return <div className="py-10 text-center text-gray-500">Servicio no encontrado</div>;
 
-  const areaCandidates = users.filter((u) => u.activo && u.rol === "Colaborador" && (u.id_area_principal === service.area || u.id_area_adicional === service.area));
-  const assigned = new Set(rels.map((r) => r.id_usuario));
-  const available = areaCandidates.filter((u) => !assigned.has(u.id_usuario));
+  // ── Derived UI data ──
+
+  const areaCandidates = users.filter((u) => u.usuario_rol === "Colaborador");
+  const assigned = new Set(rels.map((r) => r.colaborador_id));
+  const available = areaCandidates.filter((u) => !assigned.has(u.usuario_id));
   const canManage = currentUser?.rol === "Administrador" || currentUser?.rol === "Encargado";
 
-  // Formatear fecha/hora para mostrar (local)
-  const formatDate = (iso: string | null) => iso ? new Date(iso).toLocaleDateString() : "—";
-  const formatTime = (iso: string | null) => iso ? new Date(iso).toLocaleTimeString() : "—";
+  const currentCliente = service.cliente_id ? clientesMap[service.cliente_id] : undefined;
+
+  // ── Render ──
 
   return (
     <div className="space-y-5">
-      <button onClick={() => navigate("/services")} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800"><ArrowLeft className="w-4 h-4" /> Volver</button>
+      <button
+        onClick={() => navigate("/services")}
+        className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800"
+      >
+        <ArrowLeft className="w-4 h-4" /> Volver
+      </button>
 
+      {/* ── Cabecera del servicio ── */}
       <div className="bg-white rounded-2xl border border-gray-100 p-5">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs text-blue-700 bg-blue-100 inline-block px-2 py-1 rounded-lg" style={{ fontWeight: 700 }}>{service.codigo || "SIN-CODIGO"}</p>
-            <h2 className="text-gray-900 mt-2" style={{ fontWeight: 700 }}>{service.descripcion}</h2>
-            <p className="text-sm text-gray-500">{service.cliente} · Estado: {service.estado}</p>
+            <p
+              className="text-xs text-blue-700 bg-blue-100 inline-block px-2 py-1 rounded-lg"
+              style={{ fontWeight: 700 }}
+            >
+              {service.servicio_codigo || "SIN-CODIGO"}
+            </p>
+            <h2 className="text-gray-900 mt-2" style={{ fontWeight: 700 }}>
+              {service.servicio_descripcion}
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">
+              {clienteName(currentCliente)} ·{" "}
+              {areasMap[service.area_id ?? -1] || "Sin área"} · Estado:{" "}
+              {estadoLabel(service.servicio_estado)}
+            </p>
             <p className="text-xs text-gray-400 mt-1">
-              Progreso {progress}% ({completed}/{tasks.length}) · 
-              Inicio planificado: {service.fecha_inicio || "—"} {service.hora_inicio || ""} · 
-              Inicio real: {formatDate(service.inicio_real)} {formatTime(service.inicio_real)} · 
-              Fin real: {service.fecha_fin || "—"} {service.hora_fin || ""}
+              Progreso {progress}% ({completed}/{tasks.length}) · Inicio planificado:{" "}
+              {service.servicio_fecha_inicio || "—"} {service.servicio_hora_inicio || ""}
+              {service.servicio_tiempo_estimado != null &&
+                ` · Tiempo estimado: ${service.servicio_tiempo_estimado} min`}
+              {service.servicio_fecha_fin &&
+                ` · Fin real: ${service.servicio_fecha_fin} ${service.servicio_hora_fin || ""}`}
             </p>
           </div>
-          {service.estado === "Pendiente" && (
-            <button disabled={saving} onClick={startService} className="bg-green-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:bg-green-700">
+          {service.servicio_estado === "pendiente" && (
+            <button
+              disabled={saving}
+              onClick={startService}
+              className="bg-green-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:bg-green-700"
+            >
               <Play className="w-4 h-4" /> Iniciar servicio
             </button>
           )}
         </div>
       </div>
 
+      {/* ── Colaboradores asignados ── */}
       <div className="bg-white rounded-2xl border border-gray-100 p-5">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-gray-900" style={{ fontWeight: 700 }}>Colaboradores asignados</h3>
-          {canManage && <button onClick={() => setShowAddTech((v) => !v)} className="text-blue-700 text-sm flex items-center gap-1"><UserPlus className="w-4 h-4" /> Agregar</button>}
+          <h3 className="text-gray-900" style={{ fontWeight: 700 }}>
+            Colaboradores asignados
+          </h3>
+          {canManage && (
+            <button
+              onClick={() => setShowAddTech((v) => !v)}
+              className="text-blue-700 text-sm flex items-center gap-1"
+            >
+              <UserPlus className="w-4 h-4" /> Agregar
+            </button>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           {rels.map((r) => {
-            const n = users.find((u) => u.id_usuario === r.id_usuario);
+            const u = usersMap[r.colaborador_id];
             return (
-              <span key={r.id_usuario} className="text-xs bg-blue-50 border border-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                {n ? `${n.nombres} ${n.apellido_paterno || ""}`.trim() : r.id_usuario}
-                {canManage && <button onClick={() => removeTechnician(r.id_usuario)} className="ml-1"><X className="w-3 h-3 inline" /></button>}
+              <span
+                key={r.colaborador_id}
+                className="text-xs bg-blue-50 border border-blue-100 text-blue-800 px-2 py-1 rounded-full"
+              >
+                {userName(u)}
+                {canManage && (
+                  <button onClick={() => removeTechnician(r.colaborador_id)} className="ml-1">
+                    <X className="w-3 h-3 inline" />
+                  </button>
+                )}
               </span>
             );
           })}
         </div>
         {showAddTech && (
           <div className="mt-3 border border-gray-200 rounded-xl p-3">
-            <p className="text-xs text-gray-500 mb-2">Disponibles del area:</p>
+            <p className="text-xs text-gray-500 mb-2">Colaboradores disponibles:</p>
             <div className="flex flex-wrap gap-2">
               {available.map((u) => (
-                <button key={u.id_usuario} onClick={() => addTechnician(u.id_usuario)} className="text-xs border border-gray-200 rounded-lg px-2 py-1 hover:bg-gray-50">
-                  {u.nombres} {u.apellido_paterno || ""}
+                <button
+                  key={u.usuario_id}
+                  onClick={() => addTechnician(u.usuario_id)}
+                  className="text-xs border border-gray-200 rounded-lg px-2 py-1 hover:bg-gray-50"
+                >
+                  {userName(u)}
                 </button>
               ))}
             </div>
@@ -285,37 +532,72 @@ export default function ServiceDetail() {
         )}
       </div>
 
+      {/* ── Tareas y avance ── */}
       <div className="bg-white rounded-2xl border border-gray-100 p-5">
-        <h3 className="text-gray-900 mb-3" style={{ fontWeight: 700 }}>Tareas y avance</h3>
+        <h3 className="text-gray-900 mb-3" style={{ fontWeight: 700 }}>
+          Tareas y avance
+        </h3>
         <div className="space-y-2">
           {tasks.map((t, idx) => (
-            <div key={t.id} className="border border-gray-100 rounded-xl p-3">
+            <div key={t.tarea_id} className="border border-gray-100 rounded-xl p-3">
               <div className="flex items-center gap-3">
                 <button disabled={saving} onClick={() => toggleTask(t)}>
-                  {t.completada ? <CheckCircle2 className="w-5 h-5 text-green-600" /> : <Circle className="w-5 h-5 text-gray-400" />}
+                  {t.tarea_estado === "completado" ? (
+                    <CheckCircle2 className="w-5 h-5 text-green-600" />
+                  ) : (
+                    <Circle className="w-5 h-5 text-gray-400" />
+                  )}
                 </button>
-                <p className={`text-sm flex-1 ${t.completada ? "line-through text-gray-400" : "text-gray-800"}`}>
-                  <span className="text-gray-400 mr-1">{idx + 1}.</span>{t.nombre}
+                <p
+                  className={`text-sm flex-1 ${
+                    t.tarea_estado === "completado"
+                      ? "line-through text-gray-400"
+                      : "text-gray-800"
+                  }`}
+                >
+                  <span className="text-gray-400 mr-1">{idx + 1}.</span>
+                  {t.tarea_titulo}
                 </p>
-                <button onClick={() => setSelectedTaskId(selectedTaskId === t.id ? null : t.id)} className="text-xs text-blue-700">
+                <button
+                  onClick={() =>
+                    setSelectedTaskId(selectedTaskId === t.tarea_id ? null : t.tarea_id)
+                  }
+                  className="text-xs text-blue-700"
+                >
                   <MessageSquare className="w-4 h-4" />
                 </button>
               </div>
-              {selectedTaskId === t.id && (
+              {selectedTaskId === t.tarea_id && (
                 <div className="mt-3 border-t border-gray-100 pt-3 space-y-2">
-                  {selectedTaskNotes.map((n) => (
-                    <div key={n.id} className="text-xs bg-gray-50 rounded-lg px-2 py-1">
-                      <span style={{ fontWeight: 600 }}>{n.tipo}</span>: {n.texto}
-                    </div>
-                  ))}
+                  {selectedTaskNotes.map((n) => {
+                    const noteUser = n.usuario_id ? usersMap[n.usuario_id] : undefined;
+                    return (
+                      <div
+                        key={n.tareacomentario_id}
+                        className="text-xs bg-gray-50 rounded-lg px-2 py-1"
+                      >
+                        {noteUser && (
+                          <span className="font-semibold text-gray-700">
+                            {userName(noteUser)}:{" "}
+                          </span>
+                        )}
+                        {n.tareacomentario_contenido}
+                      </div>
+                    );
+                  })}
                   <div className="flex gap-2">
-                    <select value={noteType} onChange={(e) => setNoteType(e.target.value as Note["tipo"])} className="text-xs border border-gray-200 rounded-lg px-2 py-1">
-                      <option value="comentario">Comentario</option>
-                      <option value="instruccion">Instruccion</option>
-                      <option value="observacion">Observacion</option>
-                    </select>
-                    <input value={newNote} onChange={(e) => setNewNote(e.target.value)} placeholder="Nota de tarea" className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-xs" />
-                    <button onClick={addTaskNote} className="bg-blue-900 text-white rounded-lg px-2"><Send className="w-3 h-3" /></button>
+                    <input
+                      value={newNote}
+                      onChange={(e) => setNewNote(e.target.value)}
+                      placeholder="Agregar nota..."
+                      className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-xs"
+                    />
+                    <button
+                      onClick={addTaskNote}
+                      className="bg-blue-900 text-white rounded-lg px-2"
+                    >
+                      <Send className="w-3 h-3" />
+                    </button>
                   </div>
                 </div>
               )}
@@ -324,16 +606,43 @@ export default function ServiceDetail() {
         </div>
       </div>
 
+      {/* ── Comentarios internos ── */}
       <div className="bg-white rounded-2xl border border-gray-100 p-5">
-        <h3 className="text-gray-900 mb-3" style={{ fontWeight: 700 }}>Comentarios internos</h3>
+        <h3 className="text-gray-900 mb-3" style={{ fontWeight: 700 }}>
+          Comentarios internos
+        </h3>
         <div className="space-y-2 mb-3">
-          {comments.map((c) => (
-            <div key={c.id} className="text-sm bg-gray-50 rounded-xl px-3 py-2">{c.texto}</div>
-          ))}
+          {comments.map((c) => {
+            const commentUser = c.usuario_id ? usersMap[c.usuario_id] : undefined;
+            return (
+              <div
+                key={c.serviciocomentario_id}
+                className="text-sm bg-gray-50 rounded-xl px-3 py-2"
+              >
+                {commentUser && (
+                  <span className="font-semibold text-gray-700">
+                    {userName(commentUser)}:{" "}
+                  </span>
+                )}
+                {c.serviciocomentario_contenido}
+              </div>
+            );
+          })}
         </div>
         <div className="flex gap-2">
-          <textarea value={newComment} onChange={(e) => setNewComment(e.target.value)} rows={2} placeholder="Agregar comentario" className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm" />
-          <button onClick={addComment} className="bg-blue-900 text-white rounded-xl px-3 self-end"><Send className="w-4 h-4" /></button>
+          <textarea
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            rows={2}
+            placeholder="Agregar comentario"
+            className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm"
+          />
+          <button
+            onClick={addComment}
+            className="bg-blue-900 text-white rounded-xl px-3 self-end"
+          >
+            <Send className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </div>
