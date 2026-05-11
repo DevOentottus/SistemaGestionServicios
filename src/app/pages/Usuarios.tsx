@@ -12,21 +12,21 @@ type Area = {
 };
 
 type Usuario = {
-  id_usuario: string;
-  dni: string | null;
-  nombres: string;
-  apellido_paterno: string;
-  apellido_materno: string | null;
-  telefono: string | null;
-  correo: string;
-  username: string;
-  rol: "Administrador" | "Encargado" | "Colaborador" | "Cliente";
-  id_area_principal: string | null;
-  id_area_adicional: string | null;
-  encargado_area_principal: boolean;
-  encargado_area_adicional: boolean;
-  activo: boolean;
-  ultimo_login: string | null;
+  usuario_id: string;
+  usuario_dni: string | null;
+  usuario_nombres: string;
+  usuario_apellido_paterno: string;
+  usuario_apellido_materno: string | null;
+  usuario_telefono: string | null;
+  usuario_correo: string;
+  usuario_username: string;
+  usuario_rol: "Administrador" | "Encargado" | "Colaborador" | "Cliente";
+  usuario_id_area_principal: string | null;
+  usuario_id_area_adicional: string | null;
+  usuario_encargado_area_principal: boolean;
+  usuario_encargado_area_adicional: boolean;
+  usuario_activo: boolean;
+  usuario_ultimo_login: string | null;
 };
 
 type UsuarioForm = {
@@ -36,7 +36,7 @@ type UsuarioForm = {
   apellido_materno: string;
   telefono: string;
   correo: string;
-  rol: Usuario["rol"];
+  rol: Usuario["usuario_rol"];
   id_area_principal: string;
   id_area_adicional: string;
   encargado_area_principal: boolean;
@@ -109,7 +109,7 @@ export default function Usuarios() {
       const { data: usersData, error: usersError } = await supabase
         .from("usuarios")
         .select("*")
-        .order("nombres");
+        .order("usuario_nombres");
       if (usersError) console.error(usersError);
       else setUsuarios(usersData || []);
 
@@ -125,7 +125,7 @@ export default function Usuarios() {
     const base = `${firstName.slice(0, 3)}${firstLastName}`;
     let candidate = `${base}${String(1).padStart(2, "0")}`;
     let counter = 1;
-    while (usuarios.some(u => u.username === candidate && u.id_usuario !== currentId)) {
+    while (usuarios.some(u => u.usuario_username === candidate && u.usuario_id !== currentId)) {
       counter += 1;
       candidate = `${base}${String(counter).padStart(2, "0")}`;
     }
@@ -133,19 +133,19 @@ export default function Usuarios() {
   };
 
   const getInitials = (u: Usuario) => {
-    const n = u.nombres?.charAt(0) ?? "";
-    const a = u.apellido_paterno?.charAt(0) ?? "";
+    const n = u.usuario_nombres?.charAt(0) ?? "";
+    const a = u.usuario_apellido_paterno?.charAt(0) ?? "";
     return `${n}${a}` || "U";
   };
 
   const getIdInterno = (u: Usuario) => {
-    const normalized = u.id_usuario?.replace(/-/g, "").slice(-6).toUpperCase();
+    const normalized = u.usuario_id?.replace(/-/g, "").slice(-6).toUpperCase();
     if (normalized) return `USR-${normalized}`;
     return "USR-—";
   };
 
   const getFullLastName = (u: Usuario) => {
-    return `${u.apellido_paterno}${u.apellido_materno ? ` ${u.apellido_materno}` : ""}`;
+    return `${u.usuario_apellido_paterno}${u.usuario_apellido_materno ? ` ${u.usuario_apellido_materno}` : ""}`;
   };
 
   // Obtener nombre del área por ID
@@ -157,7 +157,7 @@ export default function Usuarios() {
 
   const isAdmin = form.rol === "Administrador";
   // Administrador tiene prioridad sobre encargado para el rol efectivo.
-  const effectiveRol: Usuario["rol"] = isAdmin
+  const effectiveRol: Usuario["usuario_rol"] = isAdmin
     ? "Administrador"
     : form.encargado_area_principal || form.encargado_area_adicional
       ? "Encargado"
@@ -201,17 +201,17 @@ export default function Usuarios() {
   const openEdit = (user: Usuario) => {
     setEditingUser(user);
     setForm({
-      dni: user.dni ?? "",
-      nombres: user.nombres,
-      apellido_paterno: user.apellido_paterno,
-      apellido_materno: user.apellido_materno ?? "",
-      telefono: user.telefono ?? "",
-      correo: user.correo,
-      rol: user.rol,
-      id_area_principal: user.id_area_principal ?? "",
-      id_area_adicional: user.id_area_adicional ?? "",
-      encargado_area_principal: user.encargado_area_principal,
-      encargado_area_adicional: user.encargado_area_adicional,
+      dni: user.usuario_dni ?? "",
+      nombres: user.usuario_nombres,
+      apellido_paterno: user.usuario_apellido_paterno,
+      apellido_materno: user.usuario_apellido_materno ?? "",
+      telefono: user.usuario_telefono ?? "",
+      correo: user.usuario_correo,
+      rol: user.usuario_rol,
+      id_area_principal: user.usuario_id_area_principal ?? "",
+      id_area_adicional: user.usuario_id_area_adicional ?? "",
+      encargado_area_principal: user.usuario_encargado_area_principal,
+      encargado_area_adicional: user.usuario_encargado_area_adicional,
       password: "",
       confirmPassword: "",
     });
@@ -220,12 +220,12 @@ export default function Usuarios() {
 
   // Filtrar usuarios
   const filtered = usuarios.filter((u) => {
-    const matchSearch = `${u.nombres} ${u.apellido_paterno} ${u.apellido_materno || ""} ${u.dni || ""} ${u.correo}`
+    const matchSearch = `${u.usuario_nombres} ${u.usuario_apellido_paterno} ${u.usuario_apellido_materno || ""} ${u.usuario_dni || ""} ${u.usuario_correo}`
       .toLowerCase()
       .includes(search.toLowerCase());
-    const userAreaNames = [getAreaName(u.id_area_principal), getAreaName(u.id_area_adicional)].filter(a => a !== NONE_AREA);
+    const userAreaNames = [getAreaName(u.usuario_id_area_principal), getAreaName(u.usuario_id_area_adicional)].filter(a => a !== NONE_AREA);
     const matchArea = filterArea === "Todas" || userAreaNames.includes(filterArea);
-    const matchRol = filterRol === "Todos" || u.rol === filterRol;
+    const matchRol = filterRol === "Todos" || u.usuario_rol === filterRol;
     return matchSearch && matchArea && matchRol;
   });
 
@@ -244,36 +244,36 @@ export default function Usuarios() {
 
     setSaving(true);
     try {
-      const username = editingUser?.username || generateUsername(form.nombres, form.apellido_paterno, editingUser?.id_usuario);
+      const username = editingUser?.usuario_username || generateUsername(form.nombres, form.apellido_paterno, editingUser?.usuario_id);
       const normalizedAreaPrincipal = isAdmin ? null : form.id_area_principal || null;
       const normalizedAreaAdicional = isAdmin ? null : form.id_area_adicional || null;
       const normalizedEncargadoPrincipal = isAdmin ? false : form.encargado_area_principal;
       const normalizedEncargadoAdicional = isAdmin ? false : form.encargado_area_adicional;
       const userData: Partial<Usuario> = {
-        dni: form.dni || null,
-        nombres: form.nombres,
-        apellido_paterno: form.apellido_paterno,
-        apellido_materno: form.apellido_materno || null,
-        telefono: form.telefono || null,
-        correo: form.correo,
-        username,
-        rol: effectiveRol,
-        id_area_principal: normalizedAreaPrincipal,
-        id_area_adicional: normalizedAreaAdicional,
-        encargado_area_principal: normalizedEncargadoPrincipal,
-        encargado_area_adicional: normalizedEncargadoAdicional,
-        activo: editingUser ? editingUser.activo : true,
+        usuario_dni: form.dni || null,
+        usuario_nombres: form.nombres,
+        usuario_apellido_paterno: form.apellido_paterno,
+        usuario_apellido_materno: form.apellido_materno || null,
+        usuario_telefono: form.telefono || null,
+        usuario_correo: form.correo,
+        usuario_username: username,
+        usuario_rol: effectiveRol,
+        usuario_id_area_principal: normalizedAreaPrincipal,
+        usuario_id_area_adicional: normalizedAreaAdicional,
+        usuario_encargado_area_principal: normalizedEncargadoPrincipal,
+        usuario_encargado_area_adicional: normalizedEncargadoAdicional,
+        usuario_activo: editingUser ? editingUser.usuario_activo : true,
       };
 
       if (editingUser) {
         const { error } = await supabase
           .from("usuarios")
           .update(userData)
-          .eq("id_usuario", editingUser.id_usuario);
+          .eq("usuario_id", editingUser.usuario_id);
         if (error) throw error;
         setUsuarios(prev =>
           prev.map(u =>
-            u.id_usuario === editingUser.id_usuario
+            u.usuario_id === editingUser.usuario_id
               ? { ...u, ...userData } as Usuario
               : u
           )
@@ -313,7 +313,7 @@ export default function Usuarios() {
       const { error } = await supabase
         .from("usuarios")
         .update({ usuario_contrasena: newPassword })
-        .eq("id_usuario", selectedUserForPassword.id_usuario);
+        .eq("usuario_id", selectedUserForPassword.usuario_id);
       if (error) throw error;
       alert("Contraseña actualizada correctamente");
       closePasswordModal();
@@ -326,18 +326,18 @@ export default function Usuarios() {
   };
 
   const toggleActivo = async (usuario: Usuario) => {
-    const newActivo = !usuario.activo;
+    const newActivo = !usuario.usuario_activo;
     const { error } = await supabase
       .from("usuarios")
-      .update({ activo: newActivo })
-      .eq("id_usuario", usuario.id_usuario);
+      .update({ usuario_activo: newActivo })
+      .eq("usuario_id", usuario.usuario_id);
     if (error) {
       alert("Error al cambiar estado");
       return;
     }
     setUsuarios(prev =>
       prev.map(u =>
-        u.id_usuario === usuario.id_usuario ? { ...u, activo: newActivo } : u
+        u.usuario_id === usuario.usuario_id ? { ...u, usuario_activo: newActivo } : u
       )
     );
   };
@@ -356,7 +356,7 @@ export default function Usuarios() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-gray-900" style={{ fontWeight: 700 }}>Usuarios</h1>
-          <p className="text-gray-500 text-sm">{usuarios.filter((u) => u.activo).length} activos · {usuarios.filter((u) => !u.activo).length} inactivos</p>
+          <p className="text-gray-500 text-sm">{usuarios.filter((u) => u.usuario_activo).length} activos · {usuarios.filter((u) => !u.usuario_activo).length} inactivos</p>
         </div>
         <button
           onClick={openAdd}
@@ -422,18 +422,18 @@ export default function Usuarios() {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filtered.map((u) => (
-                <tr key={u.id_usuario} className="hover:bg-gray-50 transition">
+                <tr key={u.usuario_id} className="hover:bg-gray-50 transition">
                   <td className="px-4 py-3">
                     <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-lg" style={{ fontWeight: 600 }}>{getIdInterno(u)}</span>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${u.rol === "Encargado" ? "bg-purple-700" : "bg-blue-900"}`}>
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${u.usuario_rol === "Encargado" ? "bg-purple-700" : "bg-blue-900"}`}>
                         <span className="text-white text-xs" style={{ fontWeight: 700 }}>{getInitials(u)}</span>
                       </div>
                       <div>
-                        <p className="text-gray-900 text-sm" style={{ fontWeight: 600 }}>{u.nombres} {getFullLastName(u)}</p>
-                        <p className="text-gray-400 text-xs">@{u.username} · DNI: {u.dni || "—"}</p>
+                        <p className="text-gray-900 text-sm" style={{ fontWeight: 600 }}>{u.usuario_nombres} {getFullLastName(u)}</p>
+                        <p className="text-gray-400 text-xs">@{u.usuario_username} · DNI: {u.usuario_dni || "—"}</p>
                       </div>
                     </div>
                   </td>
@@ -441,29 +441,29 @@ export default function Usuarios() {
                     <div className="space-y-1">
                       <div className="flex items-center gap-1">
                         <MapPin className="w-3 h-3 text-blue-600 flex-shrink-0" />
-                        <span className="text-xs text-gray-700" style={{ fontWeight: 500 }}>{getAreaName(u.id_area_principal)}</span>
-                        {u.encargado_area_principal && <Shield className="w-3 h-3 text-purple-600" aria-label="Encargado de esta área" />}
+                        <span className="text-xs text-gray-700" style={{ fontWeight: 500 }}>{getAreaName(u.usuario_id_area_principal)}</span>
+                        {u.usuario_encargado_area_principal && <Shield className="w-3 h-3 text-purple-600" aria-label="Encargado de esta área" />}
                       </div>
-                      {u.id_area_adicional && (
+                      {u.usuario_id_area_adicional && (
                         <div className="flex items-center gap-1">
                           <MapPin className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                          <span className="text-xs text-gray-400">{getAreaName(u.id_area_adicional)}</span>
-                          {u.encargado_area_adicional && <Shield className="w-3 h-3 text-purple-400" aria-label="Encargado de área secundaria" />}
+                          <span className="text-xs text-gray-400">{getAreaName(u.usuario_id_area_adicional)}</span>
+                          {u.usuario_encargado_area_adicional && <Shield className="w-3 h-3 text-purple-400" aria-label="Encargado de área secundaria" />}
                         </div>
                       )}
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`text-xs px-2 py-1 rounded-full ${rolColors[u.rol]}`} style={{ fontWeight: 500 }}>{u.rol}</span>
+                    <span className={`text-xs px-2 py-1 rounded-full ${rolColors[u.usuario_rol]}`} style={{ fontWeight: 500 }}>{u.usuario_rol}</span>
                   </td>
                   <td className="px-4 py-3">
-                    <p className="text-xs text-gray-600">{u.correo}</p>
-                    <p className="text-xs text-gray-400">{u.telefono || "—"}</p>
+                    <p className="text-xs text-gray-600">{u.usuario_correo}</p>
+                    <p className="text-xs text-gray-400">{u.usuario_telefono || "—"}</p>
                   </td>
                   <td className="px-4 py-3">
-                    <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${u.activo ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`} style={{ fontWeight: 500 }}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${u.activo ? "bg-green-500" : "bg-gray-400"}`} />
-                      {u.activo ? "Activo" : "Inactivo"}
+                    <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${u.usuario_activo ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`} style={{ fontWeight: 500 }}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${u.usuario_activo ? "bg-green-500" : "bg-gray-400"}`} />
+                      {u.usuario_activo ? "Activo" : "Inactivo"}
                     </span>
                   </td>
                   <td className="px-4 py-3">
@@ -476,10 +476,10 @@ export default function Usuarios() {
                       </button>
                       <button
                         onClick={() => toggleActivo(u)}
-                        className={`p-1.5 rounded-lg transition ${u.activo ? "hover:bg-red-50 text-red-600" : "hover:bg-green-50 text-green-600"}`}
-                        title={u.activo ? "Desactivar" : "Activar"}
+                        className={`p-1.5 rounded-lg transition ${u.usuario_activo ? "hover:bg-red-50 text-red-600" : "hover:bg-green-50 text-green-600"}`}
+                        title={u.usuario_activo ? "Desactivar" : "Activar"}
                       >
-                        {u.activo ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
+                        {u.usuario_activo ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
                       </button>
                     </div>
                   </td>
@@ -631,7 +631,7 @@ export default function Usuarios() {
 
             <div className="px-6 py-4 space-y-4">
               <p className="text-sm text-gray-600">
-                Usuario: <span className="font-semibold">{selectedUserForPassword.nombres} {selectedUserForPassword.apellido_paterno}</span>
+                Usuario: <span className="font-semibold">{selectedUserForPassword.usuario_nombres} {selectedUserForPassword.usuario_apellido_paterno}</span>
               </p>
               <div>
                 <label className="block text-xs text-gray-600 mb-1 font-semibold">Nueva contraseña</label>
