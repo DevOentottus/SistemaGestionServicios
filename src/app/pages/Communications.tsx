@@ -1,19 +1,45 @@
-import { useState } from "react";
-import {
-  anuncios as initialAnuncios,
-  solicitudes as initialSolicitudes,
-  servicios as initialServices,
-  Announcement,
-  InternalRequest,
-  Service,
-} from "../data/mockData";
+import { useState, useEffect } from "react";
+import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
 import {
   Send, Search, MessageCircle, Clock, ChevronDown, ExternalLink, History, Copy, Check,
-  Bell, Users, FileText, AlertCircle, CheckCircle2, User, Calendar,
+  Bell, Users, FileText, AlertCircle, CheckCircle2, User, Calendar, Plus, X, Loader2,
 } from "lucide-react";
 
-// Mensajes predefinidos según estado del servicio
+type AnuncioDB = {
+  id: string;
+  titulo: string;
+  contenido: string;
+  autor: string;
+  fecha: string;
+  tipo: "global" | "area";
+  area_destino: string | null;
+};
+
+type SolicitudDB = {
+  id: string;
+  tipo: "apoyo" | "herramienta" | "instruccion";
+  solicitante: string;
+  destinatario: string;
+  contenido: string;
+  fecha: string;
+  estado: "pendiente" | "atendido";
+};
+
+type ServicioDB = {
+  id: string;
+  codigo: string;
+  cliente: string;
+  telefono_cliente: string | null;
+  descripcion: string;
+  estado: string;
+};
+
+type AreaDB = {
+  id: string;
+  nombre: string;
+};
+
 const mensajesPredefinidos: Record<string, string> = {
   Pendiente: "Hola {cliente}, tu servicio {codigo} ha sido registrado y está pendiente de asignación. Te mantendremos informado.",
   "En progreso": "Hola {cliente}, tu servicio {codigo} ya está en progreso. Nuestro equipo está trabajando en ello.",
@@ -24,15 +50,16 @@ const mensajesPredefinidos: Record<string, string> = {
 export default function Communications() {
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<"interna" | "clientes">("interna");
+  const [loading, setLoading] = useState(true);
 
-  // --- Comunicación Interna ---
-  const [anuncios] = useState<Announcement[]>(initialAnuncios);
-  const [solicitudes, setSolicitudes] = useState<InternalRequest[]>(initialSolicitudes);
+  const [anuncios, setAnuncios] = useState<AnuncioDB[]>([]);
+  const [solicitudes, setSolicitudes] = useState<SolicitudDB[]>([]);
+  const [areas, setAreas] = useState<AreaDB[]>([]);
+  const [servicios, setServicios] = useState<ServicioDB[]>([]);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [filterTipoAnuncio, setFilterTipoAnuncio] = useState<"todos" | "global" | "area">("todos");
 
-  // --- Comunicación con Clientes ---
-  const [services] = useState<Service[]>(initialServices);
   const [searchClient, setSearchClient] = useState("");
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [customMessage, setCustomMessage] = useState("");
@@ -40,9 +67,74 @@ export default function Communications() {
   const [showHistory, setShowHistory] = useState(false);
   const [messageHistory, setMessageHistory] = useState<{ id: string; serviceId: string; fecha: string; mensaje: string }[]>([]);
 
+  const [showNewAnuncio, setShowNewAnuncio] = useState(false);
+  const [anuncioForm, setAnuncioForm] = useState({ titulo: "", contenido: "", tipo: "global" as "global" | "area", area_destino: "" });
+  const [saving, setSaving] = useState(false);
+
   const isAdmin = currentUser?.rol === "Administrador" || currentUser?.rol === "Encargado";
 
-  // ========== FILTROS COMUNICACIÓN INTERNA ==========
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [a, s, ar, sv] = await Promise.all([
+        supabase.from("anuncios").select("*").order("fecha", { ascending: false }),
+        supabase.from("solicitudes_internas").select("*").order("fecha", { ascending: false }),
+        supabase.from("areas").select("id, nombre").order("nombre"),
+        supabase.from("servicios").select("id, codigo, cliente, telefono_cliente, descripcion, estado").order("fecha_inicio", { ascending: false }),
+      ]);
+      if (a.error) throw a.error;
+      if (s.error) throw s.error;
+      if (ar.error) throw ar.error;
+      if (sv.error) throw sv.error;
+      setAnuncios((a.data || []) as AnuncioDB[]);
+      setSolicitudes((s.data || []) as SolicitudDB[]);
+      setAreas((ar.data || []) as AreaDB[]);
+      setServicios((sv.data || []) as ServicioDB[]);
+    } catch (err) {
+      console.error("Error cargando comunicaciones:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const crearAnuncio = async () => {
+    if (!anuncioForm.titulo.trim() || !anuncioForm.contenido.trim()) return;
+    setSaving(true);
+    try {
+      const { error } = await supabase.from("anuncios").insert([{
+        titulo: anuncioForm.titulo.trim(),
+        contenido: anuncioForm.contenido.trim(),
+        autor: currentUser?.nombres || "Sistema",
+        tipo: anuncioForm.tipo,
+        area_destino: anuncioForm.tipo === "area" ? anuncioForm.area_destino || null : null,
+      }]);
+      if (error) throw error;
+      setShowNewAnuncio(false);
+      setAnuncioForm({ titulo: "", contenido: "", tipo: "global", area_destino: "" });
+      const { data } = await supabase.from("anuncios").select("*").order("fecha", { ascending: false });
+      if (data) setAnuncios(data as AnuncioDB[]);
+    } catch (err) {
+      console.error(err);
+      alert("Error al crear anuncio");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const marcarSolicitudAtendida = async (id: string) => {
+    try {
+      const { error } = await supabase.from("solicitudes_internas").update({ estado: "atendido" }).eq("id", id);
+      if (error) throw error;
+      setSolicitudes(prev => prev.map(s => s.id === id ? { ...s, estado: "atendido" } : s));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const filteredAnuncios = anuncios.filter((a) => {
     const matchSearch = a.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
       a.contenido.toLowerCase().includes(searchTerm.toLowerCase());
@@ -56,24 +148,17 @@ export default function Communications() {
     return matchSearch;
   });
 
-  const marcarSolicitudAtendida = (id: string) => {
-    setSolicitudes((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, estado: "atendido" } : s))
-    );
-  };
-
-  // ========== COMUNICACIÓN CON CLIENTES ==========
-  const filteredServices = services.filter(s =>
+  const filteredServices = servicios.filter(s =>
     s.codigo.toLowerCase().includes(searchClient.toLowerCase()) ||
     s.descripcion.toLowerCase().includes(searchClient.toLowerCase()) ||
     s.cliente.toLowerCase().includes(searchClient.toLowerCase())
   );
 
-  const selectedService = services.find(s => s.id === selectedServiceId);
+  const selectedService = servicios.find(s => s.id === selectedServiceId);
 
   const handleSelectService = (id: string) => {
     setSelectedServiceId(id);
-    const service = services.find(s => s.id === id);
+    const service = servicios.find(s => s.id === id);
     if (service) {
       const defaultMsg = mensajesPredefinidos[service.estado]
         ?.replace("{cliente}", service.cliente)
@@ -85,8 +170,7 @@ export default function Communications() {
 
   const handleSendWhatsApp = () => {
     if (!selectedService) return;
-    // Usa el teléfono del cliente si existe, sino un demo
-    const telefono = (selectedService as any).telefonoCliente || "51987654321";
+    const telefono = selectedService.telefono_cliente || "51987654321";
     const mensaje = encodeURIComponent(customMessage);
     const url = `https://wa.me/${telefono}?text=${mensaje}`;
 
@@ -108,14 +192,17 @@ export default function Communications() {
 
   const historialFiltrado = messageHistory.filter(m => m.serviceId === selectedServiceId);
 
+  if (loading) return <div className="flex justify-center items-center h-64"><Loader2 className="animate-spin w-8 h-8 text-blue-900" /></div>;
+
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-gray-900 font-bold text-2xl">Comunicaciones</h1>
-        <p className="text-gray-500 text-sm">Gestión de anuncios, solicitudes y mensajes a clientes</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-gray-900 font-bold text-2xl">Comunicaciones</h1>
+          <p className="text-gray-500 text-sm">Gestión de anuncios, solicitudes y mensajes a clientes</p>
+        </div>
       </div>
 
-      {/* Pestañas */}
       <div className="flex gap-1 bg-white rounded-xl p-1 shadow-sm border border-gray-100 w-fit">
         <button
           onClick={() => setActiveTab("interna")}
@@ -133,10 +220,8 @@ export default function Communications() {
         </button>
       </div>
 
-      {/* ========== COMUNICACIÓN INTERNA ========== */}
       {activeTab === "interna" && (
         <div className="space-y-5">
-          {/* Filtros */}
           <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
@@ -161,16 +246,21 @@ export default function Communications() {
                 </select>
                 <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
               </div>
+              {isAdmin && (
+                <button onClick={() => setShowNewAnuncio(true)} className="flex items-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-blue-900 px-4 py-2.5 rounded-xl text-sm font-bold transition">
+                  <Plus className="w-4 h-4" /> Nuevo Anuncio
+                </button>
+              )}
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            {/* Anuncios */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
               <div className="px-5 py-4 border-b border-gray-100 bg-blue-50/30">
                 <div className="flex items-center gap-2">
                   <Bell className="w-5 h-5 text-blue-700" />
                   <h2 className="text-gray-800 font-semibold">Anuncios y Comunicados</h2>
+                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">{anuncios.length}</span>
                 </div>
               </div>
               <div className="divide-y divide-gray-50 max-h-[500px] overflow-y-auto">
@@ -187,13 +277,13 @@ export default function Communications() {
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <h3 className="text-gray-900 font-semibold text-sm">{a.titulo}</h3>
                             <span className={`text-xs px-2 py-0.5 rounded-full ${a.tipo === "global" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}>
-                              {a.tipo === "global" ? "Global" : `Área: ${a.areaDestino}`}
+                              {a.tipo === "global" ? "Global" : `Área: ${areas.find(ar => ar.id === a.area_destino)?.nombre || a.area_destino}`}
                             </span>
                           </div>
                           <p className="text-gray-600 text-sm mb-2">{a.contenido}</p>
                           <div className="flex items-center gap-3 text-xs text-gray-400">
                             <span className="flex items-center gap-1"><User className="w-3 h-3" /> {a.autor}</span>
-                            <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {a.fecha}</span>
+                            <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {new Date(a.fecha).toLocaleString("es-PE")}</span>
                           </div>
                         </div>
                       </div>
@@ -203,12 +293,12 @@ export default function Communications() {
               </div>
             </div>
 
-            {/* Solicitudes Internas */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
               <div className="px-5 py-4 border-b border-gray-100 bg-amber-50/30">
                 <div className="flex items-center gap-2">
                   <FileText className="w-5 h-5 text-amber-700" />
                   <h2 className="text-gray-800 font-semibold">Solicitudes Internas</h2>
+                  <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">{solicitudes.filter(s => s.estado === "pendiente").length} pendientes</span>
                 </div>
               </div>
               <div className="divide-y divide-gray-50 max-h-[500px] overflow-y-auto">
@@ -237,7 +327,7 @@ export default function Communications() {
                           <p className="text-gray-800 text-sm mb-1"><span className="font-medium">{s.solicitante}</span> → <span className="font-medium">{s.destinatario}</span></p>
                           <p className="text-gray-600 text-sm mb-2">{s.contenido}</p>
                           <div className="flex items-center justify-between">
-                            <span className="text-xs text-gray-400 flex items-center gap-1"><Clock className="w-3 h-3" /> {s.fecha}</span>
+                            <span className="text-xs text-gray-400 flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(s.fecha).toLocaleString("es-PE")}</span>
                             {isAdmin && s.estado === "pendiente" && (
                               <button
                                 onClick={() => marcarSolicitudAtendida(s.id)}
@@ -258,10 +348,8 @@ export default function Communications() {
         </div>
       )}
 
-      {/* ========== COMUNICACIÓN CON CLIENTES ========== */}
       {activeTab === "clientes" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          {/* Panel izquierdo: Lista de servicios */}
           <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-100">
               <div className="relative">
@@ -302,11 +390,9 @@ export default function Communications() {
             </div>
           </div>
 
-          {/* Panel derecho: Composición del mensaje */}
           <div className="lg:col-span-2 space-y-4">
             {selectedService ? (
               <>
-                {/* Detalle del servicio */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
                   <div className="flex items-start justify-between mb-4">
                     <div>
@@ -325,7 +411,7 @@ export default function Communications() {
                     </div>
                     <div className="text-right">
                       <p className="text-xs text-gray-400">Teléfono cliente</p>
-                      <p className="text-sm font-mono">+51 {(selectedService as any).telefonoCliente || "987 654 321"}</p>
+                      <p className="text-sm font-mono">+51 {selectedService.telefono_cliente || "987 654 321"}</p>
                     </div>
                   </div>
 
@@ -361,7 +447,6 @@ export default function Communications() {
                   </div>
                 </div>
 
-                {/* Historial de mensajes (acordeón) */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                   <button
                     onClick={() => setShowHistory(!showHistory)}
@@ -401,6 +486,52 @@ export default function Communications() {
                 <p className="text-gray-400 text-sm">Elige un servicio de la lista para redactar un mensaje</p>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {showNewAnuncio && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg rounded-2xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-gray-900 font-bold">Nuevo Anuncio</h3>
+                <p className="text-gray-400 text-xs mt-0.5">Publicar un comunicado</p>
+              </div>
+              <button onClick={() => setShowNewAnuncio(false)}><X className="w-5 h-5 text-gray-500" /></button>
+            </div>
+            <div className="px-6 py-4 space-y-4">
+              <div>
+                <label className="block text-xs text-gray-600 font-semibold mb-1">Título</label>
+                <input value={anuncioForm.titulo} onChange={e => setAnuncioForm(p => ({ ...p, titulo: e.target.value }))} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-gray-50" placeholder="Título del anuncio" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-600 font-semibold mb-1">Contenido</label>
+                <textarea value={anuncioForm.contenido} onChange={e => setAnuncioForm(p => ({ ...p, contenido: e.target.value }))} rows={4} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-gray-50 resize-none" placeholder="Contenido del anuncio..." />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-600 font-semibold mb-1">Tipo</label>
+                <select value={anuncioForm.tipo} onChange={e => setAnuncioForm(p => ({ ...p, tipo: e.target.value as "global" | "area" }))} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-gray-50">
+                  <option value="global">Global</option>
+                  <option value="area">Por área</option>
+                </select>
+              </div>
+              {anuncioForm.tipo === "area" && (
+                <div>
+                  <label className="block text-xs text-gray-600 font-semibold mb-1">Área destino</label>
+                  <select value={anuncioForm.area_destino} onChange={e => setAnuncioForm(p => ({ ...p, area_destino: e.target.value }))} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-gray-50">
+                    <option value="">Seleccionar área...</option>
+                    {areas.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+                  </select>
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
+              <button onClick={() => setShowNewAnuncio(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl">Cancelar</button>
+              <button onClick={crearAnuncio} disabled={saving || !anuncioForm.titulo.trim() || !anuncioForm.contenido.trim()} className="px-4 py-2 text-sm bg-yellow-400 text-blue-900 rounded-xl font-bold disabled:opacity-40 hover:bg-yellow-500">
+                {saving ? "Publicando..." : "Publicar"}
+              </button>
+            </div>
           </div>
         </div>
       )}

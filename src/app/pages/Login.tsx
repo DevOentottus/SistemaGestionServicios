@@ -141,9 +141,9 @@ export default function Login() {
               <div className="grid grid-cols-2 gap-2">
                 {[
                   { label: "Administrador", u: "JUPEREZ", p: "12345678", color: "bg-blue-100 text-blue-800" },
-                  { label: "Encargado", u: "jlopez01", p: "pass123", color: "bg-amber-100 text-amber-800" },
-                  { label: "Colaborador", u: "ptorres01", p: "pass123", color: "bg-green-100 text-green-800" },
-                  { label: "Cliente", u: "cliente", p: "cliente123", color: "bg-purple-100 text-purple-800" },
+                  { label: "Encargado", u: "clopez01", p: "12345678", color: "bg-amber-100 text-amber-800" },
+                  { label: "Colaborador", u: "ptorres01", p: "12345678", color: "bg-green-100 text-green-800" },
+                  { label: "Colaborador", u: "mgomez01", p: "12345678", color: "bg-green-100 text-green-800" },
                 ].map((r) => (
                   <button
                     key={r.label}

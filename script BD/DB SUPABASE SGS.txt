@@ -17,6 +17,79 @@ CREATE TYPE tipo_solicitud_enum AS ENUM ('apoyo', 'herramienta', 'instruccion');
 
 CREATE TYPE estado_solicitud_enum AS ENUM ('pendiente', 'atendido');
 
+-- ENUM para estado del servicio
+CREATE TYPE estado_servicio_enum AS ENUM ('Pendiente', 'En Proceso', 'Completado', 'Cancelado');
+
+-- TABLA CLIENTES
+CREATE TABLE Clientes (
+    Cliente_Id SERIAL PRIMARY KEY,
+    Cliente_Dni VARCHAR(15) UNIQUE NOT NULL,
+    Cliente_Apellido_Paterno VARCHAR(100),
+    Cliente_Apellido_Materno VARCHAR(100),
+    Cliente_Nombres VARCHAR(150),
+    Cliente_Telefono VARCHAR(20)
+);
+
+-- TABLA USUARIOS
+CREATE TABLE Usuarios (
+    Usuario_Id SERIAL PRIMARY KEY,
+    Usuario_Dni VARCHAR(15) UNIQUE,
+    Usuario_Nombres VARCHAR(150),
+    Usuario_Apellido_Paterno VARCHAR(100),
+    Usuario_Apellido_Materno VARCHAR(100),
+    Usuario_Telefono VARCHAR(20),
+    Usuario_Correo VARCHAR(150) UNIQUE,
+    Usuario_Rol VARCHAR(50),
+    Usuario_Username VARCHAR(100) UNIQUE,
+    Usuario_Contrasena TEXT,
+    Usuario_Activo BOOLEAN DEFAULT TRUE,
+    Usuario_Fecha_Creacion DATE DEFAULT CURRENT_DATE,
+    Usuario_Hora_Creacion TIME DEFAULT CURRENT_TIME,
+    Usuario_Disponible BOOLEAN DEFAULT TRUE
+);
+
+-- TABLA AREAS
+CREATE TABLE Areas (
+    Area_Id SERIAL PRIMARY KEY,
+    Area_Nombre VARCHAR(100),
+    Area_Descripcion TEXT,
+    Area_Encargado_Id INT,
+    CONSTRAINT fk_area_encargado FOREIGN KEY (Area_Encargado_Id)
+        REFERENCES Usuarios(Usuario_Id)
+);
+
+-- TABLA SERVICIOS
+CREATE TABLE Servicios (
+    Servicio_Id SERIAL PRIMARY KEY,
+    Servicio_Cliente_Id VARCHAR(15),
+    Servicio_Area_Id INT,
+    Servicio_Usuario_Id INT,
+    Servicio_Nombre VARCHAR(150),
+    Servicio_Descripcion_Equipo TEXT,
+    Servicio_Serie_Equipo VARCHAR(100),
+    Servicio_Detalles_Equipo TEXT,
+    Servicio_Descripcion TEXT,
+    Servicio_Fecha_Inicio DATE,
+    Servicio_Hora_Inicio TIME,
+    Servicio_Fecha_Fin DATE,
+    Servicio_Hora_Fin TIME,
+    Servicio_Estado estado_servicio_enum DEFAULT 'Pendiente',
+    Servicio_Progreso INTEGER DEFAULT 0,
+
+    CONSTRAINT fk_servicio_cliente FOREIGN KEY (Servicio_Cliente_Id)
+        REFERENCES Clientes(Cliente_Dni),
+
+    CONSTRAINT fk_servicio_area FOREIGN KEY (Servicio_Area_Id)
+        REFERENCES Areas(Area_Id),
+
+    CONSTRAINT fk_servicio_usuario FOREIGN KEY (Servicio_Usuario_Id)
+        REFERENCES Usuarios(Usuario_Id)
+);
+
+
+
+
+
 
 -- =========================
 -- AREAS
