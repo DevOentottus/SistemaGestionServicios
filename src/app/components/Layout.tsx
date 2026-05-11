@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Outlet, useNavigate, useLocation, Navigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -20,6 +20,13 @@ const navItems = [
   { path: "/audit", label: "Auditoría", icon: Shield, roles: ["Administrador"] },
   { path: "/client", label: "Vista Cliente", icon: Monitor, roles: ["Administrador", "Encargado", "Colaborador"] },
 ];
+
+/** Obtiene las iniciales del usuario: "Juan Perez" → "JP" */
+const getInitials = (nombres?: string, apellido?: string): string => {
+  const a = (nombres || "U").charAt(0).toUpperCase();
+  const b = (apellido || "").charAt(0).toUpperCase();
+  return a + b;
+};
 
 export default function Layout() {
   const { currentUser, loading, logout, isAuthenticated } = useAuth();
@@ -94,8 +101,8 @@ export default function Layout() {
         <div className="px-5 py-4 border-b border-blue-800">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-yellow-400 flex items-center justify-center flex-shrink-0">
-              <span className="text-blue-900 text-sm" style={{ fontWeight: 700 }}>
-                {currentUser?.nombres || 'Usuario'} {currentUser?.apellido_paterno || ''}
+              <span className="text-blue-900 text-xs" style={{ fontWeight: 800 }}>
+                {getInitials(currentUser?.nombres, currentUser?.apellido_paterno)}
               </span>
             </div>
             <div className="min-w-0">
@@ -191,8 +198,8 @@ export default function Layout() {
             </button>
             <button className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-100">
               <div className="w-8 h-8 rounded-full bg-blue-800 flex items-center justify-center">
-                <span className="text-white text-xs" style={{ fontWeight: 700 }}>
-                  {currentUser?.nombres || 'Usuario'} {currentUser?.apellido_paterno || ''}
+                <span className="text-white text-xs" style={{ fontWeight: 800 }}>
+                  {getInitials(currentUser?.nombres, currentUser?.apellido_paterno)}
                 </span>
               </div>
             </button>
