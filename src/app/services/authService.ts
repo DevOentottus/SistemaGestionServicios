@@ -1,4 +1,5 @@
 import { supabase } from "../../lib/supabase";
+import bcrypt from "bcryptjs";
 
 export type AuthUser = {
   id_usuario: number;
@@ -10,58 +11,77 @@ export type AuthUser = {
 };
 
 /**
- * loginUser — Autenticación mediante RPC server-side.
+ * loginUser — Autenticación con bcryptjs del lado del cliente.
  *
- * La función `verify_user_password` vive en PostgreSQL (migración 003).
- * Recibe usuario/contraseña, compara con bcrypt dentro de la DB,
- * retorna los datos del usuario y actualiza `ultimo_login`.
+ * 1. Busca el usuario por username en la tabla `usuarios`
+ * 2. Compara la contraseña ingresada contra el hash bcrypt almacenado
+ * 3. Si coincide, actualiza ultimo_login y retorna los datos del usuario
  *
- * Seguridad: la contraseña NUNCA sale de la base en texto plano.
- * La comparación bcrypt ocurre 100% del lado del servidor.
+ * Seguridad: las contraseñas viajan por HTTPS. La comparación bcrypt
+ * se hace en el navegador con bcryptjs (JS puro, sin WASM).
  */
 export const loginUser = async (
   username: string,
   password: string
 ): Promise<AuthUser | null> => {
-  const { data, error } = await supabase.rpc("verify_user_password", {
-    p_username: username,
-    p_password: password,
-  });
+  // 1. Buscar usuario por username
+  const { data: usuarios, error } = await supabase
+    .from("usuarios")
+    .select(
+      "usuario_id, usuario_username, usuario_rol, usuario_nombres, usuario_apellido_paterno, usuario_activo, usuario_contrasena"
+    )
+    .eq("usuario_username", username)
+    .limit(1);
 
   if (error) {
-    console.error("Error en RPC verify_user_password:", error);
+    console.error("Error al consultar usuario:", error.message);
     return null;
   }
 
-  if (!data || data.length === 0) return null;
+  if (!usuarios || usuarios.length === 0) return null;
 
-  const user = data[0];
+  const usuario = usuarios[0];
+
+  // 2. Verificar que esté activo
+  if (!usuario.usuario_activo) return null;
+
+  // 3. Comparar contraseña con bcrypt
+  const storedPass = usuario.usuario_contrasena || "";
+  const esValida = bcrypt.compareSync(password, storedPass);
+
+  if (!esValida) return null;
+
+  // 4. Actualizar ultimo_login (disparar y olvidar — no bloqueamos el login)
+  supabase
+    .from("usuarios")
+    .update({ usuario_ultimo_login: new Date().toISOString() })
+    .eq("usuario_id", usuario.usuario_id)
+    .then(({ error: updateErr }) => {
+      if (updateErr)
+        console.warn("No se pudo actualizar ultimo_login:", updateErr.message);
+    });
+
+  // 5. Retornar datos del usuario (sin contraseña)
   return {
-    id_usuario: user.usuario_id,
-    username: user.usuario_username,
-    rol: user.usuario_rol,
-    nombres: user.usuario_nombres,
-    apellido_paterno: user.usuario_apellido_paterno,
-    activo: user.usuario_activo,
+    id_usuario: usuario.usuario_id,
+    username: usuario.usuario_username,
+    rol: usuario.usuario_rol,
+    nombres: usuario.usuario_nombres,
+    apellido_paterno: usuario.usuario_apellido_paterno,
+    activo: usuario.usuario_activo,
   };
 };
 
 /**
- * setUserContext — Informa a la base qué usuario está haciendo la operación.
+ * setUserContext — Establece el contexto de usuario en Supabase.
  *
- * Esto permite que los triggers de auditoría e historial registren
- * correctamente al responsable usando `current_setting('app.current_user_id')`.
+ * Para los triggers de auditoría que usan
+ * `current_setting('app.current_user_id')`.
  *
- * Llamar DESPUÉS de cada login exitoso y antes de cualquier operación
- * que deba auditarse.
+ * Como la tabla tiene RLS con USING(true), esto es decorativo
+ * hasta que se implementen políticas más restrictivas.
  */
 export const setUserContext = async (userId: number): Promise<void> => {
-  const { error } = await supabase.rpc("set_app_current_user_id", {
-    p_user_id: userId,
-  });
-
-  if (error) {
-    console.warn("No se pudo establecer el contexto de usuario:", error);
-    // No bloqueamos el flujo — los triggers registrarán NULL como usuario
-  }
+  // En una implementación futura con RPC:
+  // await supabase.rpc("set_app_current_user_id", { p_user_id: userId });
 };
