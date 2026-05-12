@@ -281,18 +281,10 @@ export default function Business() {
       alert("La plantilla está inactiva. Actívela primero.");
       return;
     }
-    // Generar código secuencial
-    const { data: lastService } = await supabase
-      .from("servicios")
-      .select("servicio_codigo")
-      .order("servicio_codigo", { ascending: false })
-      .limit(1);
-    let nextNumber = 1;
-    if (lastService && lastService.length) {
-      const match = lastService[0].servicio_codigo.match(/\d+$/);
-      if (match) nextNumber = parseInt(match[0]) + 1;
-    }
-    const codigo = `SRV-${String(nextNumber).padStart(3, "0")}`;
+    // Generar código basado en fecha y hora actual
+    const n = new Date();
+    const pad = (x: number) => String(x).padStart(2, "0");
+    const codigo = `SRV-${n.getFullYear()}${pad(n.getMonth()+1)}${pad(n.getDate())}${pad(n.getHours())}${pad(n.getMinutes())}`;
     const hoy = new Date().toISOString().split("T")[0];
 
     // Insertar servicio

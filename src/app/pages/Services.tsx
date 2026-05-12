@@ -458,8 +458,11 @@ export default function Services() {
     if (!form.clienteId || !form.descripcion.trim() || !form.areaId) return;
     setSaving(true);
     try {
-      const nextCode =
-        form.codigo.trim() || `SRV-${Date.now().toString().slice(-6)}`;
+      const nextCode = form.codigo.trim() || (() => {
+        const n = new Date();
+        const pad = (x: number) => String(x).padStart(2, "0");
+        return `SRV-${n.getFullYear()}${pad(n.getMonth()+1)}${pad(n.getDate())}${pad(n.getHours())}${pad(n.getMinutes())}`;
+      })();
 
       const { data: inserted, error } = await supabase
         .from("servicios")
