@@ -126,12 +126,13 @@ export default function ClientView() {
     sugerencia: "",
   });
   const [submitted, setSubmitted] = useState<Record<number, boolean>>({});
+  const [dbReviewed, setDbReviewed] = useState<Record<number, boolean>>({});
   const [showReport, setShowReport] = useState<Record<number, boolean>>({});
   const reportRef = useRef<HTMLDivElement>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isCompleted = service?.servicio_estado === "completado";
-  const alreadyReviewed = service ? !!submitted[service.servicio_id] : false;
+  const alreadyReviewed = service ? !!(submitted[service.servicio_id] || dbReviewed[service.servicio_id]) : false;
   const reportVisible = service ? !!showReport[service.servicio_id] : false;
   const ratingLabels = ["", "Muy malo", "Regular", "Bueno", "Muy bueno", "Excelente"];
   const currentReview = service ? reviews[service.servicio_id] : null;
@@ -304,7 +305,29 @@ export default function ClientView() {
 
       const s = servicioData as ServicioBD;
 
-      // 2. Obtener tareas y técnicos mediante la función auxiliar
+      // 2. Verificar si ya tiene calificación en la BD
+      const { data: calExistente } = await supabase
+        .from("calificaciones")
+        .select("calificacion_puntaje, calificacion_comentario, calificacion_sugerencia, calificacion_fecha, calificacion_hora")
+        .eq("servicio_id", s.servicio_id)
+        .maybeSingle();
+      if (calExistente) {
+        setDbReviewed((prev) => ({ ...prev, [s.servicio_id]: true }));
+        setReviews((prev) => ({
+          ...prev,
+          [s.servicio_id]: {
+            estrellas: calExistente.calificacion_puntaje,
+            comentario: calExistente.calificacion_comentario || "",
+            observacion: "",
+            sugerencia: calExistente.calificacion_sugerencia || "",
+            fechaEnvio: `${calExistente.calificacion_fecha} ${calExistente.calificacion_hora}`,
+          },
+        }));
+      } else {
+        setDbReviewed((prev) => ({ ...prev, [s.servicio_id]: false }));
+      }
+
+      // 3. Obtener tareas y técnicos mediante la función auxiliar
       const fullData = await fetchServiceData(s.servicio_id);
       if (!fullData) throw new Error("Error al cargar tareas o técnicos");
 
@@ -385,7 +408,7 @@ export default function ClientView() {
     };
     setReviews((prev) => ({ ...prev, [service.servicio_id]: review }));
     setSubmitted((prev) => ({ ...prev, [service.servicio_id]: true }));
-    setShowReport((prev) => ({ ...prev, [service.servicio_id]: true }));
+    setDbReviewed((prev) => ({ ...prev, [service.servicio_id]: true }));
   };
 
   const StarRating = () => (
@@ -592,7 +615,7 @@ export default function ClientView() {
                     <Send className="w-4 h-4" />
                     {ratingForm.selected === 0
                       ? "Selecciona una calificación para continuar"
-                      : "Enviar apreciaciones y ver reporte del servicio"
+                      : "Enviar apreciaciones"
                     }
                   </button>
                 </div>
