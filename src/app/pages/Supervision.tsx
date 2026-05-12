@@ -7,10 +7,10 @@ import {
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
-type Area = { id: string; nombre: string; encargado: string | null };
-type Usuario = { id_usuario: string; nombres: string; apellido_paterno: string | null; area: string; rol: string; activo: boolean; id_area_principal: string | null; id_area_adicional: string | null };
-type Servicio = { id: string; codigo: string | null; descripcion: string | null; area: string | null; estado: string; progreso: number | null };
-type Tarea = { id: string; id_servicio: string; nombre: string; completada: boolean; responsable: string | null };
+type Area = { area_id: number; area_nombre: string; area_encargado_id: number | null };
+type Usuario = { usuario_id: number; usuario_nombres: string; usuario_apellido_paterno: string | null; usuario_rol: string; usuario_activo: boolean };
+type Servicio = { servicio_id: number; servicio_codigo: string | null; servicio_descripcion: string | null; servicio_estado: string; area_id: number | null };
+type Tarea = { tarea_id: number; servicio_id: number; tarea_titulo: string; tarea_estado: string; tarea_completado_por: number | null };
 
 export default function Supervision() {
   const { currentUser } = useAuth();
@@ -29,31 +29,25 @@ export default function Supervision() {
     setLoading(true);
     try {
       const [a, u, s, t] = await Promise.all([
-        supabase.from("areas").select("id, nombre, encargado").order("nombre"),
-        supabase.from("usuarios").select("id_usuario, nombres, apellido_paterno, rol, activo, id_area_principal, id_area_adicional"),
-        supabase.from("servicios").select("id, codigo, descripcion, area, estado, progreso").order("fecha_inicio", { ascending: false }),
-        supabase.from("tareas").select("id, id_servicio, nombre, completada, responsable"),
+        supabase.from("areas").select("area_id, area_nombre, area_encargado_id").order("area_nombre"),
+        supabase.from("usuarios").select("usuario_id, usuario_nombres, usuario_apellido_paterno, usuario_rol, usuario_activo"),
+        supabase.from("servicios").select("servicio_id, servicio_codigo, servicio_descripcion, servicio_estado, area_id").order("servicio_fecha_inicio", { ascending: false }),
+        supabase.from("tareas").select("tarea_id, servicio_id, tarea_titulo, tarea_estado, tarea_completado_por"),
       ]);
       if (a.error || u.error || s.error || t.error) throw (a.error || u.error || s.error || t.error);
 
       const areasData = (a.data || []) as Area[];
       setAreas(areasData);
 
-      const usuariosData = (u.data || []) as any[];
-      setUsuarios(usuariosData.map((x: any) => ({
-        ...x,
-        area: areasData.find(ar => ar.id === x.id_area_principal)?.nombre || "",
-        id_area_principal: x.id_area_principal || null,
-        id_area_adicional: x.id_area_adicional || null,
-      })));
+      const usuariosData = (u.data || []) as Usuario[];
+      setUsuarios(usuariosData);
 
       if (areasData.length > 0 && !selectedAreaId) {
         if (currentUser?.rol === "Encargado") {
-          const user = usuariosData.find((u: any) => u.id_usuario === currentUser.id_usuario);
-          const encargadoArea = areasData.find(a => a.id === user?.id_area_principal);
-          setSelectedAreaId(encargadoArea?.id || areasData[0].id);
+          const encargadoArea = areasData.find(ar => ar.area_encargado_id === Number(currentUser?.id_usuario));
+          setSelectedAreaId(String(encargadoArea?.area_id || areasData[0].area_id));
         } else {
-          setSelectedAreaId(areasData[0].id);
+          setSelectedAreaId(String(areasData[0].area_id));
         }
       }
 
@@ -68,46 +62,52 @@ export default function Supervision() {
 
   if (loading) return <div className="flex justify-center items-center h-64"><Loader2 className="animate-spin w-8 h-8 text-blue-900" /></div>;
 
-  const selectedArea = areas.find(a => a.id === selectedAreaId);
+  const selectedArea = areas.find(a => a.area_id === Number(selectedAreaId));
 
   const visibleServices = servicios.filter((s) => {
     if (currentUser?.rol === "Administrador") return true;
     if (currentUser?.rol === "Encargado") {
-      const user = usuarios.find(u => u.id_usuario === currentUser.id_usuario);
-      return s.area === selectedAreaId && user?.id_area_principal === selectedAreaId;
+      const userArea = areas.find(a => a.area_encargado_id === Number(currentUser?.id_usuario));
+      return s.area_id === Number(selectedAreaId) && userArea?.area_id === Number(selectedAreaId);
     }
     return false;
   });
 
   const areaCollaborators = usuarios.filter(u => {
-    if (!selectedArea) return false;
-    return u.activo && u.rol === "Colaborador" && u.area === selectedArea.nombre;
+    return u.usuario_activo && u.usuario_rol === "Colaborador";
   });
 
-  const getCollaboratorStats = (name: string) => {
+  const getServiceProgress = (servicioId: number): number => {
+    const serviceTasks = tareas.filter(t => t.servicio_id === servicioId);
+    if (serviceTasks.length === 0) return 0;
+    const completed = serviceTasks.filter(t => t.tarea_estado === "completado").length;
+    return Math.round((completed / serviceTasks.length) * 100);
+  };
+
+  const getCollaboratorStats = (userId: number) => {
     const allTasks = tareas.filter(t =>
-      visibleServices.some(s => s.id === t.id_servicio) &&
-      t.responsable?.toLowerCase().includes(name.toLowerCase())
+      visibleServices.some(s => s.servicio_id === t.servicio_id) &&
+      t.tarea_completado_por === userId
     );
-    const completed = allTasks.filter((t) => t.completada).length;
-    const pending = allTasks.filter((t) => !t.completada).length;
+    const completed = allTasks.filter((t) => t.tarea_estado === "completado").length;
+    const pending = allTasks.filter((t) => t.tarea_estado !== "completado").length;
     const efficiency = allTasks.length > 0 ? Math.round((completed / allTasks.length) * 100) : 0;
     return { total: allTasks.length, completed, pending, efficiency };
   };
 
   const chartData = areaCollaborators.map((c) => {
-    const shortName = c.nombres.split(" ")[0];
-    const stats = getCollaboratorStats(shortName);
+    const shortName = c.usuario_nombres.split(" ")[0];
+    const stats = getCollaboratorStats(c.usuario_id);
     return { name: shortName, completadas: stats.completed, pendientes: stats.pending, eficiencia: stats.efficiency };
   });
 
   const areaStats = {
     totalServices: visibleServices.length,
-    enProgreso: visibleServices.filter((s) => s.estado === "En progreso").length,
-    completados: visibleServices.filter((s) => s.estado === "Completado").length,
-    bloqueados: visibleServices.filter((s) => s.estado === "Bloqueado").length,
+    enProgreso: visibleServices.filter((s) => s.servicio_estado === "En progreso").length,
+    completados: visibleServices.filter((s) => s.servicio_estado === "Completado").length,
+    bloqueados: visibleServices.filter((s) => s.servicio_estado === "Bloqueado").length,
     avgProgress: visibleServices.length > 0
-      ? Math.round(visibleServices.reduce((sum, s) => sum + (s.progreso || 0), 0) / visibleServices.length)
+      ? Math.round(visibleServices.reduce((sum, s) => sum + getServiceProgress(s.servicio_id), 0) / visibleServices.length)
       : 0,
   };
 
@@ -129,12 +129,12 @@ export default function Supervision() {
           <div className="flex gap-2 flex-wrap">
             {areas.map((a) => (
               <button
-                key={a.id}
-                onClick={() => setSelectedAreaId(a.id)}
-                className={`px-4 py-2 rounded-xl text-sm transition ${selectedAreaId === a.id ? "bg-blue-900 text-white" : "bg-white border border-gray-200 text-gray-600 hover:border-blue-300"}`}
-                style={{ fontWeight: selectedAreaId === a.id ? 600 : 400 }}
+                key={a.area_id}
+                onClick={() => setSelectedAreaId(String(a.area_id))}
+                className={`px-4 py-2 rounded-xl text-sm transition ${String(a.area_id) === selectedAreaId ? "bg-blue-900 text-white" : "bg-white border border-gray-200 text-gray-600 hover:border-blue-300"}`}
+                style={{ fontWeight: String(a.area_id) === selectedAreaId ? 600 : 400 }}
               >
-                {a.nombre}
+                {a.area_nombre}
               </button>
             ))}
           </div>
@@ -163,25 +163,25 @@ export default function Supervision() {
         <div className="lg:col-span-2 space-y-4">
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="text-gray-800 font-semibold">Servicios del Área: {selectedArea?.nombre || "—"}</h3>
+              <h3 className="text-gray-800 font-semibold">Servicios del Área: {selectedArea?.area_nombre || "—"}</h3>
               <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-semibold">{visibleServices.length} servicios</span>
             </div>
             <div className="divide-y divide-gray-50">
               {visibleServices.map((srv) => (
-                <div key={srv.id} className="px-5 py-4">
+                <div key={srv.servicio_id} className="px-5 py-4">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-900 font-semibold">{srv.codigo || "SIN-CODIGO"}</span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[srv.estado] || ""}`} style={{ fontWeight: 500 }}>{srv.estado}</span>
-                      {srv.estado === "Bloqueado" && <AlertTriangle className="w-4 h-4 text-red-500" />}
+                      <span className="text-sm text-gray-900 font-semibold">{srv.servicio_codigo || "SIN-CODIGO"}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${statusColors[srv.servicio_estado] || ""}`} style={{ fontWeight: 500 }}>{srv.servicio_estado}</span>
+                      {srv.servicio_estado === "Bloqueado" && <AlertTriangle className="w-4 h-4 text-red-500" />}
                     </div>
-                    <span className="text-sm text-gray-700 font-semibold">{srv.progreso || 0}%</span>
+                    <span className="text-sm text-gray-700 font-semibold">{getServiceProgress(srv.servicio_id)}%</span>
                   </div>
-                  <p className="text-gray-600 text-xs mb-2 truncate">{srv.descripcion}</p>
+                  <p className="text-gray-600 text-xs mb-2 truncate">{srv.servicio_descripcion}</p>
                   <div className="h-2 bg-gray-100 rounded-full overflow-hidden mb-2">
                     <div
-                      className={`h-full rounded-full ${srv.estado === "Completado" ? "bg-green-500" : srv.estado === "Bloqueado" ? "bg-red-500" : "bg-blue-600"}`}
-                      style={{ width: `${srv.progreso || 0}%` }}
+                      className={`h-full rounded-full ${srv.servicio_estado === "Completado" ? "bg-green-500" : srv.servicio_estado === "Bloqueado" ? "bg-red-500" : "bg-blue-600"}`}
+                      style={{ width: `${getServiceProgress(srv.servicio_id)}%` }}
                     />
                   </div>
                 </div>
@@ -211,17 +211,17 @@ export default function Supervision() {
         <div className="space-y-3">
           <h3 className="text-gray-800 text-sm font-semibold">Rendimiento de Colaboradores</h3>
           {areaCollaborators.map((c) => {
-            const shortName = c.nombres.split(" ")[0];
-            const stats = getCollaboratorStats(shortName);
+            const shortName = c.usuario_nombres.split(" ")[0];
+            const stats = getCollaboratorStats(c.usuario_id);
             return (
-              <div key={c.id_usuario} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+              <div key={c.usuario_id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 bg-blue-900 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-white text-xs font-bold">{c.nombres[0]}{c.apellido_paterno?.[0] || ""}</span>
+                    <span className="text-white text-xs font-bold">{c.usuario_nombres[0]}{c.usuario_apellido_paterno?.[0] || ""}</span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-gray-900 text-sm truncate font-semibold">{c.nombres} {c.apellido_paterno || ""}</p>
-                    <p className="text-gray-400 text-xs">{c.rol}</p>
+                    <p className="text-gray-900 text-sm truncate font-semibold">{c.usuario_nombres} {c.usuario_apellido_paterno || ""}</p>
+                    <p className="text-gray-400 text-xs">{c.usuario_rol}</p>
                   </div>
                   <div className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full font-semibold ${
                     stats.efficiency >= 70 ? "bg-green-100 text-green-700" :

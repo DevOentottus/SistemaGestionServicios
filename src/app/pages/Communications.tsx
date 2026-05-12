@@ -7,13 +7,12 @@ import {
 } from "lucide-react";
 
 type AnuncioDB = {
-  id: string;
-  titulo: string;
-  contenido: string;
-  autor: string;
-  fecha: string;
-  tipo: "global" | "area";
-  area_destino: string | null;
+  anuncio_id: number;
+  usuario_id: number | null;
+  anuncio_titulo: string;
+  anuncio_contenido: string;
+  anuncio_activo: boolean;
+  anuncio_fecha_publicacion: string;
 };
 
 type SolicitudDB = {
@@ -27,24 +26,24 @@ type SolicitudDB = {
 };
 
 type ServicioDB = {
-  id: string;
-  codigo: string;
-  cliente: string;
-  telefono_cliente: string | null;
-  descripcion: string;
-  estado: string;
+  servicio_id: number;
+  servicio_codigo: string;
+  servicio_descripcion: string;
+  servicio_estado: string;
+  cliente_id: number | null;
+  area_id: number | null;
 };
 
 type AreaDB = {
-  id: string;
-  nombre: string;
+  area_id: number;
+  area_nombre: string;
 };
 
 const mensajesPredefinidos: Record<string, string> = {
-  Pendiente: "Hola {cliente}, tu servicio {codigo} ha sido registrado y está pendiente de asignación. Te mantendremos informado.",
-  "En progreso": "Hola {cliente}, tu servicio {codigo} ya está en progreso. Nuestro equipo está trabajando en ello.",
-  Completado: "Hola {cliente}, tu servicio {codigo} ha sido completado exitosamente. ¡Gracias por confiar en nosotros!",
-  Bloqueado: "Hola {cliente}, tu servicio {codigo} está temporalmente bloqueado. Nos comunicaremos contigo para resolverlo.",
+  Pendiente: "Hola, tu servicio {codigo} ha sido registrado y está pendiente de asignación. Te mantendremos informado.",
+  "En progreso": "Hola, tu servicio {codigo} ya está en progreso. Nuestro equipo está trabajando en ello.",
+  Completado: "Hola, tu servicio {codigo} ha sido completado exitosamente. ¡Gracias por confiar en nosotros!",
+  Bloqueado: "Hola, tu servicio {codigo} está temporalmente bloqueado. Nos comunicaremos contigo para resolverlo.",
 };
 
 export default function Communications() {
@@ -58,17 +57,16 @@ export default function Communications() {
   const [servicios, setServicios] = useState<ServicioDB[]>([]);
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterTipoAnuncio, setFilterTipoAnuncio] = useState<"todos" | "global" | "area">("todos");
 
   const [searchClient, setSearchClient] = useState("");
-  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+  const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
   const [customMessage, setCustomMessage] = useState("");
   const [copied, setCopied] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const [messageHistory, setMessageHistory] = useState<{ id: string; serviceId: string; fecha: string; mensaje: string }[]>([]);
+  const [messageHistory, setMessageHistory] = useState<{ id: string; serviceId: number; fecha: string; mensaje: string }[]>([]);
 
   const [showNewAnuncio, setShowNewAnuncio] = useState(false);
-  const [anuncioForm, setAnuncioForm] = useState({ titulo: "", contenido: "", tipo: "global" as "global" | "area", area_destino: "" });
+  const [anuncioForm, setAnuncioForm] = useState({ titulo: "", contenido: "" });
   const [saving, setSaving] = useState(false);
 
   const isAdmin = currentUser?.rol === "Administrador" || currentUser?.rol === "Encargado";
@@ -81,13 +79,13 @@ export default function Communications() {
     setLoading(true);
     try {
       const [a, s, ar, sv] = await Promise.all([
-        supabase.from("anuncios").select("*").order("fecha", { ascending: false }),
+        supabase.from("anuncios").select("*").order("anuncio_fecha_publicacion", { ascending: false }),
         supabase.from("solicitudes_internas").select("*").order("fecha", { ascending: false }),
-        supabase.from("areas").select("id, nombre").order("nombre"),
-        supabase.from("servicios").select("id, codigo, cliente, telefono_cliente, descripcion, estado").order("fecha_inicio", { ascending: false }),
+        supabase.from("areas").select("area_id, area_nombre").order("area_nombre"),
+        supabase.from("servicios").select("servicio_id, servicio_codigo, servicio_descripcion, servicio_estado, cliente_id, area_id").order("servicio_fecha_inicio", { ascending: false }),
       ]);
       if (a.error) throw a.error;
-      if (s.error) throw s.error;
+      if (s.error) console.error("Error cargando solicitudes_internas (tabla podría no existir):", s.error);
       if (ar.error) throw ar.error;
       if (sv.error) throw sv.error;
       setAnuncios((a.data || []) as AnuncioDB[]);
@@ -106,16 +104,15 @@ export default function Communications() {
     setSaving(true);
     try {
       const { error } = await supabase.from("anuncios").insert([{
-        titulo: anuncioForm.titulo.trim(),
-        contenido: anuncioForm.contenido.trim(),
-        autor: currentUser?.nombres || "Sistema",
-        tipo: anuncioForm.tipo,
-        area_destino: anuncioForm.tipo === "area" ? anuncioForm.area_destino || null : null,
+        usuario_id: currentUser?.id_usuario || null,
+        anuncio_titulo: anuncioForm.titulo.trim(),
+        anuncio_contenido: anuncioForm.contenido.trim(),
+        anuncio_activo: true,
       }]);
       if (error) throw error;
       setShowNewAnuncio(false);
-      setAnuncioForm({ titulo: "", contenido: "", tipo: "global", area_destino: "" });
-      const { data } = await supabase.from("anuncios").select("*").order("fecha", { ascending: false });
+      setAnuncioForm({ titulo: "", contenido: "" });
+      const { data } = await supabase.from("anuncios").select("*").order("anuncio_fecha_publicacion", { ascending: false });
       if (data) setAnuncios(data as AnuncioDB[]);
     } catch (err) {
       console.error(err);
@@ -136,10 +133,9 @@ export default function Communications() {
   };
 
   const filteredAnuncios = anuncios.filter((a) => {
-    const matchSearch = a.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      a.contenido.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchTipo = filterTipoAnuncio === "todos" || a.tipo === filterTipoAnuncio;
-    return matchSearch && matchTipo;
+    const matchSearch = a.anuncio_titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      a.anuncio_contenido.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchSearch;
   });
 
   const filteredSolicitudes = solicitudes.filter((s) => {
@@ -149,34 +145,33 @@ export default function Communications() {
   });
 
   const filteredServices = servicios.filter(s =>
-    s.codigo.toLowerCase().includes(searchClient.toLowerCase()) ||
-    s.descripcion.toLowerCase().includes(searchClient.toLowerCase()) ||
-    s.cliente.toLowerCase().includes(searchClient.toLowerCase())
+    s.servicio_codigo.toLowerCase().includes(searchClient.toLowerCase()) ||
+    s.servicio_descripcion.toLowerCase().includes(searchClient.toLowerCase()) ||
+    (s.cliente_id?.toString() || "").includes(searchClient.toLowerCase())
   );
 
-  const selectedService = servicios.find(s => s.id === selectedServiceId);
+  const selectedService = servicios.find(s => s.servicio_id === selectedServiceId);
 
-  const handleSelectService = (id: string) => {
+  const handleSelectService = (id: number) => {
     setSelectedServiceId(id);
-    const service = servicios.find(s => s.id === id);
+    const service = servicios.find(s => s.servicio_id === id);
     if (service) {
-      const defaultMsg = mensajesPredefinidos[service.estado]
-        ?.replace("{cliente}", service.cliente)
-        .replace("{codigo}", service.codigo)
-        .replace("{estado}", service.estado) || "";
+      const defaultMsg = mensajesPredefinidos[service.servicio_estado]
+        ?.replace("{codigo}", service.servicio_codigo)
+        .replace("{estado}", service.servicio_estado) || "";
       setCustomMessage(defaultMsg);
     }
   };
 
   const handleSendWhatsApp = () => {
     if (!selectedService) return;
-    const telefono = selectedService.telefono_cliente || "51987654321";
+    const telefono = "51987654321";
     const mensaje = encodeURIComponent(customMessage);
     const url = `https://wa.me/${telefono}?text=${mensaje}`;
 
     setMessageHistory(prev => [{
       id: `msg${Date.now()}`,
-      serviceId: selectedService.id,
+      serviceId: selectedService.servicio_id,
       fecha: new Date().toLocaleString("es-PE"),
       mensaje: customMessage,
     }, ...prev]);
@@ -234,18 +229,6 @@ export default function Communications() {
                   className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-blue-500 bg-gray-50"
                 />
               </div>
-              <div className="relative">
-                <select
-                  value={filterTipoAnuncio}
-                  onChange={(e) => setFilterTipoAnuncio(e.target.value as any)}
-                  className="appearance-none pl-3 pr-8 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-blue-500 bg-gray-50 cursor-pointer"
-                >
-                  <option value="todos">Todos los anuncios</option>
-                  <option value="global">Globales</option>
-                  <option value="area">Por área</option>
-                </select>
-                <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-              </div>
               {isAdmin && (
                 <button onClick={() => setShowNewAnuncio(true)} className="flex items-center gap-2 bg-yellow-400 hover:bg-yellow-500 text-blue-900 px-4 py-2.5 rounded-xl text-sm font-bold transition">
                   <Plus className="w-4 h-4" /> Nuevo Anuncio
@@ -268,22 +251,18 @@ export default function Communications() {
                   <div className="px-5 py-10 text-center text-gray-400 text-sm">No hay anuncios</div>
                 ) : (
                   filteredAnuncios.map((a) => (
-                    <div key={a.id} className="px-5 py-4 hover:bg-gray-50">
+                    <div key={a.anuncio_id} className="px-5 py-4 hover:bg-gray-50">
                       <div className="flex items-start gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${a.tipo === "global" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}>
-                          {a.tipo === "global" ? <Bell className="w-4 h-4" /> : <Users className="w-4 h-4" />}
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-blue-100 text-blue-700">
+                          <Bell className="w-4 h-4" />
                         </div>
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <h3 className="text-gray-900 font-semibold text-sm">{a.titulo}</h3>
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${a.tipo === "global" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}>
-                              {a.tipo === "global" ? "Global" : `Área: ${areas.find(ar => ar.id === a.area_destino)?.nombre || a.area_destino}`}
-                            </span>
+                            <h3 className="text-gray-900 font-semibold text-sm">{a.anuncio_titulo}</h3>
                           </div>
-                          <p className="text-gray-600 text-sm mb-2">{a.contenido}</p>
+                          <p className="text-gray-600 text-sm mb-2">{a.anuncio_contenido}</p>
                           <div className="flex items-center gap-3 text-xs text-gray-400">
-                            <span className="flex items-center gap-1"><User className="w-3 h-3" /> {a.autor}</span>
-                            <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {new Date(a.fecha).toLocaleString("es-PE")}</span>
+                            <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {new Date(a.anuncio_fecha_publicacion).toLocaleString("es-PE")}</span>
                           </div>
                         </div>
                       </div>
@@ -366,23 +345,23 @@ export default function Communications() {
             <div className="divide-y divide-gray-50 max-h-[500px] overflow-y-auto">
               {filteredServices.map(service => (
                 <button
-                  key={service.id}
-                  onClick={() => handleSelectService(service.id)}
-                  className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition ${selectedServiceId === service.id ? "bg-blue-50 border-l-4 border-l-blue-600" : ""}`}
+                  key={service.servicio_id}
+                  onClick={() => handleSelectService(service.servicio_id)}
+                  className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition ${selectedServiceId === service.servicio_id ? "bg-blue-50 border-l-4 border-l-blue-600" : ""}`}
                 >
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-sm font-semibold text-gray-900">{service.codigo}</p>
-                      <p className="text-xs text-gray-600 truncate">{service.cliente}</p>
-                      <p className="text-xs text-gray-400 truncate">{service.descripcion.substring(0, 40)}...</p>
+                      <p className="text-sm font-semibold text-gray-900">{service.servicio_codigo}</p>
+                      <p className="text-xs text-gray-600 truncate">Cliente #{service.cliente_id || "—"}</p>
+                      <p className="text-xs text-gray-400 truncate">{service.servicio_descripcion.substring(0, 40)}...</p>
                     </div>
                     <span className={`text-xs px-2 py-0.5 rounded-full ${
-                      service.estado === "Completado" ? "bg-green-100 text-green-800" :
-                      service.estado === "En progreso" ? "bg-blue-100 text-blue-800" :
-                      service.estado === "Pendiente" ? "bg-yellow-100 text-yellow-800" :
+                      service.servicio_estado === "Completado" ? "bg-green-100 text-green-800" :
+                      service.servicio_estado === "En progreso" ? "bg-blue-100 text-blue-800" :
+                      service.servicio_estado === "Pendiente" ? "bg-yellow-100 text-yellow-800" :
                       "bg-red-100 text-red-800"
                     }`}>
-                      {service.estado}
+                      {service.servicio_estado}
                     </span>
                   </div>
                 </button>
@@ -397,21 +376,17 @@ export default function Communications() {
                   <div className="flex items-start justify-between mb-4">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-mono bg-blue-100 text-blue-800 px-3 py-1 rounded-lg font-bold">{selectedService.codigo}</span>
+                        <span className="text-sm font-mono bg-blue-100 text-blue-800 px-3 py-1 rounded-lg font-bold">{selectedService.servicio_codigo}</span>
                         <span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
-                          selectedService.estado === "Completado" ? "bg-green-100 text-green-800" :
-                          selectedService.estado === "En progreso" ? "bg-blue-100 text-blue-800" :
+                          selectedService.servicio_estado === "Completado" ? "bg-green-100 text-green-800" :
+                          selectedService.servicio_estado === "En progreso" ? "bg-blue-100 text-blue-800" :
                           "bg-yellow-100 text-yellow-800"
                         }`}>
-                          {selectedService.estado}
+                          {selectedService.servicio_estado}
                         </span>
                       </div>
-                      <h3 className="text-gray-900 font-semibold">{selectedService.cliente}</h3>
-                      <p className="text-gray-500 text-sm">{selectedService.descripcion}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-xs text-gray-400">Teléfono cliente</p>
-                      <p className="text-sm font-mono">+51 {selectedService.telefono_cliente || "987 654 321"}</p>
+                      <h3 className="text-gray-900 font-semibold">Cliente #{selectedService.cliente_id || "—"}</h3>
+                      <p className="text-gray-500 text-sm">{selectedService.servicio_descripcion}</p>
                     </div>
                   </div>
 
@@ -509,22 +484,6 @@ export default function Communications() {
                 <label className="block text-xs text-gray-600 font-semibold mb-1">Contenido</label>
                 <textarea value={anuncioForm.contenido} onChange={e => setAnuncioForm(p => ({ ...p, contenido: e.target.value }))} rows={4} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-gray-50 resize-none" placeholder="Contenido del anuncio..." />
               </div>
-              <div>
-                <label className="block text-xs text-gray-600 font-semibold mb-1">Tipo</label>
-                <select value={anuncioForm.tipo} onChange={e => setAnuncioForm(p => ({ ...p, tipo: e.target.value as "global" | "area" }))} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-gray-50">
-                  <option value="global">Global</option>
-                  <option value="area">Por área</option>
-                </select>
-              </div>
-              {anuncioForm.tipo === "area" && (
-                <div>
-                  <label className="block text-xs text-gray-600 font-semibold mb-1">Área destino</label>
-                  <select value={anuncioForm.area_destino} onChange={e => setAnuncioForm(p => ({ ...p, area_destino: e.target.value }))} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-gray-50">
-                    <option value="">Seleccionar área...</option>
-                    {areas.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
-                  </select>
-                </div>
-              )}
             </div>
             <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
               <button onClick={() => setShowNewAnuncio(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl">Cancelar</button>
