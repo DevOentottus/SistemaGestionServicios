@@ -17,8 +17,8 @@ type Servicio = { servicio_id: number; servicio_codigo: string | null; servicio_
 type Tarea = { tarea_id: number; servicio_id: number; tarea_titulo: string; tarea_estado: string; tarea_completado_por: number | null; tarea_fecha_completado: string | null };
 type Usuario = { usuario_id: number; usuario_nombres: string; usuario_apellido_paterno: string | null; usuario_rol: string; usuario_activo: boolean };
 type Area = { area_id: number; area_nombre: string; area_encargado_id: number | null };
-type Solicitud = any;
-type AuditLog = any;
+type Solicitud = { usuario_id: number; solicitud_tipo: string; solicitud_descripcion: string; solicitud_estado: string };
+type AuditLog = { auditoria_id: number; usuario_id: number; auditoria_accion: string; auditoria_tabla: string; auditoria_fecha: string };
 
 const computeDays = (start: string, end?: string | null) => {
   const s = new Date(start);
@@ -45,6 +45,7 @@ export default function Dashboard() {
   const [areas, setAreas] = useState<Area[]>([]);
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [calificaciones, setCalificaciones] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
 
   useEffect(() => {
@@ -54,16 +55,17 @@ export default function Dashboard() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [s, t, u, a, r, al, c] = await Promise.all([
+      const [s, t, u, a, r, al, cf, c] = await Promise.all([
         supabase.from("servicios").select("servicio_id, servicio_codigo, servicio_descripcion, servicio_estado, servicio_fecha_inicio, servicio_fecha_fin, cliente_id, area_id"),
         supabase.from("tareas").select("tarea_id, servicio_id, tarea_titulo, tarea_estado, tarea_completado_por, tarea_fecha_completado"),
         supabase.from("usuarios").select("usuario_id, usuario_nombres, usuario_apellido_paterno, usuario_rol, usuario_activo"),
         supabase.from("areas").select("area_id, area_nombre, area_encargado_id").order("area_nombre"),
-        supabase.from("SolicitudesInternas").select("*"),
-        supabase.from("Auditoria").select("*").order("auditoria_fecha", { ascending: false }),
+        supabase.from("solicitudesinternas").select("*"),
+        supabase.from("auditoria").select("auditoria_id, usuario_id, auditoria_accion, auditoria_tabla, auditoria_fecha").order("auditoria_fecha", { ascending: false }),
+        supabase.from("calificaciones").select("calificacion_puntaje, calificacion_comentario, servicio_id"),
         supabase.from("clientes").select("cliente_id, cliente_nombres"),
       ]);
-      if (s.error || t.error || u.error || a.error || r.error || al.error || c.error) throw "Error loading dashboard data";
+      if (s.error || t.error || u.error || a.error || r.error || al.error || cf.error || c.error) throw "Error loading dashboard data";
 
       const areasData = (a.data || []) as Area[];
       setAreas(areasData);
@@ -72,6 +74,7 @@ export default function Dashboard() {
       setUsuarios((u.data || []) as Usuario[]);
       setSolicitudes((r.data || []) as Solicitud[]);
       setAuditLogs((al.data || []) as AuditLog[]);
+      setCalificaciones((cf.data || []) as any[]);
       setClientes((c.data || []) as any[]);
     } catch (err) {
       console.error("Error loading dashboard:", err);
@@ -87,7 +90,7 @@ export default function Dashboard() {
   const blockedServices = servicios.filter((s) => s.servicio_estado === "bloqueado");
   const completedTasks = allTasks.filter((t) => t.tarea_estado === "completado");
   const tasksWithResponsable = allTasks.filter((t) => t.tarea_completado_por);
-  const pendingRequests = solicitudes.filter((r: any) => r.estado === "pendiente");
+  const pendingRequests = solicitudes.filter((r: any) => r.solicitud_estado === "pendiente");
   const activeCollabs = usuarios.filter((c) => c.usuario_activo && c.usuario_rol !== "Administrador");
 
   const clienteMap = new Map<number, string>((clientes || []).map((cl: any) => [cl.cliente_id, cl.cliente_nombres]));
@@ -106,8 +109,26 @@ export default function Dashboard() {
     ? Math.round(completedServices.reduce((acc, s) => acc + computeDays(s.servicio_fecha_inicio || "", s.servicio_fecha_fin), 0) / completedServices.length)
     : 0;
 
-  const mockSatisfaction = 4.2;
-  const mockPctCalifican = 45;
+  const califPuntajes = calificaciones.map(c => c.calificacion_puntaje);
+  const realSatisfaction = califPuntajes.length > 0 
+    ? parseFloat((califPuntajes.reduce((a, b) => a + b, 0) / califPuntajes.length).toFixed(1))
+    : 0;
+  const serviciosConCalif = new Set(calificaciones.map(c => c.servicio_id)).size;
+  const realPctCalifican = servicios.length > 0 
+    ? Math.round((serviciosConCalif / servicios.length) * 100) 
+    : 0;
+  const serviciosConComentario = new Set(calificaciones.filter(c => c.calificacion_comentario).map(c => c.servicio_id)).size;
+  const pctComentarios = servicios.length > 0 
+    ? Math.round((serviciosConComentario / servicios.length) * 100) 
+    : 0;
+  const areaCalifMap = new Map<number, number[]>();
+  calificaciones.forEach(c => {
+    const servicio = servicios.find(s => s.servicio_id === c.servicio_id);
+    if (servicio && servicio.area_id) {
+      if (!areaCalifMap.has(servicio.area_id)) areaCalifMap.set(servicio.area_id, []);
+      areaCalifMap.get(servicio.area_id)!.push(c.calificacion_puntaje);
+    }
+  });
 
   const fullyTraced = servicios.filter((s) => {
     const sTasks = allTasks.filter(t => t.servicio_id === s.servicio_id);
@@ -147,7 +168,7 @@ export default function Dashboard() {
     { subject: "Reg. sistema", value: 100 },
     { subject: "Tareas doc.", value: tasksWithResponsable.length > 0 ? Math.round((tasksWithResponsable.length / Math.max(allTasks.length, 1)) * 100) : 0 },
     { subject: "Trazabilidad", value: Math.round((fullyTraced.length / Math.max(servicios.length, 1)) * 100) },
-    { subject: "Comentarios", value: 0 },
+    { subject: "Comentarios", value: pctComentarios },
   ];
 
   const scrollTo = (id: string) => {
@@ -338,8 +359,8 @@ export default function Dashboard() {
             <p className={`text-3xl mb-1 font-extrabold ${pendingRequests.length > 0 ? "text-blue-700" : "text-gray-400"}`}>{pendingRequests.length}</p>
             {pendingRequests.length > 0 ? (
               <div className="space-y-1">
-                {pendingRequests.map((r: any) => (
-                  <p key={r.id} className="text-xs text-blue-700 truncate">{r.solicitante} — {r.tipo}</p>
+                {pendingRequests.map((r: any, idx: number) => (
+                  <p key={idx} className="text-xs text-blue-700 truncate">{userMap.get(r.usuario_id) || `Usuario #${r.usuario_id}`} — {r.solicitud_tipo}</p>
                 ))}
               </div>
             ) : <p className="text-xs text-gray-400">Sin solicitudes pendientes</p>}
@@ -432,17 +453,17 @@ export default function Dashboard() {
             </div>
             <div className="flex items-center gap-4 mb-4">
               <div className="text-center">
-                <p className="text-5xl text-yellow-500 mb-1 font-extrabold">{mockSatisfaction}</p>
+                <p className="text-5xl text-yellow-500 mb-1 font-extrabold">{realSatisfaction}</p>
                 <div className="flex gap-0.5 justify-center">
                   {[1,2,3,4,5].map((s) => (
-                    <Star key={s} className={`w-4 h-4 ${s <= Math.round(mockSatisfaction) ? "fill-yellow-400 text-yellow-400" : "fill-gray-200 text-gray-200"}`} />
+                    <Star key={s} className={`w-4 h-4 ${s <= Math.round(realSatisfaction) ? "fill-yellow-400 text-yellow-400" : "fill-gray-200 text-gray-200"}`} />
                   ))}
                 </div>
                 <p className="text-gray-400 text-xs mt-1">calificación promedio</p>
               </div>
               <div className="flex-1 space-y-2">
                 {[
-                  { label: "% califican", value: mockPctCalifican, color: "bg-yellow-400" },
+                  { label: "% califican", value: realPctCalifican, color: "bg-yellow-400" },
                   { label: "Positivos", value: 85, color: "bg-green-500" },
                   { label: "Negativos", value: 5, color: "bg-red-400" },
                 ].map((m) => (
@@ -460,7 +481,7 @@ export default function Dashboard() {
             </div>
             <div className="bg-yellow-50 rounded-xl px-3 py-2">
               <p className="text-xs text-yellow-800 font-semibold">
-                Insight: <span className="font-normal">Satisfacción alta ({mockSatisfaction}/5). Solo el {mockPctCalifican}% responde encuestas.</span>
+                Insight: <span className="font-normal">Satisfacción alta ({realSatisfaction}/5). Solo el {realPctCalifican}% responde encuestas.</span>
               </p>
             </div>
           </div>
@@ -802,7 +823,10 @@ export default function Dashboard() {
             {areas.map((area) => {
               const aServices = servicios.filter(s => s.area_id === area.area_id);
               const aCompleted = aServices.filter(s => s.servicio_estado === "completado").length;
-              const mockStars = area.area_nombre === "Software" ? 4.5 : area.area_nombre === "Electrónica" ? 4.2 : 3.9;
+              const puntajes = areaCalifMap.get(area.area_id) || [];
+              const avgStars = puntajes.length > 0 
+                ? (puntajes.reduce((a, b) => a + b, 0) / puntajes.length).toFixed(1) 
+                : "—";
               return (
                 <div key={area.area_id} className="bg-gray-50 rounded-xl p-4">
                   <div className="flex items-center gap-2 mb-3">
@@ -819,7 +843,7 @@ export default function Dashboard() {
                       <span className="text-gray-500">Satisfacción</span>
                       <div className="flex items-center gap-1">
                         <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                        <span className="font-bold">{mockStars}</span>
+                        <span className="font-bold">{avgStars}</span>
                       </div>
                     </div>
                     <div className="flex items-center justify-between text-xs">
