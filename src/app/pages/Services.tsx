@@ -283,7 +283,7 @@ export default function Services() {
             "cliente_id, cliente_dni, cliente_nombres, cliente_apellido_paterno, cliente_apellido_materno, cliente_telefono"
           )
           .order("cliente_nombres"),
-        supabase.from("ServicioColaboradores").select("servicio_id, colaborador_id"),
+        supabase.from("serviciocolaboradores").select("servicio_id, colaborador_id"),
         supabase.from("tareas").select("tarea_id, servicio_id, tarea_titulo, tarea_estado, tarea_orden"),
         supabase.from("plantillas").select("plantilla_id, plantilla_nombre, plantilla_descripcion, plantilla_activa"),
         supabase.from("plantillatareas").select("plantillatarea_id, plantilla_id, plantillatarea_titulo, plantillatarea_orden"),
@@ -491,7 +491,7 @@ export default function Services() {
           servicio_id: serviceId,
           colaborador_id: id,
         }));
-        const { error: e2 } = await supabase.from("ServicioColaboradores").insert(rel);
+        const { error: e2 } = await supabase.from("serviciocolaboradores").insert(rel);
         if (e2) throw e2;
       }
 

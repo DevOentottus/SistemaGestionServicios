@@ -7,51 +7,49 @@ import {
 
 // Tipos adaptados a la base de datos
 type TareaBD = {
-  id: string;
-  id_servicio: string;
-  nombre: string;
-  completada: boolean;
-  fecha_completada: string | null;
-  responsable: string | null;
-  orden: number | null;
+  tarea_id: number;
+  servicio_id: number;
+  tarea_titulo: string;
+  tarea_estado: string; // 'pendiente' | 'en_progreso' | 'completado'
+  tarea_completado_por: number | null;
+  tarea_fecha_completado: string | null;
+  tarea_orden: number | null;
 };
 
 type ServicioBD = {
-  id: string;
-  codigo: string;
-  cliente: string;
-  telefono_cliente: string;
-  descripcion: string;
-  area: string | null;
-  fecha_inicio: string;
-  hora_inicio: string;
-  fecha_fin: string | null;
-  hora_fin: string | null;
-  hora_estimada_fin: string | null;
-  inicio_real: string | null;
-  estado: string;
-  progreso: number;
+  servicio_id: number;
+  servicio_codigo: string;
+  servicio_descripcion: string;
+  servicio_estado: string;
+  cliente_id: number | null;
+  area_id: number | null;
+  servicio_fecha_inicio: string;
+  servicio_hora_inicio: string | null;
+  servicio_fecha_fin: string | null;
+  servicio_hora_fin: string | null;
+  servicio_tiempo_estimado: number | null;
 };
 
 type TareaView = {
-  id: string;
-  nombre: string;
+  tarea_id: number;
+  tarea_titulo: string;
   completada: boolean;
   fechaCompletada: string | null;
-  responsable: string | null;
+  responsable: number | null;
+  responsable_nombre?: string;
 };
 
 type ServicioView = {
-  id: string;
-  codigo: string;
-  cliente: string;
-  telefono_cliente: string;
-  descripcion: string;
-  area: string | null;
-  fechaInicio: string;
-  horaInicio: string;
-  fechaFin: string | null;
-  estado: string;
+  servicio_id: number;
+  servicio_codigo: string;
+  cliente_nombres: string;
+  cliente_telefono: string;
+  servicio_descripcion: string;
+  area_nombre: string;
+  servicio_fecha_inicio: string;
+  servicio_hora_inicio: string | null;
+  servicio_fecha_fin: string | null;
+  servicio_estado: string;
   progreso: number;
   tareas: TareaView[];
   tecnicos: string[];
@@ -118,7 +116,7 @@ export default function ClientView() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const [reviews, setReviews] = useState<Record<string, ClientReview>>({});
+  const [reviews, setReviews] = useState<Record<number, ClientReview>>({});
   const [ratingForm, setRatingForm] = useState({
     hover: 0,
     selected: 0,
@@ -126,68 +124,115 @@ export default function ClientView() {
     observacion: "",
     sugerencia: "",
   });
-  const [submitted, setSubmitted] = useState<Record<string, boolean>>({});
-  const [showReport, setShowReport] = useState<Record<string, boolean>>({});
+  const [submitted, setSubmitted] = useState<Record<number, boolean>>({});
+  const [showReport, setShowReport] = useState<Record<number, boolean>>({});
   const reportRef = useRef<HTMLDivElement>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const isCompleted = service?.estado === "Completado";
-  const alreadyReviewed = service ? !!submitted[service.id] : false;
-  const reportVisible = service ? !!showReport[service.id] : false;
+  const isCompleted = service?.servicio_estado === "Completado";
+  const alreadyReviewed = service ? !!submitted[service.servicio_id] : false;
+  const reportVisible = service ? !!showReport[service.servicio_id] : false;
   const ratingLabels = ["", "Muy malo", "Regular", "Bueno", "Muy bueno", "Excelente"];
-  const currentReview = service ? reviews[service.id] : null;
+  const currentReview = service ? reviews[service.servicio_id] : null;
+
+  // Funciones auxiliares para resolver nombres desde FKs
+  const resolveClienteNombre = async (clienteId: number): Promise<string> => {
+    try {
+      const { data } = await supabase
+        .from("clientes")
+        .select("cliente_nombres, cliente_apellido_paterno, cliente_apellido_materno")
+        .eq("cliente_id", clienteId)
+        .single();
+      if (data) {
+        return [data.cliente_nombres, data.cliente_apellido_paterno, data.cliente_apellido_materno].filter(Boolean).join(" ");
+      }
+      return `Cliente #${clienteId}`;
+    } catch {
+      return `Cliente #${clienteId}`;
+    }
+  };
+
+  const resolveClienteTelefono = async (clienteId: number): Promise<string> => {
+    try {
+      const { data } = await supabase
+        .from("clientes")
+        .select("cliente_telefono")
+        .eq("cliente_id", clienteId)
+        .single();
+      return data?.cliente_telefono || "";
+    } catch {
+      return "";
+    }
+  };
+
+  const resolveAreaNombre = async (areaId: number): Promise<string> => {
+    try {
+      const { data } = await supabase
+        .from("areas")
+        .select("area_nombre")
+        .eq("area_id", areaId)
+        .single();
+      return data?.area_nombre || `Área #${areaId}`;
+    } catch {
+      return `Área #${areaId}`;
+    }
+  };
 
   // Función para obtener datos del servicio (tareas y técnicos)
-  const fetchServiceData = async (servicioId: string): Promise<{ tareas: TareaView[]; tecnicos: string[]; estado: string; progreso: number; fechaFin: string | null } | null> => {
+  const fetchServiceData = async (servicioId: number): Promise<{ tareas: TareaView[]; tecnicos: string[]; estado: string; progreso: number; fechaFin: string | null } | null> => {
     try {
       // Obtener tareas actualizadas
       const { data: tareasData, error: tareasError } = await supabase
         .from("tareas")
-        .select("*")
-        .eq("id_servicio", servicioId)
-        .order("orden", { ascending: true, nullsFirst: false });
+        .select("tarea_id, servicio_id, tarea_titulo, tarea_estado, tarea_completado_por, tarea_fecha_completado, tarea_orden")
+        .eq("servicio_id", servicioId)
+        .order("tarea_orden", { ascending: true, nullsFirst: false });
       if (tareasError) throw tareasError;
       const tareas: TareaView[] = (tareasData || []).map((t: TareaBD) => ({
-        id: t.id,
-        nombre: t.nombre,
-        completada: t.completada,
-        fechaCompletada: t.fecha_completada,
-        responsable: t.responsable,
+        tarea_id: t.tarea_id,
+        tarea_titulo: t.tarea_titulo,
+        completada: t.tarea_estado === "completado",
+        fechaCompletada: t.tarea_fecha_completado,
+        responsable: t.tarea_completado_por,
       }));
+
+      // Calcular progreso desde las tareas
+      const tareasCompletadas = tareas.filter(t => t.completada).length;
+      const progreso = tareas.length > 0 ? Math.round((tareasCompletadas / tareas.length) * 100) : 0;
 
       // Obtener técnicos
       const { data: tecnicosRel, error: tecError } = await supabase
-        .from("servicio_tecnicos")
-        .select("id_usuario")
-        .eq("id_servicio", servicioId);
+        .from("serviciocolaboradores")
+        .select("colaborador_id")
+        .eq("servicio_id", servicioId);
       let tecnicosNombres: string[] = [];
       if (tecnicosRel && tecnicosRel.length > 0) {
-        const userIds = tecnicosRel.map((rel: any) => rel.id_usuario);
+        const userIds = tecnicosRel.map((rel: any) => rel.colaborador_id);
         const { data: usuariosData, error: usuariosError } = await supabase
           .from("usuarios")
-          .select("nombres, apellido_paterno")
-          .in("id_usuario", userIds);
+          .select("usuario_id, usuario_nombres, usuario_apellido_paterno")
+          .in("usuario_id", userIds);
         if (!usuariosError && usuariosData) {
           tecnicosNombres = usuariosData.map(
-            (u: any) => `${u.nombres} ${u.apellido_paterno}`
+            (u: any) => `${u.usuario_nombres} ${u.usuario_apellido_paterno}`
           );
         }
       }
 
-      // También necesitamos el estado actualizado, progreso y fecha_fin del servicio
+      // También necesitamos el estado actualizado y fecha_fin del servicio
       const { data: servicioActual, error: servError } = await supabase
         .from("servicios")
-        .select("estado, progreso, fecha_fin")
-        .eq("id", servicioId)
+        .select("servicio_estado, servicio_fecha_fin")
+        .eq("servicio_id", servicioId)
         .single();
       if (servError) throw servError;
 
       return {
         tareas,
         tecnicos: tecnicosNombres,
-        estado: servicioActual.estado,
-        progreso: servicioActual.progreso,
-        fechaFin: servicioActual.fecha_fin,
+        estado: servicioActual.servicio_estado,
+        progreso,
+        fechaFin: servicioActual.servicio_fecha_fin,
       };
     } catch (err) {
       console.error("Error refreshing service data:", err);
@@ -198,7 +243,7 @@ export default function ClientView() {
   // Función para refrescar los datos del servicio actual (sin perder estado local de calificación)
   const refreshService = async () => {
     if (!service) return;
-    const newData = await fetchServiceData(service.id);
+    const newData = await fetchServiceData(service.servicio_id);
     if (newData) {
       setService((prev) => {
         if (!prev) return prev;
@@ -207,9 +252,9 @@ export default function ClientView() {
           ...prev,
           tareas: newData.tareas,
           tecnicos: newData.tecnicos,
-          estado: newData.estado,
+          servicio_estado: newData.estado,
           progreso: newData.progreso,
-          fechaFin: newData.fechaFin,
+          servicio_fecha_fin: newData.fechaFin,
         };
       });
     }
@@ -244,8 +289,8 @@ export default function ClientView() {
       // 1. Obtener servicio
       const { data: servicioData, error: servicioError } = await supabase
         .from("servicios")
-        .select("*")
-        .eq("codigo", codigo)
+        .select("servicio_id, servicio_codigo, servicio_descripcion, servicio_estado, cliente_id, area_id, servicio_fecha_inicio, servicio_hora_inicio, servicio_fecha_fin, servicio_hora_fin, servicio_tiempo_estimado")
+        .eq("servicio_codigo", codigo)
         .single();
 
       if (servicioError || !servicioData) {
@@ -257,21 +302,21 @@ export default function ClientView() {
       const s = servicioData as ServicioBD;
 
       // 2. Obtener tareas y técnicos mediante la función auxiliar
-      const fullData = await fetchServiceData(s.id);
+      const fullData = await fetchServiceData(s.servicio_id);
       if (!fullData) throw new Error("Error al cargar tareas o técnicos");
 
       // 3. Armar objeto para la vista
       const serviceView: ServicioView = {
-        id: s.id,
-        codigo: s.codigo,
-        cliente: s.cliente,
-        telefono_cliente: s.telefono_cliente,
-        descripcion: s.descripcion,
-        area: s.area,
-        fechaInicio: s.fecha_inicio,
-        horaInicio: s.hora_inicio,
-        fechaFin: fullData.fechaFin,
-        estado: fullData.estado,
+        servicio_id: s.servicio_id,
+        servicio_codigo: s.servicio_codigo,
+        cliente_nombres: s.cliente_id ? await resolveClienteNombre(s.cliente_id) : "Sin cliente",
+        cliente_telefono: s.cliente_id ? await resolveClienteTelefono(s.cliente_id) : "",
+        servicio_descripcion: s.servicio_descripcion,
+        area_nombre: s.area_id ? await resolveAreaNombre(s.area_id) : "",
+        servicio_fecha_inicio: s.servicio_fecha_inicio,
+        servicio_hora_inicio: s.servicio_hora_inicio,
+        servicio_fecha_fin: fullData.fechaFin,
+        servicio_estado: fullData.estado,
         progreso: fullData.progreso,
         tareas: fullData.tareas,
         tecnicos: fullData.tecnicos,
@@ -306,9 +351,9 @@ export default function ClientView() {
       sugerencia: ratingForm.sugerencia,
       fechaEnvio: new Date().toLocaleString("es-PE"),
     };
-    setReviews((prev) => ({ ...prev, [service.id]: review }));
-    setSubmitted((prev) => ({ ...prev, [service.id]: true }));
-    setShowReport((prev) => ({ ...prev, [service.id]: true }));
+    setReviews((prev) => ({ ...prev, [service.servicio_id]: review }));
+    setSubmitted((prev) => ({ ...prev, [service.servicio_id]: true }));
+    setShowReport((prev) => ({ ...prev, [service.servicio_id]: true }));
   };
 
   const StarRating = () => (
@@ -381,12 +426,12 @@ export default function ClientView() {
               {/* Service header */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                 <div className="mb-4">
-                  <span className="text-xs bg-blue-100 text-blue-800 px-3 py-1 rounded-full" style={{ fontWeight: 700 }}>{service.codigo}</span>
-                  <h2 className="text-gray-900 mt-3 mb-1 text-xl" style={{ fontWeight: 700 }}>{service.cliente}</h2>
-                  <p className="text-gray-500 text-sm">{service.descripcion}</p>
+                  <span className="text-xs bg-blue-100 text-blue-800 px-3 py-1 rounded-full" style={{ fontWeight: 700 }}>{service.servicio_codigo}</span>
+                  <h2 className="text-gray-900 mt-3 mb-1 text-xl" style={{ fontWeight: 700 }}>{service.cliente_nombres}</h2>
+                  <p className="text-gray-500 text-sm">{service.servicio_descripcion}</p>
                 </div>
                 {(() => {
-                  const cfg = statusConfig[service.estado];
+                  const cfg = statusConfig[service.servicio_estado];
                   return (
                     <div className={`${cfg.bg} ${cfg.text} rounded-xl p-4 flex items-center gap-3`}>
                       <cfg.icon className="w-6 h-6 flex-shrink-0" />
@@ -411,7 +456,7 @@ export default function ClientView() {
                   <div className="relative w-24 h-24 flex-shrink-0">
                     <svg className="w-24 h-24 -rotate-90" viewBox="0 0 96 96">
                       <circle cx="48" cy="48" r="40" fill="none" stroke="#e5e7eb" strokeWidth="10" />
-                      <circle cx="48" cy="48" r="40" fill="none" stroke={statusConfig[service.estado].barColor}
+                      <circle cx="48" cy="48" r="40" fill="none" stroke={statusConfig[service.servicio_estado].barColor}
                         strokeWidth="10" strokeLinecap="round"
                         strokeDasharray={`${2 * Math.PI * 40}`}
                         strokeDashoffset={`${2 * Math.PI * 40 * (1 - service.progreso / 100)}`}
@@ -428,15 +473,15 @@ export default function ClientView() {
                       <span className="text-gray-400 text-xl"> / {service.tareas.length}</span>
                     </p>
                     <p className="text-gray-500 text-sm">tareas completadas</p>
-                    <p className="text-gray-400 text-xs mt-1">📅 Inicio: {service.fechaInicio}</p>
-                    {service.fechaFin && (
-                      <p className="text-green-600 text-xs mt-0.5" style={{ fontWeight: 500 }}>✅ Finalizado: {service.fechaFin}</p>
+                    <p className="text-gray-400 text-xs mt-1">📅 Inicio: {service.servicio_fecha_inicio}</p>
+                    {service.servicio_fecha_fin && (
+                      <p className="text-green-600 text-xs mt-0.5" style={{ fontWeight: 500 }}>✅ Finalizado: {service.servicio_fecha_fin}</p>
                     )}
                   </div>
                 </div>
                 <div className="space-y-2">
                   {service.tareas.map((task, idx) => (
-                    <div key={task.id} className={`flex items-center gap-3 p-3 rounded-xl transition ${task.completada ? "bg-green-50 border border-green-100" : "bg-gray-50 border border-transparent"}`}>
+                    <div key={task.tarea_id} className={`flex items-center gap-3 p-3 rounded-xl transition ${task.completada ? "bg-green-50 border border-green-100" : "bg-gray-50 border border-transparent"}`}>
                       <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${task.completada ? "bg-green-500" : "bg-gray-200"}`}>
                         {task.completada
                           ? <CheckCircle2 className="w-4 h-4 text-white" />
@@ -444,7 +489,7 @@ export default function ClientView() {
                       </div>
                       <div className="flex-1">
                         <p className={`text-sm ${task.completada ? "text-green-800 line-through" : "text-gray-700"}`} style={{ fontWeight: task.completada ? 400 : 500 }}>
-                          {task.nombre}
+                          {task.tarea_titulo}
                         </p>
                         {task.fechaCompletada && <p className="text-xs text-green-600">Completada: {task.fechaCompletada}</p>}
                       </div>
@@ -526,7 +571,7 @@ export default function ClientView() {
                   <CheckCircle2 className="w-10 h-10 text-green-500 mx-auto mb-2" />
                   <p className="text-green-800 text-sm" style={{ fontWeight: 700 }}>¡Gracias por su calificación!</p>
                   <button
-                    onClick={() => setShowReport((p) => ({ ...p, [service.id]: true }))}
+                    onClick={() => setShowReport((p) => ({ ...p, [service.servicio_id]: true }))}
                     className="mt-3 text-blue-700 text-sm underline"
                   >
                     Ver reporte del servicio
@@ -566,7 +611,7 @@ export default function ClientView() {
                           <p className="text-blue-200 text-xs mt-0.5">Generado el {new Date().toLocaleDateString("es-PE", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-yellow-400 text-2xl" style={{ fontWeight: 800 }}>{service.codigo}</p>
+                          <p className="text-yellow-400 text-2xl" style={{ fontWeight: 800 }}>{service.servicio_codigo}</p>
                           <span className="inline-block bg-green-500 text-white text-xs px-3 py-1 rounded-full mt-1" style={{ fontWeight: 700 }}>✓ COMPLETADO</span>
                         </div>
                       </div>
@@ -577,14 +622,14 @@ export default function ClientView() {
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-3">
                           <h4 className="text-gray-500 text-xs uppercase tracking-wider" style={{ fontWeight: 700 }}>Información del Cliente</h4>
-                          <div><p className="text-gray-400 text-xs">Cliente</p><p className="text-gray-900 text-sm font-semibold">{service.cliente}</p></div>
-                          <div><p className="text-gray-400 text-xs">Código de servicio</p><p className="text-gray-900 text-sm font-semibold">{service.codigo}</p></div>
-                          <div><p className="text-gray-400 text-xs">Área de atención</p><p className="text-gray-900 text-sm font-semibold">{service.area || "—"}</p></div>
+                          <div><p className="text-gray-400 text-xs">Cliente</p><p className="text-gray-900 text-sm font-semibold">{service.cliente_nombres}</p></div>
+                          <div><p className="text-gray-400 text-xs">Código de servicio</p><p className="text-gray-900 text-sm font-semibold">{service.servicio_codigo}</p></div>
+                          <div><p className="text-gray-400 text-xs">Área de atención</p><p className="text-gray-900 text-sm font-semibold">{service.area_nombre || "—"}</p></div>
                         </div>
                         <div className="space-y-3">
                           <h4 className="text-gray-500 text-xs uppercase tracking-wider" style={{ fontWeight: 700 }}>Fechas del Servicio</h4>
-                          <div><p className="text-gray-400 text-xs">Fecha de inicio</p><p className="text-gray-900 text-sm font-semibold">{service.fechaInicio}</p></div>
-                          <div><p className="text-gray-400 text-xs">Fecha de finalización</p><p className="text-gray-900 text-sm font-semibold">{service.fechaFin || "—"}</p></div>
+                          <div><p className="text-gray-400 text-xs">Fecha de inicio</p><p className="text-gray-900 text-sm font-semibold">{service.servicio_fecha_inicio}</p></div>
+                          <div><p className="text-gray-400 text-xs">Fecha de finalización</p><p className="text-gray-900 text-sm font-semibold">{service.servicio_fecha_fin || "—"}</p></div>
                           <div><p className="text-gray-400 text-xs">Total de tareas</p><p className="text-gray-900 text-sm font-semibold">{service.tareas.length} tareas</p></div>
                         </div>
                       </div>
@@ -592,7 +637,7 @@ export default function ClientView() {
                       {/* Descripción */}
                       <div className="bg-gray-50 rounded-xl p-4">
                         <p className="text-gray-500 text-xs font-semibold mb-1">DESCRIPCIÓN DEL SERVICIO</p>
-                        <p className="text-gray-700 text-sm">{service.descripcion}</p>
+                        <p className="text-gray-700 text-sm">{service.servicio_descripcion}</p>
                       </div>
 
                       {/* Técnicos */}
@@ -617,12 +662,12 @@ export default function ClientView() {
                         </div>
                         <div className="space-y-2">
                           {service.tareas.map((task, idx) => (
-                            <div key={task.id} className={`flex items-center gap-3 p-3 rounded-xl ${task.completada ? "bg-green-50 border border-green-100" : "bg-gray-50"}`}>
+                            <div key={task.tarea_id} className={`flex items-center gap-3 p-3 rounded-xl ${task.completada ? "bg-green-50 border border-green-100" : "bg-gray-50"}`}>
                               <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold ${task.completada ? "bg-green-500 text-white" : "bg-gray-200 text-gray-500"}`}>
                                 {task.completada ? "✓" : idx + 1}
                               </div>
                               <div className="flex-1">
-                                <p className="text-sm text-gray-800" style={{ fontWeight: task.completada ? 500 : 400 }}>{task.nombre}</p>
+                                <p className="text-sm text-gray-800" style={{ fontWeight: task.completada ? 500 : 400 }}>{task.tarea_titulo}</p>
                                 {task.fechaCompletada && (
                                   <p className="text-xs text-green-600">{task.fechaCompletada}{task.responsable ? ` · ${task.responsable}` : ""}</p>
                                 )}
