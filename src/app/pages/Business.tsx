@@ -284,7 +284,7 @@ export default function Business() {
     // Generar código basado en fecha y hora actual
     const n = new Date();
     const pad = (x: number) => String(x).padStart(2, "0");
-    const codigo = `SRV-${n.getFullYear()}${pad(n.getMonth()+1)}${pad(n.getDate())}${pad(n.getHours())}${pad(n.getMinutes())}`;
+    const codigo = `SRV-${n.getFullYear()}${pad(n.getMonth()+1)}${pad(n.getDate())}${pad(n.getHours())}${pad(n.getMinutes())}${pad(n.getSeconds())}`;
     const hoy = new Date().toISOString().split("T")[0];
 
     // Insertar servicio

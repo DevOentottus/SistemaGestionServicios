@@ -461,7 +461,7 @@ export default function Services() {
       const nextCode = form.codigo.trim() || (() => {
         const n = new Date();
         const pad = (x: number) => String(x).padStart(2, "0");
-        return `SRV-${n.getFullYear()}${pad(n.getMonth()+1)}${pad(n.getDate())}${pad(n.getHours())}${pad(n.getMinutes())}`;
+        return `SRV-${n.getFullYear()}${pad(n.getMonth()+1)}${pad(n.getDate())}${pad(n.getHours())}${pad(n.getMinutes())}${pad(n.getSeconds())}`;
       })();
 
       const { data: inserted, error } = await supabase
