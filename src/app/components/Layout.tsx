@@ -3,7 +3,7 @@ import { Outlet, useNavigate, useLocation, Navigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import {
   LayoutDashboard, Users, MapPin, ClipboardList, Monitor, MessageSquare,
-  Eye, BarChart2, Shield, LogOut, Menu, X, Wrench, ChevronRight,
+  Eye, BarChart2, LogOut, Menu, X, Wrench, ChevronRight,
   Bell, Settings, UserCircle, Briefcase,
 } from "lucide-react";
 
@@ -17,7 +17,7 @@ const navItems = [
   { path: "/communications", label: "Comunicación", icon: MessageSquare, roles: ["Administrador", "Encargado", "Colaborador"] },
   { path: "/supervision", label: "Supervisión", icon: Eye, roles: ["Administrador", "Encargado"] },
   { path: "/reports", label: "Reportes", icon: BarChart2, roles: ["Administrador", "Encargado"] },
-  { path: "/audit", label: "Auditoría", icon: Shield, roles: ["Administrador"] },
+
   { path: "/client", label: "Vista Cliente", icon: Monitor, roles: ["Administrador", "Encargado", "Colaborador"] },
 ];
 
