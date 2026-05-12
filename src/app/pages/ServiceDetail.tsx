@@ -194,6 +194,7 @@ export default function ServiceDetail() {
 
   const completed = tasks.filter((t) => t.tarea_estado === "completado").length;
   const progress = tasks.length ? Math.round((completed / tasks.length) * 100) : 0;
+  const isCompleted = service?.servicio_estado === "completado";
   const selectedTaskNotes = notes.filter((n) => n.tarea_id === selectedTaskId);
 
   const areasMap = useMemo(() => {
@@ -550,81 +551,51 @@ export default function ServiceDetail() {
         )}
       </div>
 
-      {/* ── Feedback del cliente ── */}
-      {calificacion && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-5">
-          <h3 className="text-gray-900 mb-3" style={{ fontWeight: 700 }}>
-            Feedback del cliente
-          </h3>
-          <div className="flex items-center gap-1 mb-2">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <Star
-                key={star}
-                className={`w-5 h-5 ${
-                  star <= calificacion.calificacion_puntaje
-                    ? "fill-yellow-400 text-yellow-400"
-                    : "fill-gray-200 text-gray-200"
-                }`}
-              />
-            ))}
-            <span className="ml-2 text-sm text-gray-700 font-semibold">
-              {calificacion.calificacion_puntaje}/5
-            </span>
-          </div>
-          {calificacion.calificacion_comentario && (
-            <div className="mb-2">
-              <p className="text-xs text-gray-500 font-semibold">Comentario</p>
-              <p className="text-sm text-gray-800">{calificacion.calificacion_comentario}</p>
-            </div>
-          )}
-          {calificacion.calificacion_sugerencia && (
-            <div className="mb-2">
-              <p className="text-xs text-gray-500 font-semibold">Sugerencia</p>
-              <p className="text-sm text-gray-800">{calificacion.calificacion_sugerencia}</p>
-            </div>
-          )}
-          <p className="text-xs text-gray-400 mt-2">
-            Enviado el {calificacion.calificacion_fecha} a las {calificacion.calificacion_hora}
-          </p>
-        </div>
-      )}
-
       {/* ── Tareas y avance ── */}
       <div className="bg-white rounded-2xl border border-gray-100 p-5">
-        <h3 className="text-gray-900 mb-3" style={{ fontWeight: 700 }}>
-          Tareas y avance
-        </h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-gray-900" style={{ fontWeight: 700 }}>
+            Tareas y avance
+          </h3>
+          {isCompleted && (
+            <span className="flex items-center gap-1 text-xs text-green-700 bg-green-50 px-2 py-1 rounded-full font-semibold">
+              <CheckCircle2 className="w-3.5 h-3.5" /> Completado — tareas bloqueadas
+            </span>
+          )}
+        </div>
         <div className="space-y-2">
           {tasks.map((t, idx) => (
-            <div key={t.tarea_id} className="border border-gray-100 rounded-xl p-3">
+            <div key={t.tarea_id} className={`border rounded-xl p-3 ${isCompleted ? "border-green-100 bg-green-50/30" : "border-gray-100"}`}>
               <div className="flex items-center gap-3">
-                <button disabled={saving} onClick={() => toggleTask(t)}>
+                <button disabled={saving || isCompleted} onClick={() => toggleTask(t)} className="cursor-pointer">
                   {t.tarea_estado === "completado" ? (
-                    <CheckCircle2 className="w-5 h-5 text-green-600" />
+                    <CheckCircle2 className={`w-5 h-5 ${isCompleted ? "text-green-500" : "text-green-600"}`} />
                   ) : (
-                    <Circle className="w-5 h-5 text-gray-400" />
+                    <Circle className={`w-5 h-5 ${isCompleted ? "text-gray-300" : "text-gray-400"}`} />
                   )}
                 </button>
                 <p
                   className={`text-sm flex-1 ${
                     t.tarea_estado === "completado"
                       ? "line-through text-gray-400"
-                      : "text-gray-800"
+                      : isCompleted ? "text-gray-400" : "text-gray-800"
                   }`}
                 >
                   <span className="text-gray-400 mr-1">{idx + 1}.</span>
                   {t.tarea_titulo}
                 </p>
-                <button
-                  onClick={() =>
-                    setSelectedTaskId(selectedTaskId === t.tarea_id ? null : t.tarea_id)
-                  }
-                  className="text-xs text-blue-700"
-                >
-                  <MessageSquare className="w-4 h-4" />
-                </button>
+                {!isCompleted && (
+                  <button
+                    onClick={() =>
+                      setSelectedTaskId(selectedTaskId === t.tarea_id ? null : t.tarea_id)
+                    }
+                    className="text-xs text-blue-700"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                  </button>
+                )}
               </div>
-              {selectedTaskId === t.tarea_id && (
+              {selectedTaskId === t.tarea_id && !isCompleted && (
                 <div className="mt-3 border-t border-gray-100 pt-3 space-y-2">
                   {selectedTaskNotes.map((n) => {
                     const noteUser = n.usuario_id ? usersMap[n.usuario_id] : undefined;
@@ -702,6 +673,45 @@ export default function ServiceDetail() {
           </button>
         </div>
       </div>
+
+      {/* ── Feedback del cliente ── */}
+      {calificacion && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <h3 className="text-gray-900 mb-3" style={{ fontWeight: 700 }}>
+            Feedback del cliente
+          </h3>
+          <div className="flex items-center gap-1 mb-2">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Star
+                key={star}
+                className={`w-5 h-5 ${
+                  star <= calificacion.calificacion_puntaje
+                    ? "fill-yellow-400 text-yellow-400"
+                    : "fill-gray-200 text-gray-200"
+                }`}
+              />
+            ))}
+            <span className="ml-2 text-sm text-gray-700 font-semibold">
+              {calificacion.calificacion_puntaje}/5
+            </span>
+          </div>
+          {calificacion.calificacion_comentario && (
+            <div className="mb-2">
+              <p className="text-xs text-gray-500 font-semibold">Comentario</p>
+              <p className="text-sm text-gray-800">{calificacion.calificacion_comentario}</p>
+            </div>
+          )}
+          {calificacion.calificacion_sugerencia && (
+            <div className="mb-2">
+              <p className="text-xs text-gray-500 font-semibold">Sugerencia</p>
+              <p className="text-sm text-gray-800">{calificacion.calificacion_sugerencia}</p>
+            </div>
+          )}
+          <p className="text-xs text-gray-400 mt-2">
+            Enviado el {calificacion.calificacion_fecha} a las {calificacion.calificacion_hora}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
