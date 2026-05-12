@@ -3,24 +3,28 @@ import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
 import {
   Briefcase, Plus, Edit2, ToggleLeft, ToggleRight, Search, X, Check, ChevronDown,
-  List, Clock, User, MapPin, Copy, Layers, ChevronRight, CheckCircle2, Circle,
+  List, Clock, User, Copy, Layers, ChevronRight, CheckCircle2, Circle,
   Save, Trash2, Loader2
 } from "lucide-react";
 import React from "react";
 
 // ---------- Tipos ----------
 type Template = {
-  id: string;
-  nombre: string;
-  descripcion: string;
-  area: string | null;
-  activo: boolean;
-  fecha_creacion: string;
+  plantilla_id: number;
+  plantilla_nombre: string;
+  plantilla_descripcion: string | null;
+  plantilla_activa: boolean;
+  plantilla_fecha_creacion: string;
   tareas: TemplateTask[];
 };
 
 type TemplateTask = {
-  id?: string;
+  plantillatarea_id?: number;
+  plantillatarea_titulo: string;
+  plantillatarea_orden: number;
+};
+
+type FormTask = {
   nombre: string;
   orden: number;
 };
@@ -63,8 +67,7 @@ const statusColors: Record<string, string> = {
 const emptyTemplateForm = {
   nombre: "",
   descripcion: "",
-  area: "",
-  tareas: [{ nombre: "", orden: 1 }] as TemplateTask[],
+  tareas: [{ nombre: "", orden: 1 }] as FormTask[],
 };
 
 export default function Business() {
@@ -96,31 +99,35 @@ export default function Business() {
 
   const fetchTemplates = useCallback(async () => {
     const { data: tmpl, error: tmplErr } = await supabase
-      .from("service_templates")
-      .select("*")
-      .order("nombre");
+      .from("plantillas")
+      .select("plantilla_id, plantilla_nombre, plantilla_descripcion, plantilla_activa, plantilla_fecha_creacion")
+      .order("plantilla_nombre");
     if (tmplErr) {
       console.error(tmplErr);
       return;
     }
-    const templatesWithTasks: Template[] = [];
-    for (const t of tmpl || []) {
-      const { data: tasks, error: tasksErr } = await supabase
-        .from("template_tareas")
-        .select("id, nombre, orden")
-        .eq("id_template", t.id)
-        .order("orden", { ascending: true });
-      if (tasksErr) console.error(tasksErr);
-      templatesWithTasks.push({
-        id: t.id,
-        nombre: t.nombre,
-        descripcion: t.descripcion,
-        area: t.area,
-        activo: t.activo,
-        fecha_creacion: t.fecha_creacion,
-        tareas: tasks || [],
-      });
+    const { data: tasks, error: tasksErr } = await supabase
+      .from("plantillatareas")
+      .select("plantillatarea_id, plantilla_id, plantillatarea_titulo, plantillatarea_orden")
+      .order("plantillatarea_orden");
+    if (tasksErr) {
+      console.error(tasksErr);
+      return;
     }
+    const templatesWithTasks: Template[] = (tmpl || []).map((t: any) => ({
+      plantilla_id: t.plantilla_id,
+      plantilla_nombre: t.plantilla_nombre,
+      plantilla_descripcion: t.plantilla_descripcion,
+      plantilla_activa: t.plantilla_activa,
+      plantilla_fecha_creacion: t.plantilla_fecha_creacion,
+      tareas: (tasks || [])
+        .filter((ta: any) => ta.plantilla_id === t.plantilla_id)
+        .map((ta: any) => ({
+          plantillatarea_id: ta.plantillatarea_id,
+          plantillatarea_titulo: ta.plantillatarea_titulo,
+          plantillatarea_orden: ta.plantillatarea_orden,
+        })),
+    }));
     setTemplates(templatesWithTasks);
   }, []);
 
@@ -277,7 +284,7 @@ export default function Business() {
 
   // Crear servicio desde plantilla
   const createServiceFromTemplate = async (template: Template) => {
-    if (!template.activo) {
+    if (!template.plantilla_activa) {
       alert("La plantilla está inactiva. Actívela primero.");
       return;
     }
@@ -293,8 +300,8 @@ export default function Business() {
       .insert({
         servicio_codigo: codigo,
         cliente_id: null,
-        area_id: template.area ? Number(template.area) : null,
-        servicio_descripcion: template.descripcion,
+        area_id: null,
+        servicio_descripcion: template.plantilla_descripcion || "",
         servicio_estado: "pendiente",
         servicio_fecha_inicio: hoy,
       })
@@ -309,8 +316,8 @@ export default function Business() {
     // Insertar tareas desde la plantilla
     const tareasToInsert = template.tareas.map((tarea, idx) => ({
       servicio_id: newService.servicio_id,
-      tarea_titulo: tarea.nombre,
-      tarea_orden: tarea.orden || idx + 1,
+      tarea_titulo: tarea.plantillatarea_titulo,
+      tarea_orden: tarea.plantillatarea_orden || idx + 1,
       tarea_estado: "pendiente",
     }));
     const { error: tasksError } = await supabase.from("tareas").insert(tareasToInsert);
@@ -330,38 +337,37 @@ export default function Business() {
     setSaving(true);
     try {
       const templateData = {
-        nombre: templateForm.nombre,
-        descripcion: templateForm.descripcion,
-        area: templateForm.area || null,
-        activo: true,
-        fecha_creacion: new Date().toISOString(),
+        plantilla_nombre: templateForm.nombre,
+        plantilla_descripcion: templateForm.descripcion,
+        plantilla_activa: true,
+        plantilla_fecha_creacion: new Date().toISOString().split("T")[0],
       };
-      let templateId: string;
+      let templateId: number;
       if (editingTemplate) {
         const { error } = await supabase
-          .from("service_templates")
+          .from("plantillas")
           .update(templateData)
-          .eq("id", editingTemplate.id);
+          .eq("plantilla_id", editingTemplate.plantilla_id);
         if (error) throw error;
-        templateId = editingTemplate.id;
+        templateId = editingTemplate.plantilla_id;
         // Eliminar tareas antiguas
-        await supabase.from("template_tareas").delete().eq("id_template", templateId);
+        await supabase.from("plantillatareas").delete().eq("plantilla_id", templateId);
       } else {
         const { data, error } = await supabase
-          .from("service_templates")
+          .from("plantillas")
           .insert(templateData)
           .select()
           .single();
         if (error) throw error;
-        templateId = data.id;
+        templateId = data.plantilla_id;
       }
       // Insertar nuevas tareas
       const tareasToInsert = templateForm.tareas.map((t, idx) => ({
-        id_template: templateId,
-        nombre: t.nombre,
-        orden: t.orden || idx + 1,
+        plantilla_id: templateId,
+        plantillatarea_titulo: t.nombre,
+        plantillatarea_orden: t.orden || idx + 1,
       }));
-      const { error: tasksError } = await supabase.from("template_tareas").insert(tareasToInsert);
+      const { error: tasksError } = await supabase.from("plantillatareas").insert(tareasToInsert);
       if (tasksError) throw tasksError;
 
       await fetchTemplates();
@@ -376,25 +382,24 @@ export default function Business() {
     }
   };
 
-  const toggleTemplateActive = async (id: string, currentActive: boolean) => {
+  const toggleTemplateActive = async (id: number, currentActive: boolean) => {
     const { error } = await supabase
-      .from("service_templates")
-      .update({ activo: !currentActive })
-      .eq("id", id);
+      .from("plantillas")
+      .update({ plantilla_activa: !currentActive })
+      .eq("plantilla_id", id);
     if (error) console.error(error);
     else fetchTemplates();
   };
 
   const duplicateTemplate = async (template: Template) => {
-    const newName = `${template.nombre} (copia)`;
+    const newName = `${template.plantilla_nombre} (copia)`;
     const { data: newTmpl, error } = await supabase
-      .from("service_templates")
+      .from("plantillas")
       .insert({
-        nombre: newName,
-        descripcion: template.descripcion,
-        area: template.area,
-        activo: true,
-        fecha_creacion: new Date().toISOString(),
+        plantilla_nombre: newName,
+        plantilla_descripcion: template.plantilla_descripcion,
+        plantilla_activa: true,
+        plantilla_fecha_creacion: new Date().toISOString().split("T")[0],
       })
       .select()
       .single();
@@ -403,17 +408,18 @@ export default function Business() {
       return;
     }
     const tareasToCopy = template.tareas.map(t => ({
-      id_template: newTmpl.id,
-      nombre: t.nombre,
-      orden: t.orden,
+      plantilla_id: newTmpl.plantilla_id,
+      plantillatarea_titulo: t.plantillatarea_titulo,
+      plantillatarea_orden: t.plantillatarea_orden,
     }));
-    await supabase.from("template_tareas").insert(tareasToCopy);
+    await supabase.from("plantillatareas").insert(tareasToCopy);
     fetchTemplates();
   };
 
-  const deleteTemplate = async (id: string) => {
+  const deleteTemplate = async (id: number) => {
     if (!confirm("¿Eliminar esta plantilla? Se eliminarán también sus tareas asociadas.")) return;
-    const { error } = await supabase.from("service_templates").delete().eq("id", id);
+    await supabase.from("plantillatareas").delete().eq("plantilla_id", id);
+    const { error } = await supabase.from("plantillas").delete().eq("plantilla_id", id);
     if (error) console.error(error);
     else fetchTemplates();
   };
@@ -423,7 +429,6 @@ export default function Business() {
     setTemplateForm({
       nombre: "",
       descripcion: "",
-      area: areas.length > 0 ? String(areas[0].area_id) : "",
       tareas: [{ nombre: "", orden: 1 }],
     });
     setShowTemplateModal(true);
@@ -432,10 +437,9 @@ export default function Business() {
   const openEditTemplate = (tmpl: Template) => {
     setEditingTemplate(tmpl);
     setTemplateForm({
-      nombre: tmpl.nombre,
-      descripcion: tmpl.descripcion,
-      area: tmpl.area || "",
-      tareas: tmpl.tareas.map(t => ({ nombre: t.nombre, orden: t.orden })),
+      nombre: tmpl.plantilla_nombre,
+      descripcion: tmpl.plantilla_descripcion || "",
+      tareas: tmpl.tareas.map(t => ({ nombre: t.plantillatarea_titulo, orden: t.plantillatarea_orden })),
     });
     setShowTemplateModal(true);
   };
@@ -470,8 +474,8 @@ export default function Business() {
   });
 
   const filteredTemplates = templates.filter(t =>
-    t.nombre.toLowerCase().includes(searchTemplate.toLowerCase()) ||
-    t.descripcion.toLowerCase().includes(searchTemplate.toLowerCase())
+    t.plantilla_nombre.toLowerCase().includes(searchTemplate.toLowerCase()) ||
+    (t.plantilla_descripcion || "").toLowerCase().includes(searchTemplate.toLowerCase())
   );
 
   if (loading) {
@@ -517,19 +521,18 @@ export default function Business() {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                <th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold">Nombre</th><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold">Área</th><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold">Tareas</th><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold">Estado</th><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold">Acciones</th>
+                <th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold">Nombre</th><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold">Tareas</th><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold">Estado</th><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {filteredTemplates.map(t => (
-                <tr key={t.id} className="hover:bg-gray-50 transition">
-                  <td className="px-5 py-4"><p className="text-gray-900 font-semibold text-sm">{t.nombre}</p><p className="text-gray-500 text-xs truncate max-w-xs">{t.descripcion}</p><p className="text-gray-400 text-xs mt-1">Creado: {t.fecha_creacion?.split("T")[0]}</p></td>
-                  <td className="px-5 py-4"><span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full"><MapPin className="w-3 h-3" /> {getAreaName(Number(t.area) || null)}</span></td>
+                <tr key={t.plantilla_id} className="hover:bg-gray-50 transition">
+                  <td className="px-5 py-4"><p className="text-gray-900 font-semibold text-sm">{t.plantilla_nombre}</p><p className="text-gray-500 text-xs truncate max-w-xs">{t.plantilla_descripcion}</p><p className="text-gray-400 text-xs mt-1">Creado: {t.plantilla_fecha_creacion}</p></td>
                   <td className="px-5 py-4"><span className="text-xs text-gray-600">{t.tareas.length} tareas</span></td>
-                  <td className="px-5 py-4"><span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${t.activo ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}><span className={`w-1.5 h-1.5 rounded-full ${t.activo ? "bg-green-500" : "bg-gray-400"}`} />{t.activo ? "Activa" : "Inactiva"}</span></td>
+                  <td className="px-5 py-4"><span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${t.plantilla_activa ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}><span className={`w-1.5 h-1.5 rounded-full ${t.plantilla_activa ? "bg-green-500" : "bg-gray-400"}`} />{t.plantilla_activa ? "Activa" : "Inactiva"}</span></td>
                   <td className="px-5 py-4"><div className="flex items-center gap-1">
                     <button onClick={() => createServiceFromTemplate(t)} className="p-1.5 rounded-lg hover:bg-green-50 text-green-700 transition" title="Crear servicio"><Copy className="w-4 h-4" /></button>
-                    {isAdmin && (<><button onClick={() => openEditTemplate(t)} className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-700 transition"><Edit2 className="w-4 h-4" /></button><button onClick={() => duplicateTemplate(t)} className="p-1.5 rounded-lg hover:bg-purple-50 text-purple-700 transition"><Copy className="w-4 h-4" /></button><button onClick={() => toggleTemplateActive(t.id, t.activo)} className={`p-1.5 rounded-lg transition ${t.activo ? "hover:bg-red-50 text-red-600" : "hover:bg-green-50 text-green-600"}`}>{t.activo ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}</button><button onClick={() => deleteTemplate(t.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-600 transition"><Trash2 className="w-4 h-4" /></button></>)}
+                    {isAdmin && (<><button onClick={() => openEditTemplate(t)} className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-700 transition"><Edit2 className="w-4 h-4" /></button><button onClick={() => duplicateTemplate(t)} className="p-1.5 rounded-lg hover:bg-purple-50 text-purple-700 transition"><Copy className="w-4 h-4" /></button><button onClick={() => toggleTemplateActive(t.plantilla_id, t.plantilla_activa)} className={`p-1.5 rounded-lg transition ${t.plantilla_activa ? "hover:bg-red-50 text-red-600" : "hover:bg-green-50 text-green-600"}`}>{t.plantilla_activa ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}</button><button onClick={() => deleteTemplate(t.plantilla_id)} className="p-1.5 rounded-lg hover:bg-red-50 text-red-600 transition"><Trash2 className="w-4 h-4" /></button></>)}
                   </div></td>
                 </tr>
               ))}
@@ -615,7 +618,6 @@ export default function Business() {
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
               <div><label className="block text-xs text-gray-600 mb-1 font-semibold">Nombre *</label><input type="text" value={templateForm.nombre} onChange={e => setTemplateForm(p => ({ ...p, nombre: e.target.value }))} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50" /></div>
               <div><label className="block text-xs text-gray-600 mb-1 font-semibold">Descripción *</label><textarea value={templateForm.descripcion} onChange={e => setTemplateForm(p => ({ ...p, descripcion: e.target.value }))} rows={2} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50 resize-none" /></div>
-              <div><label className="block text-xs text-gray-600 mb-1 font-semibold">Área</label><select value={templateForm.area} onChange={e => setTemplateForm(p => ({ ...p, area: e.target.value }))} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50"><option value="">Sin área</option>{areas.map(a => <option key={a.area_id} value={a.area_id}>{a.area_nombre}</option>)}</select></div>
               <div><div className="flex items-center justify-between mb-2"><label className="text-xs text-gray-600 font-semibold">Tareas *</label><button type="button" onClick={addTaskField} className="text-xs text-blue-700 hover:text-blue-900 flex items-center gap-1"><Plus className="w-3 h-3" /> Añadir tarea</button></div>
               <div className="space-y-2 max-h-60 overflow-y-auto pr-1">{templateForm.tareas.map((tarea, idx) => (<div key={idx} className="flex items-center gap-2"><span className="text-xs text-gray-400 w-5">{idx+1}.</span><input type="text" value={tarea.nombre} onChange={e => updateTaskField(idx, e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-blue-500 bg-white" />{templateForm.tareas.length > 1 && <button type="button" onClick={() => removeTaskField(idx)} className="p-1 text-gray-400 hover:text-red-500"><X className="w-4 h-4" /></button>}</div>))}</div></div>
             </div>
