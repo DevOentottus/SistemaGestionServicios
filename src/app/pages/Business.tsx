@@ -4,7 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import {
   Briefcase, Plus, Edit2, ToggleLeft, ToggleRight, Search, X, Check, ChevronDown,
   List, Clock, User, Copy, Layers, ChevronRight, CheckCircle2, Circle,
-  Save, Trash2, Loader2
+  Save, Trash2, Loader2, GripVertical,
 } from "lucide-react";
 import React from "react";
 
@@ -85,6 +85,7 @@ export default function Business() {
   const [templateForm, setTemplateForm] = useState(emptyTemplateForm);
   const [searchTemplate, setSearchTemplate] = useState("");
   const [saving, setSaving] = useState(false);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
 
   const isAdmin = currentUser?.rol === "Administrador" || currentUser?.rol === "Encargado";
 
@@ -461,8 +462,56 @@ export default function Business() {
     if (templateForm.tareas.length === 1) return;
     setTemplateForm(prev => ({
       ...prev,
-      tareas: prev.tareas.filter((_, i) => i !== idx),
+      tareas: prev.tareas.filter((_, i) => i !== idx).map((t, i) => ({ ...t, orden: i + 1 })),
     }));
+  };
+
+  const handleTaskKeyDown = (idx: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      const value = (e.target as HTMLInputElement).value.trim();
+      if (!value) return;
+      const newTareas = [...templateForm.tareas];
+      newTareas.splice(idx + 1, 0, { nombre: "", orden: idx + 2 });
+      const renumbered = newTareas.map((t, i) => ({ ...t, orden: i + 1 }));
+      setTemplateForm(prev => ({ ...prev, tareas: renumbered }));
+      // Focus el nuevo input después del render
+      setTimeout(() => {
+        const inputs = document.querySelectorAll<HTMLInputElement>("#task-inputs input.task-field");
+        if (inputs[idx + 1]) inputs[idx + 1].focus();
+      }, 0);
+    }
+  };
+
+  // ── Drag & Drop para reordenar tareas ──
+  const handleDragStart = (e: React.DragEvent, idx: number) => {
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(idx));
+    setDragIdx(idx);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIdx: number) => {
+    e.preventDefault();
+    const sourceIdx = Number(e.dataTransfer.getData("text/plain"));
+    if (isNaN(sourceIdx) || sourceIdx === dropIdx) {
+      setDragIdx(null);
+      return;
+    }
+    const newTareas = [...templateForm.tareas];
+    const [moved] = newTareas.splice(sourceIdx, 1);
+    newTareas.splice(dropIdx, 0, moved);
+    const renumbered = newTareas.map((t, i) => ({ ...t, orden: i + 1 }));
+    setTemplateForm(prev => ({ ...prev, tareas: renumbered }));
+    setDragIdx(null);
+  };
+
+  const handleDragEnd = () => {
+    setDragIdx(null);
   };
 
   // Filtros
@@ -619,7 +668,28 @@ export default function Business() {
               <div><label className="block text-xs text-gray-600 mb-1 font-semibold">Nombre *</label><input type="text" value={templateForm.nombre} onChange={e => setTemplateForm(p => ({ ...p, nombre: e.target.value }))} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50" /></div>
               <div><label className="block text-xs text-gray-600 mb-1 font-semibold">Descripción *</label><textarea value={templateForm.descripcion} onChange={e => setTemplateForm(p => ({ ...p, descripcion: e.target.value }))} rows={2} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50 resize-none" /></div>
               <div><div className="flex items-center justify-between mb-2"><label className="text-xs text-gray-600 font-semibold">Tareas *</label><button type="button" onClick={addTaskField} className="text-xs text-blue-700 hover:text-blue-900 flex items-center gap-1"><Plus className="w-3 h-3" /> Añadir tarea</button></div>
-              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">{templateForm.tareas.map((tarea, idx) => (<div key={idx} className="flex items-center gap-2"><span className="text-xs text-gray-400 w-5">{idx+1}.</span><input type="text" value={tarea.nombre} onChange={e => updateTaskField(idx, e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-blue-500 bg-white" />{templateForm.tareas.length > 1 && <button type="button" onClick={() => removeTaskField(idx)} className="p-1 text-gray-400 hover:text-red-500"><X className="w-4 h-4" /></button>}</div>))}</div></div>
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1" id="task-inputs">{templateForm.tareas.map((tarea, idx) => (
+                <div key={idx}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, idx)}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, idx)}
+                  onDragEnd={handleDragEnd}
+                  className={`flex items-center gap-2 px-2 py-1 rounded-lg transition-colors ${dragIdx === idx ? "opacity-40" : "hover:bg-gray-50"}`}>
+                  <GripVertical className="w-4 h-4 text-gray-300 cursor-grab active:cursor-grabbing flex-shrink-0" />
+                  <span className="text-xs text-gray-400 w-5 text-right">{idx+1}.</span>
+                  <input type="text" value={tarea.nombre}
+                    onChange={e => updateTaskField(idx, e.target.value)}
+                    onKeyDown={e => handleTaskKeyDown(idx, e)}
+                    className="task-field flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-blue-500 bg-white"
+                    placeholder="Nombre de la tarea" />
+                  {templateForm.tareas.length > 1 && (
+                    <button type="button" onClick={() => removeTaskField(idx)} className="p-1 text-gray-400 hover:text-red-500">
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              ))}</div></div>
             </div>
             <div className="flex gap-3 px-6 py-4 border-t border-gray-100"><button onClick={() => setShowTemplateModal(false)} className="flex-1 border border-gray-200 text-gray-700 rounded-xl py-2.5 text-sm hover:bg-gray-50">Cancelar</button><button onClick={handleSaveTemplate} disabled={saving} className="flex-1 bg-blue-900 text-white rounded-xl py-2.5 text-sm hover:bg-blue-800 flex items-center justify-center gap-2 font-semibold disabled:opacity-50">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} {editingTemplate ? "Guardar cambios" : "Crear plantilla"}</button></div>
           </div>
