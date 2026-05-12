@@ -121,19 +121,19 @@ export default function ServiceDetail() {
           .eq("servicio_id", id)
           .order("tarea_orden"),
         supabase
-          .from("ServicioComentarios")
+          .from("serviciocomentarios")
           .select(
             "serviciocomentario_id, servicio_id, usuario_id, serviciocomentario_contenido, serviciocomentario_fecha"
           )
           .eq("servicio_id", id)
           .order("serviciocomentario_fecha"),
         supabase
-          .from("TareaComentarios")
+          .from("tareacomentarios")
           .select(
             "tareacomentario_id, tarea_id, usuario_id, tareacomentario_contenido, tareacomentario_fecha"
           ),
         supabase
-          .from("ServicioColaboradores")
+          .from("serviciocolaboradores")
           .select("servicio_id, colaborador_id")
           .eq("servicio_id", id),
         supabase
@@ -336,7 +336,7 @@ export default function ServiceDetail() {
         serviciocomentario_contenido: newComment.trim(),
       };
       const { data, error } = await supabase
-        .from("ServicioComentarios")
+        .from("serviciocomentarios")
         .insert([payload])
         .select(
           "serviciocomentario_id, servicio_id, usuario_id, serviciocomentario_contenido, serviciocomentario_fecha"
@@ -361,7 +361,7 @@ export default function ServiceDetail() {
         tareacomentario_contenido: newNote.trim(),
       };
       const { data, error } = await supabase
-        .from("TareaComentarios")
+        .from("tareacomentarios")
         .insert([payload])
         .select(
           "tareacomentario_id, tarea_id, usuario_id, tareacomentario_contenido, tareacomentario_fecha"
@@ -381,7 +381,7 @@ export default function ServiceDetail() {
     if (!service) return;
     try {
       const { error } = await supabase
-        .from("ServicioColaboradores")
+        .from("serviciocolaboradores")
         .insert([{ servicio_id: service.servicio_id, colaborador_id: userId }]);
 
       if (error) throw error;
@@ -400,7 +400,7 @@ export default function ServiceDetail() {
     if (!service) return;
     try {
       const { error } = await supabase
-        .from("ServicioColaboradores")
+        .from("serviciocolaboradores")
         .delete()
         .eq("servicio_id", service.servicio_id)
         .eq("colaborador_id", userId);

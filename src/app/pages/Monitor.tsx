@@ -110,7 +110,7 @@ export default function MonitorPage() {
         }
 
         const { data: tecRel, error: tecError } = await supabase
-          .from("ServicioColaboradores")
+          .from("serviciocolaboradores")
           .select("colaborador_id")
           .eq("servicio_id", s.servicio_id);
         let tecnicosNombres: string[] = [];
