@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
-import { ArrowLeft, CheckCircle2, Circle, MessageSquare, Play, Send, UserPlus, X } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Circle, MessageSquare, Play, Send, Star, UserPlus, X } from "lucide-react";
 
 // ── Types (NEW schema) ──
 
@@ -64,6 +64,17 @@ type Cliente = {
   cliente_apellido_materno: string | null;
 };
 
+type Calificacion = {
+  calificacion_id: number;
+  servicio_id: number;
+  cliente_id: number;
+  calificacion_puntaje: number;
+  calificacion_comentario: string | null;
+  calificacion_sugerencia: string | null;
+  calificacion_fecha: string;
+  calificacion_hora: string;
+};
+
 // ── Display helpers ──
 
 const estadoLabel = (e: string) =>
@@ -92,6 +103,7 @@ export default function ServiceDetail() {
   const [users, setUsers] = useState<Usuario[]>([]);
   const [areas, setAreas] = useState<Area[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [calificacion, setCalificacion] = useState<Calificacion | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [newComment, setNewComment] = useState("");
@@ -105,7 +117,7 @@ export default function ServiceDetail() {
     if (!id) return;
     setLoading(true);
     try {
-      const [s, t, c, n, r, u, a, cl] = await Promise.all([
+      const [s, t, c, n, r, u, a, cl, cal] = await Promise.all([
         supabase
           .from("servicios")
           .select(
@@ -145,11 +157,16 @@ export default function ServiceDetail() {
           .select(
             "cliente_id, cliente_nombres, cliente_apellido_paterno, cliente_apellido_materno"
           ),
+        supabase
+          .from("calificaciones")
+          .select("*")
+          .eq("servicio_id", id)
+          .maybeSingle(),
       ]);
 
-      if (s.error || t.error || c.error || n.error || r.error || u.error || a.error || cl.error)
+      if (s.error || t.error || c.error || n.error || r.error || u.error || a.error || cl.error || cal.error)
         throw (
-          s.error || t.error || c.error || n.error || r.error || u.error || a.error || cl.error
+          s.error || t.error || c.error || n.error || r.error || u.error || a.error || cl.error || cal.error
         );
 
       setService(s.data as Servicio | null);
@@ -160,6 +177,7 @@ export default function ServiceDetail() {
       setUsers((u.data || []) as Usuario[]);
       setAreas((a.data || []) as Area[]);
       setClientes((cl.data || []) as Cliente[]);
+      setCalificacion((cal.data || null) as Calificacion | null);
     } catch (err) {
       console.error(err);
       alert("Error cargando detalle de servicio");
@@ -531,6 +549,45 @@ export default function ServiceDetail() {
           </div>
         )}
       </div>
+
+      {/* ── Feedback del cliente ── */}
+      {calificacion && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <h3 className="text-gray-900 mb-3" style={{ fontWeight: 700 }}>
+            Feedback del cliente
+          </h3>
+          <div className="flex items-center gap-1 mb-2">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Star
+                key={star}
+                className={`w-5 h-5 ${
+                  star <= calificacion.calificacion_puntaje
+                    ? "fill-yellow-400 text-yellow-400"
+                    : "fill-gray-200 text-gray-200"
+                }`}
+              />
+            ))}
+            <span className="ml-2 text-sm text-gray-700 font-semibold">
+              {calificacion.calificacion_puntaje}/5
+            </span>
+          </div>
+          {calificacion.calificacion_comentario && (
+            <div className="mb-2">
+              <p className="text-xs text-gray-500 font-semibold">Comentario</p>
+              <p className="text-sm text-gray-800">{calificacion.calificacion_comentario}</p>
+            </div>
+          )}
+          {calificacion.calificacion_sugerencia && (
+            <div className="mb-2">
+              <p className="text-xs text-gray-500 font-semibold">Sugerencia</p>
+              <p className="text-sm text-gray-800">{calificacion.calificacion_sugerencia}</p>
+            </div>
+          )}
+          <p className="text-xs text-gray-400 mt-2">
+            Enviado el {calificacion.calificacion_fecha} a las {calificacion.calificacion_hora}
+          </p>
+        </div>
+      )}
 
       {/* ── Tareas y avance ── */}
       <div className="bg-white rounded-2xl border border-gray-100 p-5">

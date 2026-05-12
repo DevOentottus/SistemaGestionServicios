@@ -42,6 +42,7 @@ type TareaView = {
 type ServicioView = {
   servicio_id: number;
   servicio_codigo: string;
+  cliente_id: number | null;
   cliente_nombres: string;
   cliente_telefono: string;
   servicio_descripcion: string;
@@ -309,6 +310,7 @@ export default function ClientView() {
       const serviceView: ServicioView = {
         servicio_id: s.servicio_id,
         servicio_codigo: s.servicio_codigo,
+        cliente_id: s.cliente_id,
         cliente_nombres: s.cliente_id ? await resolveClienteNombre(s.cliente_id) : "Sin cliente",
         cliente_telefono: s.cliente_id ? await resolveClienteTelefono(s.cliente_id) : "",
         servicio_descripcion: s.servicio_descripcion,
@@ -342,8 +344,30 @@ export default function ClientView() {
     fetchService(code.trim());
   };
 
-  const handleSubmitReview = () => {
+  const handleSubmitReview = async () => {
     if (!service || ratingForm.selected === 0) return;
+    const now = new Date();
+    const fecha = now.toISOString().split("T")[0];
+    const hora = now.toTimeString().split(" ")[0].slice(0, 5);
+
+    // Guardar en Supabase
+    const payload = {
+      servicio_id: service.servicio_id,
+      cliente_id: service.cliente_id,
+      calificacion_puntaje: ratingForm.selected,
+      calificacion_comentario: ratingForm.comentario || null,
+      calificacion_sugerencia: ratingForm.sugerencia || null,
+      calificacion_fecha: fecha,
+      calificacion_hora: hora,
+    };
+
+    const { error } = await supabase.from("calificaciones").insert([payload]);
+    if (error) {
+      console.error("Error guardando calificación:", error);
+      alert("Error al enviar la calificación. Intente de nuevo.");
+      return;
+    }
+
     const review: ClientReview = {
       estrellas: ratingForm.selected,
       comentario: ratingForm.comentario,
