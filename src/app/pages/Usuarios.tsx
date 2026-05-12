@@ -7,8 +7,8 @@ import {
 
 // ===================== TIPOS =====================
 type Area = {
-  id: string;
-  nombre: string;
+  area_id: number;
+  area_nombre: string;
 };
 
 type Usuario = {
@@ -21,8 +21,8 @@ type Usuario = {
   usuario_correo: string;
   usuario_username: string;
   usuario_rol: "Administrador" | "Encargado" | "Colaborador" | "Cliente";
-  usuario_id_area_principal: string | null;
-  usuario_id_area_adicional: string | null;
+  usuario_id_area_principal: number | null;
+  usuario_id_area_adicional: number | null;
   usuario_encargado_area_principal: boolean;
   usuario_encargado_area_adicional: boolean;
   usuario_activo: boolean;
@@ -100,8 +100,8 @@ export default function Usuarios() {
       // Áreas
       const { data: areasData, error: areasError } = await supabase
         .from("areas")
-        .select("id, nombre")
-        .order("nombre");
+        .select("area_id, area_nombre")
+        .order("area_nombre");
       if (areasError) console.error(areasError);
       else setAreas(areasData || []);
 
@@ -150,10 +150,10 @@ export default function Usuarios() {
   };
 
   // Obtener nombre del área por ID
-  const getAreaName = (areaId: string | null) => {
-    if (!areaId) return NONE_AREA;
-    const area = areas.find(a => a.id === areaId);
-    return area ? area.nombre : NONE_AREA;
+  const getAreaName = (areaId: number | null) => {
+    if (areaId == null) return NONE_AREA;
+    const area = areas.find(a => a.area_id === areaId);
+    return area ? area.area_nombre : NONE_AREA;
   };
 
   const isAdmin = form.rol === "Administrador";
@@ -173,8 +173,8 @@ export default function Usuarios() {
     { label: "Apellido paterno", key: "apellido_paterno", placeholder: "Apellido paterno" },
     { label: "Apellido materno", key: "apellido_materno", placeholder: "Apellido materno (opcional)" },
   ];
-  const areaPrincipalNombre = getAreaName(form.id_area_principal || null);
-  const areaAdicionalNombre = getAreaName(form.id_area_adicional || null);
+  const areaPrincipalNombre = getAreaName(form.id_area_principal ? Number(form.id_area_principal) : null);
+  const areaAdicionalNombre = getAreaName(form.id_area_adicional ? Number(form.id_area_adicional) : null);
   const areaPrincipalLabel = areaPrincipalNombre === NONE_AREA ? "Sin área" : areaPrincipalNombre;
   const areaAdicionalLabel = areaAdicionalNombre === NONE_AREA ? "Sin área" : areaAdicionalNombre;
 
@@ -194,7 +194,7 @@ export default function Usuarios() {
 
   const openAdd = () => {
     setEditingUser(null);
-    const defaultAreaId = areas[0]?.id || "";
+    const defaultAreaId = areas[0]?.area_id.toString() || "";
     setForm(emptyForm(defaultAreaId));
     setShowModal(true);
   };
@@ -209,8 +209,8 @@ export default function Usuarios() {
       telefono: user.usuario_telefono ?? "",
       correo: user.usuario_correo,
       rol: user.usuario_rol,
-      id_area_principal: user.usuario_id_area_principal ?? "",
-      id_area_adicional: user.usuario_id_area_adicional ?? "",
+      id_area_principal: user.usuario_id_area_principal?.toString() ?? "",
+      id_area_adicional: user.usuario_id_area_adicional?.toString() ?? "",
       encargado_area_principal: user.usuario_encargado_area_principal,
       encargado_area_adicional: user.usuario_encargado_area_adicional,
       password: "",
@@ -246,8 +246,8 @@ export default function Usuarios() {
     setSaving(true);
     try {
       const username = editingUser?.usuario_username || generateUsername(form.nombres, form.apellido_paterno, editingUser?.usuario_id);
-      const normalizedAreaPrincipal = isAdmin ? null : form.id_area_principal || null;
-      const normalizedAreaAdicional = isAdmin ? null : form.id_area_adicional || null;
+      const normalizedAreaPrincipal = isAdmin ? null : form.id_area_principal ? Number(form.id_area_principal) : null;
+      const normalizedAreaAdicional = isAdmin ? null : form.id_area_adicional ? Number(form.id_area_adicional) : null;
       const normalizedEncargadoPrincipal = isAdmin ? false : form.encargado_area_principal;
       const normalizedEncargadoAdicional = isAdmin ? false : form.encargado_area_adicional;
       const userData: Partial<Usuario> = {
@@ -389,7 +389,7 @@ export default function Usuarios() {
               className="appearance-none pl-3 pr-8 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-blue-500 bg-gray-50 cursor-pointer"
             >
               <option>Todas</option>
-              {areas.map((a) => <option key={a.id}>{a.nombre}</option>)}
+              {areas.map((a) => <option key={a.area_id}>{a.area_nombre}</option>)}
             </select>
             <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
           </div>
