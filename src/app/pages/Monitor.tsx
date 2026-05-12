@@ -289,7 +289,7 @@ export default function MonitorPage() {
               <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
             </div>
           </div>
-          <div style={{ height: "500px" }} className="overflow-hidden">
+          <div style={{ height: "800px" }} className="overflow-hidden">
             <div className="transform scale-[0.85] origin-top-left" style={{ width: `${100/0.85}%`, height: `${100/0.85}%` }}>
               {mode === "general" && <GeneralView services={activeServices} currentTime={currentTime} />}
               {mode === "sala-espera" && <WaitingRoomView services={waitingServices} currentTime={currentTime} />}
