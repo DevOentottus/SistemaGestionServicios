@@ -12,7 +12,7 @@ type Area = {
 };
 
 type Usuario = {
-  usuario_id: string;
+  usuario_id: number;
   usuario_dni: string | null;
   usuario_nombres: string;
   usuario_apellido_paterno: string;
@@ -119,7 +119,7 @@ export default function Usuarios() {
   }, []);
 
   // Generar username único: 3 primeras letras del nombre + apellido paterno
-  const generateUsername = (nombres: string, apellido_paterno: string, currentId?: string) => {
+  const generateUsername = (nombres: string, apellido_paterno: string, currentId?: number) => {
     const firstName = nombres.split(" ")[0]?.toLowerCase().replace(/[^a-z]/g, "") || "usu";
     const firstLastName = apellido_paterno.split(" ")[0]?.toLowerCase().replace(/[^a-z]/g, "") || "user";
     const base = `${firstName.slice(0, 3)}${firstLastName}`;
@@ -139,7 +139,8 @@ export default function Usuarios() {
   };
 
   const getIdInterno = (u: Usuario) => {
-    const normalized = u.usuario_id?.replace(/-/g, "").slice(-6).toUpperCase();
+    const id = String(u.usuario_id);
+    const normalized = id.replace(/-/g, "").slice(-6).toUpperCase();
     if (normalized) return `USR-${normalized}`;
     return "USR-—";
   };
