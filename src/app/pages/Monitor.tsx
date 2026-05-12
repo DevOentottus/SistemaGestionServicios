@@ -225,7 +225,11 @@ export default function MonitorPage() {
       {/* Preview / Content */}
       {isFullscreen ? (
         /* Fullscreen: sin bordes del navegador, contenido directo */
-        <div className="relative min-h-screen">
+        <div className={`relative min-h-screen ${
+          mode === "general" ? "bg-blue-950" :
+          mode === "sala-espera" ? "bg-gradient-to-b from-blue-900 to-blue-950" :
+          "bg-gray-950"
+        }`}>
           {/* ÚNICO botón de salida */}
           <button
             onClick={exitFullscreen}
@@ -253,9 +257,9 @@ export default function MonitorPage() {
             ))}
           </div>
 
-          {mode === "general" && <GeneralView services={activeServices} currentTime={currentTime} />}
-          {mode === "sala-espera" && <WaitingRoomView services={waitingServices} currentTime={currentTime} />}
-          {mode === "sala-trabajo" && <WorkRoomView services={services} currentTime={currentTime} />}
+          {mode === "general" && <GeneralView fullscreen services={activeServices} currentTime={currentTime} />}
+          {mode === "sala-espera" && <WaitingRoomView fullscreen services={waitingServices} currentTime={currentTime} />}
+          {mode === "sala-trabajo" && <WorkRoomView fullscreen services={services} currentTime={currentTime} />}
         </div>
       ) : (
         /* Preview: browser frame con contenido real */
@@ -299,9 +303,9 @@ export default function MonitorPage() {
 }
 
 // Vista General
-function GeneralView({ services, currentTime }: { services: Servicio[]; currentTime: Date }) {
+function GeneralView({ services, currentTime, fullscreen }: { services: Servicio[]; currentTime: Date; fullscreen?: boolean }) {
   return (
-    <div className="bg-blue-950 min-h-96 p-6 rounded-xl">
+    <div className={fullscreen ? "min-h-screen p-6" : "bg-blue-950 min-h-96 p-6 rounded-xl"}>
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-yellow-400 rounded-xl flex items-center justify-center">
@@ -351,9 +355,9 @@ function GeneralView({ services, currentTime }: { services: Servicio[]; currentT
 }
 
 // Sala de Espera
-function WaitingRoomView({ services, currentTime }: { services: Servicio[]; currentTime: Date }) {
+function WaitingRoomView({ services, currentTime, fullscreen }: { services: Servicio[]; currentTime: Date; fullscreen?: boolean }) {
   return (
-    <div className="bg-gradient-to-b from-blue-900 to-blue-950 min-h-96 p-6 rounded-xl overflow-y-auto max-h-[80vh]">
+    <div className={fullscreen ? "min-h-screen p-6 overflow-y-auto" : "bg-gradient-to-b from-blue-900 to-blue-950 min-h-96 p-6 rounded-xl overflow-y-auto max-h-[80vh]"}>
       <div className="text-center mb-6 sticky top-0 z-10">
         <p className="text-blue-300 text-sm mb-1">Servicios STS — Sala de Espera</p>
         <p className="text-yellow-400 text-4xl font-bold font-mono">
@@ -403,10 +407,10 @@ function WaitingRoomView({ services, currentTime }: { services: Servicio[]; curr
 }
 
 // Sala de Trabajo
-function WorkRoomView({ services, currentTime }: { services: Servicio[]; currentTime: Date }) {
+function WorkRoomView({ services, currentTime, fullscreen }: { services: Servicio[]; currentTime: Date; fullscreen?: boolean }) {
   const activeServices = services.filter(s => s.servicio_estado === "en_progreso" || s.servicio_estado === "bloqueado");
   return (
-    <div className="bg-gray-950 min-h-96 p-6 rounded-xl overflow-y-auto">
+    <div className={fullscreen ? "min-h-screen p-6 overflow-y-auto" : "bg-gray-950 min-h-96 p-6 rounded-xl overflow-y-auto"}>
       <div className="flex items-center justify-between mb-5">
         <div>
           <p className="text-white text-lg font-bold">Panel Técnico Interno</p>
