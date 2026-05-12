@@ -133,7 +133,6 @@ export default function Business() {
   }, []);
 
   const fetchServices = useCallback(async () => {
-    // Obtener servicios
     const { data: servs, error: servErr } = await supabase
       .from("servicios")
       .select("servicio_id, servicio_codigo, servicio_descripcion, servicio_estado, servicio_fecha_inicio, cliente_id, area_id")
@@ -143,35 +142,41 @@ export default function Business() {
       return;
     }
 
-    const servicesList: Service[] = [];
-    for (const s of servs || []) {
-      // Obtener tareas
-      const { data: tasks, error: tasksErr } = await supabase
-        .from("tareas")
-        .select("tarea_id, servicio_id, tarea_titulo, tarea_estado, tarea_completado_por, tarea_fecha_completado, tarea_orden")
-        .eq("servicio_id", s.servicio_id)
-        .order("tarea_orden", { ascending: true });
-      if (tasksErr) console.error(tasksErr);
+    // Batch: todas las tareas de todos los servicios
+    const { data: allTasks, error: tasksErr } = await supabase
+      .from("tareas")
+      .select("tarea_id, servicio_id, tarea_titulo, tarea_estado, tarea_completado_por, tarea_fecha_completado, tarea_orden")
+      .order("tarea_orden", { ascending: true });
 
-      // Obtener técnicos (nombres)
-      const { data: tecRel, error: tecErr } = await supabase
-        .from("serviciocolaboradores")
-        .select("colaborador_id")
-        .eq("servicio_id", s.servicio_id);
-      let tecnicosNombres: string[] = [];
-      if (tecRel && tecRel.length) {
-        const userIds = tecRel.map((rel: any) => rel.colaborador_id);
-        const { data: usuarios, error: usrErr } = await supabase
-          .from("usuarios")
-          .select("usuario_id, usuario_nombres, usuario_apellido_paterno")
-          .in("usuario_id", userIds);
-        if (!usrErr && usuarios) {
-          tecnicosNombres = usuarios.map((u: any) => `${u.usuario_nombres} ${u.usuario_apellido_paterno}`);
-        }
+    // Batch: todas las relaciones servicio-colaborador
+    const { data: allTecRel, error: tecErr } = await supabase
+      .from("serviciocolaboradores")
+      .select("servicio_id, colaborador_id");
+
+    // Batch: nombres de usuarios (solo los que son técnicos)
+    let usuariosMap = new Map<number, string>();
+    if (allTecRel && allTecRel.length) {
+      const userIds = [...new Set(allTecRel.map((rel: any) => rel.colaborador_id))];
+      const { data: usuarios } = await supabase
+        .from("usuarios")
+        .select("usuario_id, usuario_nombres, usuario_apellido_paterno")
+        .in("usuario_id", userIds);
+      if (usuarios) {
+        usuariosMap = new Map(
+          usuarios.map((u: any) => [u.usuario_id, `${u.usuario_nombres} ${u.usuario_apellido_paterno}`])
+        );
       }
+    }
 
-      // Mapear tareas
-      const tareasView: ServiceTask[] = (tasks || []).map((t: any) => ({
+    // Ensamblar servicios en JS (0 queries extra)
+    const servicesList: Service[] = (servs || []).map((s) => {
+      const serviceTasks = (allTasks || []).filter((t: any) => t.servicio_id === s.servicio_id);
+      const serviceTecRel = (allTecRel || []).filter((rel: any) => rel.servicio_id === s.servicio_id);
+      const tecnicosNombres = serviceTecRel
+        .map((rel: any) => usuariosMap.get(rel.colaborador_id) || "")
+        .filter(Boolean);
+
+      const tareasView: ServiceTask[] = serviceTasks.map((t: any) => ({
         id: t.tarea_id,
         nombre: t.tarea_titulo,
         completada: t.tarea_estado === "completado",
@@ -180,7 +185,7 @@ export default function Business() {
         orden: t.tarea_orden,
       }));
 
-      servicesList.push({
+      return {
         servicio_id: s.servicio_id,
         servicio_codigo: s.servicio_codigo || "SRV-000",
         cliente_id: s.cliente_id,
@@ -191,8 +196,8 @@ export default function Business() {
         progreso: 0,
         tareas: tareasView,
         tecnicos: tecnicosNombres,
-      });
-    }
+      };
+    });
     setServices(servicesList);
   }, []);
 

@@ -212,19 +212,21 @@ export default function MonitorPage() {
           <h1 className="text-gray-900 text-2xl font-bold">Monitor / Sala</h1>
           <p className="text-gray-500 text-sm">Visualización en tiempo real para pantallas y sala de espera</p>
         </div>
-        <button
-          onClick={isFullscreen ? exitFullscreen : enterFullscreen}
-          className="flex items-center gap-2 bg-blue-900 hover:bg-blue-800 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition"
-        >
-          {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-          {isFullscreen ? "Salir de Pantalla Completa" : "Modo Pantalla Completa"}
-        </button>
+        {!isFullscreen && (
+          <button
+            onClick={enterFullscreen}
+            className="flex items-center gap-2 bg-blue-900 hover:bg-blue-800 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition"
+          >
+            <Maximize2 className="w-4 h-4" /> Modo Pantalla Completa
+          </button>
+        )}
       </div>
 
       {/* Preview / Content */}
       {isFullscreen ? (
-        /* Fullscreen: no browser frame, direct content with floating exit */
+        /* Fullscreen: sin bordes del navegador, contenido directo */
         <div className="relative min-h-screen">
+          {/* ÚNICO botón de salida */}
           <button
             onClick={exitFullscreen}
             className="fixed top-4 right-4 z-[9999] flex items-center gap-2 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white px-3 py-2 rounded-xl text-sm transition"
@@ -233,7 +235,6 @@ export default function MonitorPage() {
             Salir (Esc)
           </button>
 
-          {/* Mode selector — only visible in fullscreen */}
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex gap-2">
             {([
               { id: "general", label: "Vista General", icon: Monitor },
@@ -257,26 +258,38 @@ export default function MonitorPage() {
           {mode === "sala-trabajo" && <WorkRoomView services={services} currentTime={currentTime} />}
         </div>
       ) : (
-        /* Normal: browser-frame preview */
+        /* Preview: browser frame con contenido real */
         <div className="bg-gray-900 rounded-2xl overflow-hidden shadow-xl border-4 border-gray-800">
           <div className="bg-gray-800 px-4 py-2 flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-red-500" />
             <div className="w-3 h-3 rounded-full bg-yellow-500" />
             <div className="w-3 h-3 rounded-full bg-green-500" />
-            <span className="ml-2 text-gray-400 text-xs">Vista previa del monitor</span>
+            <span className="ml-2 text-gray-400 text-xs">Vista previa del monitor — {mode === "general" ? "General" : mode === "sala-espera" ? "Sala de Espera" : "Sala de Trabajo"}</span>
+            {/* Modos selector para preview */}
+            <div className="flex items-center gap-1 ml-4">
+              {(["general", "sala-espera", "sala-trabajo"] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setMode(m)}
+                  className={`text-xs px-2 py-1 rounded-md transition ${
+                    mode === m ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
+                  }`}
+                >
+                  {m === "general" ? "General" : m === "sala-espera" ? "Espera" : "Trabajo"}
+                </button>
+              ))}
+            </div>
             <div className="ml-auto flex items-center gap-1.5 text-green-400 text-xs">
               <Wifi className="w-3 h-3" />
               <span>En vivo</span>
               <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
             </div>
           </div>
-          <div style={{ minHeight: "500px" }} className="p-1">
-            <div className="bg-blue-950 p-6 rounded-xl min-h-96 flex items-center justify-center">
-              <div className="text-center text-blue-300">
-                <Monitor className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p className="text-lg font-semibold">Selecciona "Pantalla Completa"</p>
-                <p className="text-sm mt-1">para visualizar el monitor</p>
-              </div>
+          <div style={{ height: "500px" }} className="overflow-hidden">
+            <div className="transform scale-[0.85] origin-top-left" style={{ width: `${100/0.85}%`, height: `${100/0.85}%` }}>
+              {mode === "general" && <GeneralView services={activeServices} currentTime={currentTime} />}
+              {mode === "sala-espera" && <WaitingRoomView services={waitingServices} currentTime={currentTime} />}
+              {mode === "sala-trabajo" && <WorkRoomView services={services} currentTime={currentTime} />}
             </div>
           </div>
         </div>
