@@ -289,7 +289,7 @@ export default function MonitorPage() {
               <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
             </div>
           </div>
-          <div style={{ height: "800px" }} className="overflow-hidden">
+          <div style={{ height: "720px" }} className="overflow-hidden">
             <div className="transform scale-[0.85] origin-top-left" style={{ width: `${100/0.85}%`, height: `${100/0.85}%` }}>
               {mode === "general" && <GeneralView services={activeServices} currentTime={currentTime} />}
               {mode === "sala-espera" && <WaitingRoomView services={waitingServices} currentTime={currentTime} />}
@@ -305,7 +305,7 @@ export default function MonitorPage() {
 // Vista General
 function GeneralView({ services, currentTime, fullscreen }: { services: Servicio[]; currentTime: Date; fullscreen?: boolean }) {
   return (
-    <div className={fullscreen ? "min-h-screen p-6" : "bg-blue-950 min-h-96 p-6 rounded-xl"}>
+    <div className={fullscreen ? "min-h-screen p-6" : "bg-blue-950 h-full p-6"}>
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-yellow-400 rounded-xl flex items-center justify-center">
@@ -357,7 +357,7 @@ function GeneralView({ services, currentTime, fullscreen }: { services: Servicio
 // Sala de Espera
 function WaitingRoomView({ services, currentTime, fullscreen }: { services: Servicio[]; currentTime: Date; fullscreen?: boolean }) {
   return (
-    <div className={fullscreen ? "min-h-screen p-6 overflow-y-auto" : "bg-gradient-to-b from-blue-900 to-blue-950 min-h-96 p-6 rounded-xl overflow-y-auto max-h-[80vh]"}>
+    <div className={fullscreen ? "min-h-screen p-6 overflow-y-auto" : "bg-gradient-to-b from-blue-900 to-blue-950 h-full p-6 overflow-y-auto"}>
       <div className="text-center mb-6 sticky top-0 z-10">
         <p className="text-blue-300 text-sm mb-1">Servicios STS — Sala de Espera</p>
         <p className="text-yellow-400 text-4xl font-bold font-mono">
@@ -410,7 +410,7 @@ function WaitingRoomView({ services, currentTime, fullscreen }: { services: Serv
 function WorkRoomView({ services, currentTime, fullscreen }: { services: Servicio[]; currentTime: Date; fullscreen?: boolean }) {
   const activeServices = services.filter(s => s.servicio_estado === "en_progreso" || s.servicio_estado === "bloqueado");
   return (
-    <div className={fullscreen ? "min-h-screen p-6 overflow-y-auto" : "bg-gray-950 min-h-96 p-6 rounded-xl overflow-y-auto"}>
+    <div className={fullscreen ? "min-h-screen p-6 overflow-y-auto" : "bg-gray-950 h-full p-6 overflow-y-auto"}>
       <div className="flex items-center justify-between mb-5">
         <div>
           <p className="text-white text-lg font-bold">Panel Técnico Interno</p>
