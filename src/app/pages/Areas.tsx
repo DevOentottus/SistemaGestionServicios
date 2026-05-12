@@ -11,6 +11,9 @@ import {
   Edit2,
   ChevronRight,
   Loader2,
+  Trash2,
+  UserPlus,
+  X,
 } from "lucide-react";
 
 // ── Tipos con los nombres de columna REALES de Supabase ──
@@ -39,6 +42,13 @@ type Servicio = {
   area_id: number | null;
 };
 
+type AreaColaborador = {
+  areacolaborador_id: number;
+  area_id: number;
+  colaborador_id: number;
+  areacolaborador_es_principal: boolean;
+};
+
 type AreaForm = {
   nombre: string;
   descripcion: string;
@@ -63,10 +73,13 @@ export default function Areas() {
   const [areas, setAreas] = useState<Area[]>([]);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [servicios, setServicios] = useState<Servicio[]>([]);
+  const [areaColaboradores, setAreaColaboradores] = useState<AreaColaborador[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingColaborador, setSavingColaborador] = useState(false);
   const [selectedAreaId, setSelectedAreaId] = useState<number | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [showAddColaborador, setShowAddColaborador] = useState(false);
   const [editingArea, setEditingArea] = useState<Area | null>(null);
   const [form, setForm] = useState<AreaForm>(emptyForm);
 
@@ -79,7 +92,7 @@ export default function Areas() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [areasRes, usuariosRes, serviciosRes] = await Promise.all([
+      const [areasRes, usuariosRes, serviciosRes, acRes] = await Promise.all([
         supabase
           .from("areas")
           .select("area_id, area_nombre, area_descripcion, area_encargado_id")
@@ -95,16 +108,19 @@ export default function Areas() {
           .select(
             "servicio_id, servicio_nombre, servicio_descripcion, servicio_estado, area_id"
           ),
+        supabase.from("areacolaboradores").select("*"),
       ]);
 
       if (areasRes.error) throw areasRes.error;
       if (usuariosRes.error) throw usuariosRes.error;
       if (serviciosRes.error) throw serviciosRes.error;
+      if (acRes.error) throw acRes.error;
 
       const nextAreas = (areasRes.data || []) as Area[];
       setAreas(nextAreas);
       setUsuarios((usuariosRes.data || []) as Usuario[]);
       setServicios((serviciosRes.data || []) as Servicio[]);
+      setAreaColaboradores((acRes.data || []) as AreaColaborador[]);
       setSelectedAreaId((prev) => {
         if (prev && nextAreas.some((a) => a.area_id === prev)) return prev;
         return nextAreas[0]?.area_id ?? null;
@@ -149,12 +165,75 @@ export default function Areas() {
     };
   };
 
-  // Colaboradores: usuarios activos con rol Colaborador
-  // (la tabla area_colaboradores existe pero usa UUID vs INT, no se puede usar)
-  const colaboradores = useMemo(
-    () => usuarios.filter((u) => u.usuario_activo && u.usuario_rol === "Colaborador"),
-    [usuarios]
-  );
+  // Colaboradores del área seleccionada (via tabla areacolaboradores)
+  const colaboradoresDelArea = useMemo(() => {
+    if (!selected) return [];
+    const idsAsignados = areaColaboradores
+      .filter((ac) => ac.area_id === selected.area_id)
+      .map((ac) => ac.colaborador_id);
+    return usuarios.filter((u) => idsAsignados.includes(u.usuario_id));
+  }, [selected, areaColaboradores, usuarios]);
+
+  // Colaboradores disponibles para agregar (activos, rol Colaborador, no asignados aún)
+  const disponiblesParaAgregar = useMemo(() => {
+    if (!selected) return [];
+    const idsAsignados = areaColaboradores
+      .filter((ac) => ac.area_id === selected.area_id)
+      .map((ac) => ac.colaborador_id);
+    return usuarios.filter(
+      (u) =>
+        u.usuario_activo &&
+        u.usuario_rol === "Colaborador" &&
+        !idsAsignados.includes(u.usuario_id)
+    );
+  }, [selected, areaColaboradores, usuarios]);
+
+  // ── Agregar / Quitar colaboradores ──
+  const handleAddColaborador = async (usuarioId: number) => {
+    if (!selected || savingColaborador) return;
+    setSavingColaborador(true);
+    try {
+      const { error } = await supabase.from("areacolaboradores").insert([
+        {
+          area_id: selected.area_id,
+          colaborador_id: usuarioId,
+          areacolaborador_es_principal: false,
+          areacolaborador_fecha_asignacion: new Date().toISOString().split("T")[0],
+        },
+      ]);
+      if (error) throw error;
+      // Refrescar areacolaboradores
+      const { data } = await supabase.from("areacolaboradores").select("*");
+      if (data) setAreaColaboradores(data as AreaColaborador[]);
+      setShowAddColaborador(false);
+    } catch (err) {
+      console.error(err);
+      alert("Error al agregar colaborador");
+    } finally {
+      setSavingColaborador(false);
+    }
+  };
+
+  const handleRemoveColaborador = async (usuarioId: number) => {
+    if (!selected) return;
+    try {
+      const { error } = await supabase
+        .from("areacolaboradores")
+        .delete()
+        .eq("area_id", selected.area_id)
+        .eq("colaborador_id", usuarioId);
+      if (error) throw error;
+      setAreaColaboradores((prev) =>
+        prev.filter(
+          (ac) =>
+            !(ac.area_id === selected.area_id && ac.colaborador_id === usuarioId)
+        )
+      );
+    } catch (err) {
+      console.error(err);
+      alert("Error al quitar colaborador");
+    }
+  };
 
   // ── Modal ──
   const openCreate = () => {
@@ -425,17 +504,41 @@ export default function Areas() {
 
               {/* Colaboradores */}
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-                <div className="flex items-center gap-2 mb-4">
-                  <Users className="w-5 h-5 text-blue-800" />
-                  <h3 className="text-gray-800" style={{ fontWeight: 600 }}>
-                    Colaboradores
-                  </h3>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-5 h-5 text-blue-800" />
+                    <h3 className="text-gray-800" style={{ fontWeight: 600 }}>
+                      Colaboradores
+                    </h3>
+                    <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                      {colaboradoresDelArea.length}
+                    </span>
+                  </div>
+                  {disponiblesParaAgregar.length > 0 && (
+                    <button
+                      onClick={() => setShowAddColaborador(!showAddColaborador)}
+                      className="flex items-center gap-1.5 text-xs text-blue-700 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition"
+                      style={{ fontWeight: 600 }}
+                    >
+                      {showAddColaborador ? (
+                        <>
+                          <X className="w-3.5 h-3.5" /> Cancelar
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="w-3.5 h-3.5" /> Agregar
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
+
+                {/* Lista de colaboradores del área */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {colaboradores.map((u) => (
+                  {colaboradoresDelArea.map((u) => (
                     <div
                       key={u.usuario_id}
-                      className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl"
+                      className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl group"
                     >
                       <div className="w-9 h-9 bg-blue-900 rounded-full flex items-center justify-center flex-shrink-0">
                         <span
@@ -445,7 +548,7 @@ export default function Areas() {
                           {getInitials(getUserDisplayName(u))}
                         </span>
                       </div>
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p
                           className="text-gray-900 text-sm truncate"
                           style={{ fontWeight: 600 }}
@@ -456,14 +559,56 @@ export default function Areas() {
                           @{u.usuario_username}
                         </p>
                       </div>
+                      <button
+                        onClick={() => handleRemoveColaborador(u.usuario_id)}
+                        className="p-1.5 rounded-lg text-gray-300 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition"
+                        title="Quitar colaborador"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   ))}
-                  {colaboradores.length === 0 && (
+                  {colaboradoresDelArea.length === 0 && !showAddColaborador && (
                     <p className="text-gray-400 text-sm col-span-2">
-                      No hay colaboradores registrados
+                      No hay colaboradores asignados a esta área
                     </p>
                   )}
                 </div>
+
+                {/* Formulario inline para agregar colaborador */}
+                {showAddColaborador && (
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <div className="flex items-end gap-3">
+                      <div className="flex-1">
+                        <label
+                          className="block text-xs text-gray-600 mb-1"
+                          style={{ fontWeight: 600 }}
+                        >
+                          Seleccionar colaborador
+                        </label>
+                        <select
+                          value=""
+                          onChange={(e) => {
+                            const id = Number(e.target.value);
+                            if (id) handleAddColaborador(id);
+                          }}
+                          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500 bg-gray-50"
+                        >
+                          <option value="">
+                            {disponiblesParaAgregar.length === 0
+                              ? "No hay disponibles"
+                              : "Elige un colaborador..."}
+                          </option>
+                          {disponiblesParaAgregar.map((u) => (
+                            <option key={u.usuario_id} value={u.usuario_id}>
+                              {getUserDisplayName(u)} (@{u.usuario_username})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Servicios del área */}
