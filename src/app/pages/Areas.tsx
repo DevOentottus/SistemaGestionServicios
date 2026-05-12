@@ -36,8 +36,7 @@ type Servicio = {
   servicio_nombre: string | null;
   servicio_descripcion: string | null;
   servicio_estado: string;
-  servicio_progreso: number | null;
-  servicio_area_id: number | null;
+  area_id: number | null;
 };
 
 type AreaForm = {
@@ -94,7 +93,7 @@ export default function Areas() {
         supabase
           .from("servicios")
           .select(
-            "servicio_id, servicio_nombre, servicio_descripcion, servicio_estado, servicio_progreso, servicio_area_id"
+            "servicio_id, servicio_nombre, servicio_descripcion, servicio_estado, area_id"
           ),
       ]);
 
@@ -142,7 +141,7 @@ export default function Areas() {
     usuarios.find((u) => u.usuario_id === area.area_encargado_id) || null;
 
   const getAreaStats = (areaId: number) => {
-    const srvs = servicios.filter((s) => s.servicio_area_id === areaId);
+    const srvs = servicios.filter((s) => s.area_id === areaId);
     return {
       total: srvs.length,
       enProgreso: srvs.filter((s) => s.servicio_estado === "En progreso").length,
@@ -477,7 +476,7 @@ export default function Areas() {
                 </div>
                 <div className="space-y-3">
                   {servicios
-                    .filter((s) => s.servicio_area_id === selected.area_id)
+                    .filter((s) => s.area_id === selected.area_id)
                     .map((srv) => {
                       const color = statusColors[srv.servicio_estado] || "text-gray-600 bg-gray-50";
                       return (
@@ -515,16 +514,11 @@ export default function Areas() {
                             >
                               {srv.servicio_estado}
                             </span>
-                            {srv.servicio_progreso != null && (
-                              <p className="text-gray-400 text-xs mt-1">
-                                {srv.servicio_progreso}%
-                              </p>
-                            )}
                           </div>
                         </div>
                       );
                     })}
-                  {servicios.filter((s) => s.servicio_area_id === selected.area_id)
+                  {servicios.filter((s) => s.area_id === selected.area_id)
                     .length === 0 && (
                     <p className="text-gray-400 text-sm">
                       No hay servicios en esta área
