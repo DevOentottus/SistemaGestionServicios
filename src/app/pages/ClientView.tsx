@@ -64,10 +64,10 @@ interface ClientReview {
 }
 
 const statusConfig: Record<string, { bg: string; text: string; icon: any; label: string; barColor: string }> = {
-  "En progreso": { bg: "bg-blue-100", text: "text-blue-800", icon: Activity, label: "EN PROGRESO", barColor: "#2563EB" },
-  "Completado":  { bg: "bg-green-100", text: "text-green-800", icon: CheckCircle2, label: "COMPLETADO", barColor: "#16A34A" },
-  "Pendiente":   { bg: "bg-yellow-100", text: "text-yellow-800", icon: Clock, label: "PENDIENTE", barColor: "#F59E0B" },
-  "Bloqueado":   { bg: "bg-red-100", text: "text-red-800", icon: AlertTriangle, label: "REQUIERE ATENCIÓN", barColor: "#DC2626" },
+  en_progreso: { bg: "bg-blue-100", text: "text-blue-800", icon: Activity, label: "EN PROGRESO", barColor: "#2563EB" },
+  completado:  { bg: "bg-green-100", text: "text-green-800", icon: CheckCircle2, label: "COMPLETADO", barColor: "#16A34A" },
+  pendiente:   { bg: "bg-yellow-100", text: "text-yellow-800", icon: Clock, label: "PENDIENTE", barColor: "#F59E0B" },
+  bloqueado:   { bg: "bg-red-100", text: "text-red-800", icon: AlertTriangle, label: "REQUIERE ATENCIÓN", barColor: "#DC2626" },
 };
 
 const apreciaciones = [
@@ -129,7 +129,7 @@ export default function ClientView() {
   const reportRef = useRef<HTMLDivElement>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const isCompleted = service?.servicio_estado === "Completado";
+  const isCompleted = service?.servicio_estado === "completado";
   const alreadyReviewed = service ? !!submitted[service.servicio_id] : false;
   const reportVisible = service ? !!showReport[service.servicio_id] : false;
   const ratingLabels = ["", "Muy malo", "Regular", "Bueno", "Muy bueno", "Excelente"];
