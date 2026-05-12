@@ -286,6 +286,8 @@ export default function ClientView() {
   const fetchService = async (codigo: string) => {
     setLoading(true);
     setError("");
+    // Resetear formulario y estado de envío al buscar otro servicio
+    setRatingForm({ hover: 0, selected: 0, comentario: "", observacion: "", sugerencia: "" });
     try {
       // 1. Obtener servicio
       const { data: servicioData, error: servicioError } = await supabase
@@ -350,12 +352,18 @@ export default function ClientView() {
     const fecha = now.toISOString().split("T")[0];
     const hora = now.toTimeString().split(" ")[0].slice(0, 5);
 
+    // Armar comentario completo incluyendo observación
+    let comentarioCompleto = ratingForm.comentario || "";
+    if (ratingForm.observacion) {
+      comentarioCompleto += (comentarioCompleto ? "\n" : "") + "Observación: " + ratingForm.observacion;
+    }
+
     // Guardar en Supabase
     const payload = {
       servicio_id: service.servicio_id,
       cliente_id: service.cliente_id,
       calificacion_puntaje: ratingForm.selected,
-      calificacion_comentario: ratingForm.comentario || null,
+      calificacion_comentario: comentarioCompleto || null,
       calificacion_sugerencia: ratingForm.sugerencia || null,
       calificacion_fecha: fecha,
       calificacion_hora: hora,
