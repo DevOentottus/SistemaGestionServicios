@@ -96,6 +96,13 @@ export default function Dashboard() {
   const clienteMap = new Map<number, string>((clientes || []).map((cl: any) => [cl.cliente_id, cl.cliente_nombres]));
   const userMap = new Map<number, string>(usuarios.map(u => [u.usuario_id, u.usuario_nombres]));
 
+  const techByService = new Map<number, { id: number; name: string }[]>();
+  servicioColaboradores.forEach(sc => {
+    if (!techByService.has(sc.servicio_id)) techByService.set(sc.servicio_id, []);
+    const user = usuarios.find(u => u.usuario_id === sc.colaborador_id);
+    if (user) techByService.get(sc.servicio_id)!.push({ id: user.usuario_id, name: user.usuario_nombres });
+  });
+
   const getServiceProgress = (servicioId: number) => {
     const serviceTasks = allTasks.filter(t => t.servicio_id === servicioId);
     if (serviceTasks.length === 0) return 0;
@@ -408,25 +415,47 @@ export default function Dashboard() {
             ) : <p className="text-xs text-gray-400">Sin servicios bloqueados</p>}
           </div>
 
-          <div className={`rounded-2xl p-4 border-2 ${retrasados.length > 0 ? "bg-orange-50 border-orange-300" : "bg-gray-50 border-gray-200"}`}>
-            <div className="flex items-center gap-2 mb-3">
-              <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${retrasados.length > 0 ? "bg-orange-500" : "bg-gray-300"}`}>
+          <div className={`rounded-2xl border-2 flex flex-col md:flex-row overflow-hidden ${retrasados.length > 0 ? "bg-orange-50 border-orange-300" : "bg-gray-50 border-gray-200"}`}>
+            <div className="flex md:flex-col items-center md:items-start gap-3 md:gap-1 p-4 md:pr-2 md:min-w-[130px] md:border-r md:border-orange-200">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${retrasados.length > 0 ? "bg-orange-500" : "bg-gray-300"}`}>
                 <Clock className="w-5 h-5 text-white" />
               </div>
-              <p className={`text-xs font-bold ${retrasados.length > 0 ? "text-orange-700" : "text-gray-500"}`}>RETRASADOS</p>
-            </div>
-            <p className={`text-3xl mb-1 font-extrabold ${retrasados.length > 0 ? "text-orange-700" : "text-gray-400"}`}>{retrasados.length}</p>
-            {retrasados.length > 0 ? (
-              <div className="space-y-1">
-                {retrasados.map((s) => (
-                  <button key={s.servicio_id} onClick={() => navigate(`/services/${s.servicio_id}`)}
-                    className="w-full flex items-center gap-2 text-left text-xs text-orange-700 hover:underline">
-                    <span className="truncate flex-1">{s.servicio_descripcion || s.servicio_codigo}</span>
-                    <ChevronRight className="w-3 h-3 flex-shrink-0" />
-                  </button>
-                ))}
+              <div>
+                <p className={`text-xs font-bold ${retrasados.length > 0 ? "text-orange-700" : "text-gray-500"}`}>RETRASADOS</p>
+                <p className={`text-3xl font-extrabold ${retrasados.length > 0 ? "text-orange-700" : "text-gray-400"}`}>{retrasados.length}</p>
               </div>
-            ) : <p className="text-xs text-gray-400">Sin retrasos detectados</p>}
+            </div>
+            <div className="flex-1 p-3 md:p-4 md:pl-2 max-h-[200px] overflow-y-auto">
+              {retrasados.length > 0 ? (
+                <div className="space-y-1">
+                  {retrasados.map((s) => {
+                    const techs = techByService.get(s.servicio_id) || [];
+                    const timeDisplay = s.servicio_fecha_inicio ? (() => {
+                      const start = new Date(s.servicio_fecha_inicio);
+                      const diffMs = Date.now() - start.getTime();
+                      const hours = Math.floor(diffMs / (1000 * 60 * 60));
+                      const days = Math.floor(hours / 24);
+                      const remH = hours % 24;
+                      return days > 0 ? `${days}d ${remH}h` : `${hours}h ${Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))}m`;
+                    })() : "";
+                    return (
+                      <button key={s.servicio_id} onClick={() => navigate(`/services/${s.servicio_id}`)}
+                        className="w-full flex items-center gap-1.5 text-left text-xs text-orange-700 hover:bg-orange-100/50 rounded-lg px-2 py-1.5 transition">
+                        <span className="font-semibold text-orange-800 shrink-0">{s.servicio_codigo}</span>
+                        <span className="truncate flex-1">— {s.servicio_descripcion}</span>
+                        {techs.length > 0 && (
+                          <span className="text-orange-600 shrink-0 hidden sm:inline">
+                            — {techs.map(t => t.name.split(" ")[0]).join(", ")}
+                          </span>
+                        )}
+                        <span className="text-orange-500 shrink-0 ml-1">{timeDisplay}</span>
+                        <ChevronRight className="w-3 h-3 shrink-0 text-orange-400" />
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : <p className="text-xs text-gray-400 p-2">Sin retrasos detectados</p>}
+            </div>
           </div>
         </div>
       </div>
@@ -436,9 +465,9 @@ export default function Dashboard() {
           <Target className="w-5 h-5 text-blue-700" />
           <h2 className="text-gray-900 font-bold">KPIs Principales</h2>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* PRODUCTIVIDAD */}
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col h-full">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-blue-900 rounded-lg flex items-center justify-center">
@@ -450,29 +479,31 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-            <div className="flex gap-1 mb-3">
-              {(["semana", "mes", "año"] as const).map((f) => (
-                <button key={f} onClick={() => setProdFilter(f)}
-                  className={`text-xs px-3 py-1 rounded-full font-medium transition ${prodFilter === f ? "bg-blue-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
-                  {f === "semana" ? "Semana" : f === "mes" ? "Mes" : "Año"}
-                </button>
-              ))}
-            </div>
-            <div className="grid grid-cols-3 gap-3 mb-2">
-              <div className="bg-blue-50 rounded-xl p-3 text-center">
-                <p className="text-blue-900 text-2xl font-extrabold">{servicesInPeriod.length}</p>
-                <p className="text-blue-700 text-xs font-semibold">Completados</p>
-                <p className="text-blue-400 text-xs">en el período</p>
+            <div className="flex-1 space-y-3">
+              <div className="flex gap-1 mb-3">
+                {(["semana", "mes", "año"] as const).map((f) => (
+                  <button key={f} onClick={() => setProdFilter(f)}
+                    className={`text-xs px-3 py-1 rounded-full font-medium transition ${prodFilter === f ? "bg-blue-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+                    {f === "semana" ? "Semana" : f === "mes" ? "Mes" : "Año"}
+                  </button>
+                ))}
               </div>
-              <div className="bg-blue-50 rounded-xl p-3 text-center">
-                <p className="text-blue-900 text-2xl font-extrabold">{topAreaServices}</p>
-                <p className="text-blue-700 text-xs font-semibold">Mejor área</p>
-                <p className="text-blue-400 text-xs truncate">{topAreaName}</p>
-              </div>
-              <div className="bg-blue-50 rounded-xl p-3 text-center">
-                <p className="text-blue-900 text-2xl font-extrabold">{topCollabServices}</p>
-                <p className="text-blue-700 text-xs font-semibold">Mejor collab.</p>
-                <p className="text-blue-400 text-xs truncate">{topCollabName}</p>
+              <div className="grid grid-cols-3 gap-3 mb-2">
+                <div className="bg-blue-50 rounded-xl p-3 text-center">
+                  <p className="text-blue-900 text-2xl font-extrabold">{servicesInPeriod.length}</p>
+                  <p className="text-blue-700 text-xs font-semibold">Completados</p>
+                  <p className="text-blue-400 text-xs">en el período</p>
+                </div>
+                <div className="bg-blue-50 rounded-xl p-3 text-center">
+                  <p className="text-blue-900 text-2xl font-extrabold">{topAreaServices}</p>
+                  <p className="text-blue-700 text-xs font-semibold">Mejor área</p>
+                  <p className="text-blue-400 text-xs truncate">{topAreaName}</p>
+                </div>
+                <div className="bg-blue-50 rounded-xl p-3 text-center">
+                  <p className="text-blue-900 text-2xl font-extrabold">{topCollabServices}</p>
+                  <p className="text-blue-700 text-xs font-semibold">Mejor collab.</p>
+                  <p className="text-blue-400 text-xs truncate">{topCollabName}</p>
+                </div>
               </div>
             </div>
             <div className="bg-blue-50 rounded-xl px-3 py-2">
@@ -485,7 +516,7 @@ export default function Dashboard() {
           </div>
 
           {/* EFICIENCIA */}
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col h-full">
             <div className="flex items-center gap-2 mb-3">
               <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
                 <TrendingUp className="w-4 h-4 text-white" />
@@ -495,28 +526,30 @@ export default function Dashboard() {
                 <p className="text-gray-400 text-xs">Velocidad de entrega</p>
               </div>
             </div>
-            <div className="mb-3">
-              <select value={efiAreaFilter ?? ""} onChange={(e) => setEfiAreaFilter(e.target.value ? Number(e.target.value) : null)}
-                className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-gray-50 text-gray-700 w-full">
-                <option value="">Todas las áreas</option>
-                {areas.map((a) => <option key={a.area_id} value={a.area_id}>{a.area_nombre}</option>)}
-              </select>
-            </div>
-            <div className="grid grid-cols-3 gap-3 mb-2">
-              {[
-                { label: "Días prom.", value: avgDays, sub: "por servicio", color: avgDays <= 7 ? "green" : "orange" },
-                { label: "Oportunos", value: `${pctTimely}%`, sub: "no retrasados", color: pctTimely >= 70 ? "green" : "orange" },
-                { label: "Retrasados", value: `${pctDelayed}%`, sub: "del total", color: pctDelayed > 0 ? "red" : "green" },
-              ].map((m) => {
-                const c = COLOR_MAP[m.color] ?? COLOR_MAP.green;
-                return (
-                <div key={m.label} className={`rounded-xl p-3 text-center ${c.bg}`}>
-                  <p className={`${c.text700} text-2xl font-extrabold`}>{m.value}</p>
-                  <p className={`${c.text700} text-xs font-semibold`}>{m.label}</p>
-                  <p className={`${c.text400} text-xs`}>{m.sub}</p>
-                </div>
-                );
-              })}
+            <div className="flex-1 space-y-3">
+              <div className="mb-3">
+                <select value={efiAreaFilter ?? ""} onChange={(e) => setEfiAreaFilter(e.target.value ? Number(e.target.value) : null)}
+                  className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-gray-50 text-gray-700 w-full">
+                  <option value="">Todas las áreas</option>
+                  {areas.map((a) => <option key={a.area_id} value={a.area_id}>{a.area_nombre}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-3 gap-3 mb-2">
+                {[
+                  { label: "Días prom.", value: avgDays, sub: "por servicio", color: avgDays <= 7 ? "green" : "orange" },
+                  { label: "Oportunos", value: `${pctTimely}%`, sub: "no retrasados", color: pctTimely >= 70 ? "green" : "orange" },
+                  { label: "Retrasados", value: `${pctDelayed}%`, sub: "del total", color: pctDelayed > 0 ? "red" : "green" },
+                ].map((m) => {
+                  const c = COLOR_MAP[m.color] ?? COLOR_MAP.green;
+                  return (
+                  <div key={m.label} className={`rounded-xl p-3 text-center ${c.bg}`}>
+                    <p className={`${c.text700} text-2xl font-extrabold`}>{m.value}</p>
+                    <p className={`${c.text700} text-xs font-semibold`}>{m.label}</p>
+                    <p className={`${c.text400} text-xs`}>{m.sub}</p>
+                  </div>
+                  );
+                })}
+              </div>
             </div>
             <div className="bg-green-50 rounded-xl px-3 py-2">
               <p className="text-xs text-green-800 font-semibold">
@@ -528,8 +561,8 @@ export default function Dashboard() {
           </div>
 
           {/* GESTIÓN DEL CLIENTE */}
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <div className="flex items-center gap-2 mb-4">
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col h-full">
+            <div className="flex items-center gap-2 mb-3">
               <div className="w-8 h-8 bg-yellow-500 rounded-lg flex items-center justify-center">
                 <Star className="w-4 h-4 text-white fill-white" />
               </div>
@@ -538,7 +571,8 @@ export default function Dashboard() {
                 <p className="text-gray-400 text-xs">Satisfacción y feedback</p>
               </div>
             </div>
-            <div className="flex items-center gap-4 mb-4">
+            <div className="flex-1 space-y-3">
+            <div className="flex items-center gap-4 mb-3">
               <div className="text-center">
                 <p className="text-5xl text-yellow-500 mb-1 font-extrabold">{realSatisfaction}</p>
                 <div className="flex gap-0.5 justify-center">
@@ -565,6 +599,7 @@ export default function Dashboard() {
                   </div>
                 ))}
               </div>
+            </div>
             </div>
             <div className="bg-yellow-50 rounded-xl px-3 py-2">
               <p className="text-xs text-yellow-800 font-semibold">
@@ -675,16 +710,27 @@ export default function Dashboard() {
                     <p className="text-gray-400 text-xs">{c.usuario_rol}</p>
                   </div>
                   <div className="flex items-center gap-4 flex-shrink-0">
-                    <div className="text-right">
+                    <div className="text-right min-w-[50px]">
                       <p className="text-blue-700 text-sm font-bold">{c.completedServices}</p>
                       <p className="text-gray-400 text-xs">completados</p>
                     </div>
-                    <div className="text-right w-10">
-                      <p className="text-gray-800 text-sm font-semibold">{c.pctOfTotal}%</p>
-                      <p className="text-gray-400 text-xs">del total</p>
+                    <div className="w-28">
+                      <div className="flex items-center gap-1.5">
+                        <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-blue-600 rounded-full transition-all" style={{ width: `${c.pctOfTotal}%` }} />
+                        </div>
+                        <span className="text-gray-800 text-xs font-semibold w-8 text-right">{c.pctOfTotal}%</span>
+                      </div>
+                      <p className="text-gray-400 text-xs text-right">del total</p>
                     </div>
-                    <div className="text-right w-10">
-                      <p className="text-yellow-600 text-sm font-bold">{c.avgRating > 0 ? c.avgRating : "—"}</p>
+                    <div className="text-right min-w-[60px]">
+                      <div className="flex items-center gap-0.5 justify-end">
+                        {c.avgRating > 0 ? (
+                          [1,2,3,4,5].map(s => (
+                            <Star key={s} className={`w-3 h-3 ${s <= Math.round(c.avgRating) ? "fill-yellow-400 text-yellow-400" : "fill-gray-200 text-gray-200"}`} />
+                          ))
+                        ) : <span className="text-gray-400 text-sm font-bold">—</span>}
+                      </div>
                       <p className="text-gray-400 text-xs">prom.</p>
                     </div>
                   </div>
@@ -716,13 +762,6 @@ export default function Dashboard() {
           </div>
           <div className="divide-y divide-gray-50">
             {(() => {
-              // Build a tech map per service
-              const techByService = new Map<number, { id: number; name: string }[]>();
-              servicioColaboradores.forEach(sc => {
-                if (!techByService.has(sc.servicio_id)) techByService.set(sc.servicio_id, []);
-                const user = usuarios.find(u => u.usuario_id === sc.colaborador_id);
-                if (user) techByService.get(sc.servicio_id)!.push({ id: user.usuario_id, name: user.usuario_nombres });
-              });
               return servicios
                 .filter(s => s.servicio_estado !== "completado")
                 .sort((a, b) => getServiceProgress(b.servicio_id) - getServiceProgress(a.servicio_id))
