@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import {
   UserPlus, Search, Edit2, ToggleLeft, ToggleRight, X, Check, ChevronDown,
-  Shield, MapPin, Key, Loader2,
+  Shield, Key, Loader2,
 } from "lucide-react";
 
 // ===================== TIPOS =====================
@@ -23,9 +23,10 @@ type Usuario = {
   usuario_rol: "Administrador" | "Encargado" | "Colaborador" | "Cliente";
   usuario_id_area_principal: number | null;
   usuario_id_area_adicional: number | null;
-  usuario_encargado_area_principal: boolean;
-  usuario_encargado_area_adicional: boolean;
   usuario_activo: boolean;
+  usuario_disponible: boolean;
+  usuario_fecha_creacion: string | null;
+  usuario_hora_creacion: string | null;
   usuario_ultimo_login: string | null;
 };
 
@@ -37,10 +38,6 @@ type UsuarioForm = {
   telefono: string;
   correo: string;
   rol: Usuario["usuario_rol"];
-  id_area_principal: string;
-  id_area_adicional: string;
-  encargado_area_principal: boolean;
-  encargado_area_adicional: boolean;
   password: string;
   confirmPassword: string;
 };
@@ -60,7 +57,7 @@ const rolColors: Record<string, string> = {
   Cliente: "bg-green-100 text-green-800",
 };
 
-const emptyForm = (defaultAreaId: string): UsuarioForm => ({
+const emptyForm = (): UsuarioForm => ({
   dni: "",
   nombres: "",
   apellido_paterno: "",
@@ -68,10 +65,6 @@ const emptyForm = (defaultAreaId: string): UsuarioForm => ({
   telefono: "",
   correo: "",
   rol: "Colaborador",
-  id_area_principal: defaultAreaId,
-  id_area_adicional: "",
-  encargado_area_principal: false,
-  encargado_area_adicional: false,
   password: "",
   confirmPassword: "",
 });
@@ -86,7 +79,7 @@ export default function Usuarios() {
   const [filterRol, setFilterRol] = useState("Todos");
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<Usuario | null>(null);
-  const [form, setForm] = useState<UsuarioForm>(emptyForm(""));
+  const [form, setForm] = useState<UsuarioForm>(emptyForm());
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [selectedUserForPassword, setSelectedUserForPassword] = useState<Usuario | null>(null);
   const [newPassword, setNewPassword] = useState("");
@@ -157,14 +150,6 @@ export default function Usuarios() {
   };
 
   const isAdmin = form.rol === "Administrador";
-  // Administrador tiene prioridad sobre encargado para el rol efectivo.
-  const effectiveRol: Usuario["usuario_rol"] = isAdmin
-    ? "Administrador"
-    : form.encargado_area_principal || form.encargado_area_adicional
-      ? "Encargado"
-      : "Colaborador";
-
-  const hasSecondaryArea = !!form.id_area_adicional;
   const canSave = !!form.nombres && !!form.apellido_paterno && !!form.correo;
   const basicFormFields: Array<{ label: string; key: BasicFormFieldKey; placeholder: string }> = [
     { label: "DNI", key: "dni", placeholder: "Ej: 74521896" },
@@ -173,10 +158,6 @@ export default function Usuarios() {
     { label: "Apellido paterno", key: "apellido_paterno", placeholder: "Apellido paterno" },
     { label: "Apellido materno", key: "apellido_materno", placeholder: "Apellido materno (opcional)" },
   ];
-  const areaPrincipalNombre = getAreaName(form.id_area_principal ? Number(form.id_area_principal) : null);
-  const areaAdicionalNombre = getAreaName(form.id_area_adicional ? Number(form.id_area_adicional) : null);
-  const areaPrincipalLabel = areaPrincipalNombre === NONE_AREA ? "Sin área" : areaPrincipalNombre;
-  const areaAdicionalLabel = areaAdicionalNombre === NONE_AREA ? "Sin área" : areaAdicionalNombre;
 
   const closePasswordModal = () => {
     setShowPasswordModal(false);
@@ -194,8 +175,7 @@ export default function Usuarios() {
 
   const openAdd = () => {
     setEditingUser(null);
-    const defaultAreaId = areas[0]?.area_id.toString() || "";
-    setForm(emptyForm(defaultAreaId));
+    setForm(emptyForm());
     setShowModal(true);
   };
 
@@ -209,10 +189,6 @@ export default function Usuarios() {
       telefono: user.usuario_telefono ?? "",
       correo: user.usuario_correo,
       rol: user.usuario_rol,
-      id_area_principal: user.usuario_id_area_principal?.toString() ?? "",
-      id_area_adicional: user.usuario_id_area_adicional?.toString() ?? "",
-      encargado_area_principal: user.usuario_encargado_area_principal,
-      encargado_area_adicional: user.usuario_encargado_area_adicional,
       password: "",
       confirmPassword: "",
     });
@@ -246,11 +222,8 @@ export default function Usuarios() {
     setSaving(true);
     try {
       const username = editingUser?.usuario_username || generateUsername(form.nombres, form.apellido_paterno, editingUser?.usuario_id);
-      const normalizedAreaPrincipal = isAdmin ? null : form.id_area_principal ? Number(form.id_area_principal) : null;
-      const normalizedAreaAdicional = isAdmin ? null : form.id_area_adicional ? Number(form.id_area_adicional) : null;
-      const normalizedEncargadoPrincipal = isAdmin ? false : form.encargado_area_principal;
-      const normalizedEncargadoAdicional = isAdmin ? false : form.encargado_area_adicional;
-      const userData: Partial<Usuario> = {
+      const now = new Date();
+      const userData: Partial<Usuario> & { usuario_fecha_creacion?: string; usuario_hora_creacion?: string; usuario_disponible?: boolean } = {
         usuario_dni: form.dni || null,
         usuario_nombres: form.nombres,
         usuario_apellido_paterno: form.apellido_paterno,
@@ -258,13 +231,17 @@ export default function Usuarios() {
         usuario_telefono: form.telefono || null,
         usuario_correo: form.correo,
         usuario_username: username,
-        usuario_rol: effectiveRol,
-        usuario_id_area_principal: normalizedAreaPrincipal,
-        usuario_id_area_adicional: normalizedAreaAdicional,
-        usuario_encargado_area_principal: normalizedEncargadoPrincipal,
-        usuario_encargado_area_adicional: normalizedEncargadoAdicional,
+        usuario_rol: form.rol,
         usuario_activo: editingUser ? editingUser.usuario_activo : true,
       };
+
+      if (!editingUser) {
+        const dateStr = now.toISOString().slice(0, 10); // YYYY-MM-DD
+        const timeStr = now.toTimeString().slice(0, 8);  // HH:MM:SS
+        userData.usuario_fecha_creacion = dateStr;
+        userData.usuario_hora_creacion = timeStr;
+        userData.usuario_disponible = true;
+      }
 
       if (editingUser) {
         const { error } = await supabase
@@ -416,7 +393,7 @@ export default function Usuarios() {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                {["Identificador", "Usuario", "Áreas", "Rol", "Contacto", "Estado", "Acciones"].map((h) => (
+                {["Identificador", "Usuario", "Rol", "Contacto", "Estado", "Acciones"].map((h) => (
                   <th key={h} className="text-left text-xs text-gray-500 px-4 py-3" style={{ fontWeight: 600 }}>{h}</th>
                 ))}
               </tr>
@@ -436,22 +413,6 @@ export default function Usuarios() {
                         <p className="text-gray-900 text-sm" style={{ fontWeight: 600 }}>{u.usuario_nombres} {getFullLastName(u)}</p>
                         <p className="text-gray-400 text-xs">@{u.usuario_username} · DNI: {u.usuario_dni || "—"}</p>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-1">
-                        <MapPin className="w-3 h-3 text-blue-600 flex-shrink-0" />
-                        <span className="text-xs text-gray-700" style={{ fontWeight: 500 }}>{getAreaName(u.usuario_id_area_principal)}</span>
-                        {u.usuario_encargado_area_principal && <Shield className="w-3 h-3 text-purple-600" aria-label="Encargado de esta área" />}
-                      </div>
-                      {u.usuario_id_area_adicional && (
-                        <div className="flex items-center gap-1">
-                          <MapPin className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                          <span className="text-xs text-gray-400">{getAreaName(u.usuario_id_area_adicional)}</span>
-                          {u.usuario_encargado_area_adicional && <Shield className="w-3 h-3 text-purple-400" aria-label="Encargado de área secundaria" />}
-                        </div>
-                      )}
                     </div>
                   </td>
                   <td className="px-4 py-3">
@@ -507,6 +468,7 @@ export default function Usuarios() {
               </button>
             </div>
 
+            <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} className="contents">
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 {basicFormFields.map((field) => (
@@ -541,10 +503,6 @@ export default function Usuarios() {
                       setForm((p) => ({
                         ...p,
                         rol: p.rol === "Administrador" ? "Colaborador" : "Administrador",
-                        id_area_principal: p.rol === "Administrador" ? p.id_area_principal : "",
-                        id_area_adicional: p.rol === "Administrador" ? p.id_area_adicional : "",
-                        encargado_area_principal: p.rol === "Administrador" ? p.encargado_area_principal : false,
-                        encargado_area_adicional: p.rol === "Administrador" ? p.encargado_area_adicional : false,
                       }))
                     }
                     className={`w-5 h-5 rounded border-2 flex items-center justify-center transition ${
@@ -600,13 +558,14 @@ export default function Usuarios() {
 
             <div className="flex gap-3 px-6 py-4 border-t border-gray-100 flex-shrink-0">
               <button
+                type="button"
                 onClick={() => setShowModal(false)}
                 className="flex-1 border border-gray-200 text-gray-700 rounded-xl py-2.5 text-sm hover:bg-gray-50 transition"
               >
                 Cancelar
               </button>
               <button
-                onClick={handleSave}
+                type="submit"
                 disabled={saving || !canSave}
                 className="flex-1 bg-blue-900 text-white rounded-xl py-2.5 text-sm hover:bg-blue-800 transition flex items-center justify-center gap-2 disabled:opacity-50"
                 style={{ fontWeight: 600 }}
@@ -615,6 +574,7 @@ export default function Usuarios() {
                 {editingUser ? "Guardar cambios" : "Registrar usuario"}
               </button>
             </div>
+          </form>
           </div>
         </div>
       )}
@@ -630,6 +590,7 @@ export default function Usuarios() {
               </button>
             </div>
 
+            <form onSubmit={(e) => { e.preventDefault(); handlePasswordChange(); }}>
             <div className="px-6 py-4 space-y-4">
               <p className="text-sm text-gray-600">
                 Usuario: <span className="font-semibold">{selectedUserForPassword.usuario_nombres} {selectedUserForPassword.usuario_apellido_paterno}</span>
@@ -658,13 +619,14 @@ export default function Usuarios() {
 
             <div className="flex gap-3 px-6 py-4 border-t border-gray-100">
               <button
+                type="button"
                 onClick={closePasswordModal}
                 className="flex-1 border border-gray-200 text-gray-700 rounded-xl py-2.5 text-sm hover:bg-gray-50 transition"
               >
                 Cancelar
               </button>
               <button
-                onClick={handlePasswordChange}
+                type="submit"
                 disabled={saving}
                 className="flex-1 bg-amber-600 text-white rounded-xl py-2.5 text-sm hover:bg-amber-700 transition flex items-center justify-center gap-2 font-semibold disabled:opacity-50"
               >
@@ -672,6 +634,7 @@ export default function Usuarios() {
                 Actualizar contraseña
               </button>
             </div>
+            </form>
           </div>
         </div>
       )}

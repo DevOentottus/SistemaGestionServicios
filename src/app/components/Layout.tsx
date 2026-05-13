@@ -27,7 +27,7 @@ const getInitials = (nombres?: string, apellido?: string): string => {
   const b = (apellido || "").charAt(0).toUpperCase();
   return a + b;
 };
-
+  
 export default function Layout() {
   const { currentUser, loading, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
