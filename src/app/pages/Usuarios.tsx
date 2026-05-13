@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
+import bcrypt from "bcryptjs";
 import {
   UserPlus, Search, Edit2, ToggleLeft, ToggleRight, X, Check, ChevronDown,
   Shield, Key, Loader2,
@@ -216,6 +217,8 @@ export default function Usuarios() {
         userData.usuario_disponible = true;
       }
 
+      const passwordHash = editingUser ? null : bcrypt.hashSync(form.password, 10);
+
       if (editingUser) {
         const { error } = await supabase
           .from("usuarios")
@@ -232,7 +235,7 @@ export default function Usuarios() {
       } else {
         const { data, error } = await supabase
           .from("usuarios")
-          .insert([{ ...userData, usuario_contrasena: form.password }])
+          .insert([{ ...userData, usuario_contrasena: passwordHash }])
           .select();
         if (error) throw error;
         if (data && data[0]) {
@@ -261,9 +264,10 @@ export default function Usuarios() {
 
     setSaving(true);
     try {
+      const hashedPassword = bcrypt.hashSync(newPassword, 10);
       const { error } = await supabase
         .from("usuarios")
-        .update({ usuario_contrasena: newPassword })
+        .update({ usuario_contrasena: hashedPassword })
         .eq("usuario_id", selectedUserForPassword.usuario_id);
       if (error) throw error;
       alert("Contraseña actualizada correctamente");
