@@ -6,11 +6,6 @@ import {
 } from "lucide-react";
 
 // ===================== TIPOS =====================
-type Area = {
-  area_id: number;
-  area_nombre: string;
-};
-
 type Usuario = {
   usuario_id: number;
   usuario_dni: string | null;
@@ -21,8 +16,6 @@ type Usuario = {
   usuario_correo: string;
   usuario_username: string;
   usuario_rol: "Administrador" | "Encargado" | "Colaborador" | "Cliente";
-  usuario_id_area_principal: number | null;
-  usuario_id_area_adicional: number | null;
   usuario_activo: boolean;
   usuario_disponible: boolean;
   usuario_fecha_creacion: string | null;
@@ -49,7 +42,6 @@ type BasicFormFieldKey =
   | "apellido_paterno"
   | "apellido_materno";
 
-const NONE_AREA = "— Ninguna —";
 const rolColors: Record<string, string> = {
   Administrador: "bg-blue-100 text-blue-800",
   Encargado: "bg-purple-100 text-purple-800",
@@ -72,10 +64,8 @@ const emptyForm = (): UsuarioForm => ({
 // ===================== COMPONENTE PRINCIPAL =====================
 export default function Usuarios() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
-  const [areas, setAreas] = useState<Area[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [filterArea, setFilterArea] = useState("Todas");
   const [filterRol, setFilterRol] = useState("Todos");
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<Usuario | null>(null);
@@ -86,18 +76,10 @@ export default function Usuarios() {
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Cargar áreas y usuarios al montar
+  // Cargar usuarios al montar
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      // Áreas
-      const { data: areasData, error: areasError } = await supabase
-        .from("areas")
-        .select("area_id, area_nombre")
-        .order("area_nombre");
-      if (areasError) console.error(areasError);
-      else setAreas(areasData || []);
-
       // Usuarios
       const { data: usersData, error: usersError } = await supabase
         .from("usuarios")
@@ -140,13 +122,6 @@ export default function Usuarios() {
 
   const getFullLastName = (u: Usuario) => {
     return `${u.usuario_apellido_paterno}${u.usuario_apellido_materno ? ` ${u.usuario_apellido_materno}` : ""}`;
-  };
-
-  // Obtener nombre del área por ID
-  const getAreaName = (areaId: number | null) => {
-    if (areaId == null) return NONE_AREA;
-    const area = areas.find(a => a.area_id === areaId);
-    return area ? area.area_nombre : NONE_AREA;
   };
 
   const isAdmin = form.rol === "Administrador";
@@ -200,10 +175,8 @@ export default function Usuarios() {
     const matchSearch = `${u.usuario_nombres} ${u.usuario_apellido_paterno} ${u.usuario_apellido_materno || ""} ${u.usuario_dni || ""} ${u.usuario_correo}`
       .toLowerCase()
       .includes(search.toLowerCase());
-    const userAreaNames = [getAreaName(u.usuario_id_area_principal), getAreaName(u.usuario_id_area_adicional)].filter(a => a !== NONE_AREA);
-    const matchArea = filterArea === "Todas" || userAreaNames.includes(filterArea);
     const matchRol = filterRol === "Todos" || u.usuario_rol === filterRol;
-    return matchSearch && matchArea && matchRol;
+    return matchSearch && matchRol;
   });
 
   const handleSave = async () => {
@@ -358,17 +331,6 @@ export default function Usuarios() {
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-blue-500 bg-gray-50"
             />
-          </div>
-          <div className="relative">
-            <select
-              value={filterArea}
-              onChange={(e) => setFilterArea(e.target.value)}
-              className="appearance-none pl-3 pr-8 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-blue-500 bg-gray-50 cursor-pointer"
-            >
-              <option>Todas</option>
-              {areas.map((a) => <option key={a.area_id}>{a.area_nombre}</option>)}
-            </select>
-            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
           </div>
           <div className="relative">
             <select
