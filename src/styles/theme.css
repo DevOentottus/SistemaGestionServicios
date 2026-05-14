@@ -79,6 +79,7 @@
 }
 
 @theme inline {
+  --animate-fade-in: fade-in 0.2s ease-out;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

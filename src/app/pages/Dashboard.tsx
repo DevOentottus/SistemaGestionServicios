@@ -6,7 +6,7 @@ import {
   ClipboardList, Users, MapPin, CheckCircle2, Clock, AlertTriangle,
   TrendingUp, ArrowRight, Activity, Star,
   Zap, Target, BarChart2, Bell, ChevronRight,
-  Loader2, ArrowUpDown,
+  Loader2, ArrowUpDown, X, Eye,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -46,6 +46,8 @@ export default function Dashboard() {
   const [prodFilter, setProdFilter] = useState<"semana" | "mes" | "año">("semana");
   const [efiAreaFilter, setEfiAreaFilter] = useState<number | null>(null);
   const [equipoAsc, setEquipoAsc] = useState(false);
+  const [highlightMode, setHighlightMode] = useState(false);
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -382,10 +384,19 @@ export default function Dashboard() {
               {label}
             </button>
           ))}
+          <button onClick={() => { setHighlightMode(!highlightMode); setExpandedSection(null); }}
+            className={`text-xs px-3 py-1.5 rounded-full transition font-medium flex items-center gap-1 ${
+              highlightMode ? 'bg-white text-blue-900 shadow-md' : 'bg-white/10 hover:bg-white/20 text-white'
+            }`}>
+            <Eye className="w-3.5 h-3.5" />
+            {highlightMode ? 'Salir del modo' : 'Modo Resaltado'}
+          </button>
         </div>
       </div>
 
-      <div id="alertas">
+      <div id="alertas"
+        onClick={(e) => { if (highlightMode && !(e.target as HTMLElement).closest('button, a, input, select, textarea')) { setExpandedSection("alertas"); } }}
+        className={`${highlightMode ? 'cursor-pointer ring-2 ring-blue-400/60 rounded-2xl p-0.5 transition-all duration-200 hover:ring-blue-500 hover:shadow-lg bg-blue-50/30' : ''}`}>
         <div className="flex items-center gap-2 mb-3">
           <Bell className="w-5 h-5 text-red-600" />
           <h2 className="text-gray-900 font-bold">Alertas y Prioridades</h2>
@@ -394,25 +405,50 @@ export default function Dashboard() {
           </span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className={`rounded-2xl p-4 border-2 ${blockedServices.length > 0 ? "bg-red-50 border-red-300" : "bg-gray-50 border-gray-200"}`}>
-            <div className="flex items-center gap-2 mb-3">
-              <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${blockedServices.length > 0 ? "bg-red-500" : "bg-gray-300"}`}>
+          <div className={`rounded-2xl border-2 flex flex-col md:flex-row overflow-hidden ${blockedServices.length > 0 ? "bg-red-50 border-red-300" : "bg-gray-50 border-gray-200"}`}>
+            <div className="flex md:flex-col items-center md:items-start gap-3 md:gap-1 p-4 md:pr-2 md:min-w-[160px] md:border-r md:border-red-200">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${blockedServices.length > 0 ? "bg-red-500" : "bg-gray-300"}`}>
                 <AlertTriangle className="w-5 h-5 text-white" />
               </div>
-              <p className={`text-xs font-bold ${blockedServices.length > 0 ? "text-red-600" : "text-gray-500"}`}>BLOQUEADOS</p>
-            </div>
-            <p className={`text-3xl mb-1 font-extrabold ${blockedServices.length > 0 ? "text-red-700" : "text-gray-400"}`}>{blockedServices.length}</p>
-            {blockedServices.length > 0 ? (
-              <div className="space-y-1">
-                {blockedSorted.map((s) => (
-                  <button key={s.servicio_id} onClick={() => navigate(`/services/${s.servicio_id}`)}
-                    className="w-full flex items-center gap-2 text-left text-xs text-red-700 hover:underline">
-                    <span className="truncate flex-1">{s.servicio_descripcion || s.servicio_codigo}</span>
-                    <ChevronRight className="w-3 h-3 flex-shrink-0" />
-                  </button>
-                ))}
+              <div>
+                <p className={`text-xs font-bold ${blockedServices.length > 0 ? "text-red-600" : "text-gray-500"}`}>BLOQUEADOS</p>
+                <p className={`text-3xl font-extrabold ${blockedServices.length > 0 ? "text-red-700" : "text-gray-400"}`}>{blockedServices.length}</p>
+                <p className={`text-[10px] leading-tight mt-1 ${blockedServices.length > 0 ? "text-red-500" : "text-gray-400"}`}>
+                  Marcado como bloqueado por un colaborador
+                </p>
               </div>
-            ) : <p className="text-xs text-gray-400">Sin servicios bloqueados</p>}
+            </div>
+            <div className="flex-1 p-3 md:p-4 md:pl-2 max-h-[200px] overflow-y-auto">
+              {blockedSorted.length > 0 ? (
+                <div className="space-y-1">
+                  {blockedSorted.map((s) => {
+                    const techs = techByService.get(s.servicio_id) || [];
+                    const timeDisplay = s.servicio_fecha_inicio ? (() => {
+                      const start = new Date(s.servicio_fecha_inicio);
+                      const diffMs = Date.now() - start.getTime();
+                      const hours = Math.floor(diffMs / (1000 * 60 * 60));
+                      const days = Math.floor(hours / 24);
+                      const remH = hours % 24;
+                      return days > 0 ? `${days}d ${remH}h` : `${hours}h ${Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))}m`;
+                    })() : "";
+                    return (
+                      <button key={s.servicio_id} onClick={() => navigate(`/services/${s.servicio_id}`)}
+                        className="w-full flex items-center gap-1.5 text-left text-xs text-red-700 hover:bg-red-100/50 rounded-lg px-2 py-1.5 transition">
+                        <span className="font-semibold text-red-800 shrink-0">{s.servicio_codigo}</span>
+                        <span className="truncate flex-1">— {s.servicio_descripcion}</span>
+                        {techs.length > 0 && (
+                          <span className="text-red-600 shrink-0 hidden sm:inline">
+                            — {techs.map(t => t.name.split(" ")[0]).join(", ")}
+                          </span>
+                        )}
+                        <span className="text-red-500 shrink-0 ml-1">{timeDisplay || "—"}</span>
+                        <ChevronRight className="w-3 h-3 shrink-0 text-red-400" />
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : <p className="text-xs text-gray-400 p-2">Sin servicios bloqueados</p>}
+            </div>
           </div>
 
           <div className={`rounded-2xl border-2 flex flex-col md:flex-row overflow-hidden ${retrasados.length > 0 ? "bg-orange-50 border-orange-300" : "bg-gray-50 border-gray-200"}`}>
@@ -460,7 +496,9 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div id="kpis">
+      <div id="kpis"
+        onClick={(e) => { if (highlightMode && !(e.target as HTMLElement).closest('button, a, input, select, textarea')) { setExpandedSection("kpis"); } }}
+        className={`${highlightMode ? 'cursor-pointer ring-2 ring-blue-400/60 rounded-2xl p-0.5 transition-all duration-200 hover:ring-blue-500 hover:shadow-lg bg-blue-50/30' : ''}`}>
         <div className="flex items-center gap-2 mb-3">
           <Target className="w-5 h-5 text-blue-700" />
           <h2 className="text-gray-900 font-bold">KPIs Principales</h2>
@@ -610,7 +648,9 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div id="operativo">
+      <div id="operativo"
+        onClick={(e) => { if (highlightMode && !(e.target as HTMLElement).closest('button, a, input, select, textarea')) { setExpandedSection("operativo"); } }}
+        className={`${highlightMode ? 'cursor-pointer ring-2 ring-blue-400/60 rounded-2xl p-0.5 transition-all duration-200 hover:ring-blue-500 hover:shadow-lg bg-blue-50/30' : ''}`}>
         <div className="flex items-center gap-2 mb-3">
           <BarChart2 className="w-5 h-5 text-blue-700" />
           <h2 className="text-gray-900 font-bold">Visualización Operativa</h2>
@@ -679,7 +719,9 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div id="equipo">
+      <div id="equipo"
+        onClick={(e) => { if (highlightMode && !(e.target as HTMLElement).closest('button, a, input, select, textarea')) { setExpandedSection("equipo"); } }}
+        className={`${highlightMode ? 'cursor-pointer ring-2 ring-blue-400/60 rounded-2xl p-0.5 transition-all duration-200 hover:ring-blue-500 hover:shadow-lg bg-blue-50/30' : ''}`}>
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-2">
             <Users className="w-5 h-5 text-blue-700" />
@@ -747,7 +789,9 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div id="realtime">
+      <div id="realtime"
+        onClick={(e) => { if (highlightMode && !(e.target as HTMLElement).closest('button, a, input, select, textarea')) { setExpandedSection("realtime"); } }}
+        className={`${highlightMode ? 'cursor-pointer ring-2 ring-blue-400/60 rounded-2xl p-0.5 transition-all duration-200 hover:ring-blue-500 hover:shadow-lg bg-blue-50/30' : ''}`}>
         <div className="flex items-center gap-2 mb-3">
           <Activity className="w-5 h-5 text-blue-700" />
           <h2 className="text-gray-900 font-bold">Seguimiento en Tiempo Real</h2>
@@ -827,7 +871,9 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div id="satisfaccion">
+      <div id="satisfaccion"
+        onClick={(e) => { if (highlightMode && !(e.target as HTMLElement).closest('button, a, input, select, textarea')) { setExpandedSection("satisfaccion"); } }}
+        className={`${highlightMode ? 'cursor-pointer ring-2 ring-blue-400/60 rounded-2xl p-0.5 transition-all duration-200 hover:ring-blue-500 hover:shadow-lg bg-blue-50/30' : ''}`}>
         <div className="flex items-center gap-2 mb-3">
           <Star className="w-5 h-5 text-yellow-500" />
           <h2 className="text-gray-900 font-bold">Satisfacción por Área</h2>
@@ -869,6 +915,397 @@ export default function Dashboard() {
           })}
         </div>
       </div>
+
+      {/* ── Floating exit button ── */}
+      {highlightMode && !expandedSection && (
+        <div className="fixed bottom-6 right-6 z-40">
+          <button onClick={() => { setHighlightMode(false); setExpandedSection(null); }}
+            className="flex items-center gap-2 bg-blue-900 text-white px-5 py-3 rounded-full shadow-lg hover:bg-blue-800 transition-all duration-200 font-medium text-sm">
+            <Eye className="w-4 h-4" />
+            Salir del modo
+          </button>
+        </div>
+      )}
+
+      {/* ── Expanded Section Modal ── */}
+      {expandedSection && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 backdrop-blur-md bg-black/30" onClick={() => setExpandedSection(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[85vh] overflow-y-auto p-6 md:p-8 animate-fade-in">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-900">
+                {expandedSection === "alertas" ? "Alertas y Prioridades" :
+                 expandedSection === "kpis" ? "KPIs Principales" :
+                 expandedSection === "operativo" ? "Visualización Operativa" :
+                 expandedSection === "equipo" ? "Desempeño del Equipo" :
+                 expandedSection === "realtime" ? "Seguimiento en Tiempo Real" :
+                 expandedSection === "satisfaccion" ? "Satisfacción por Área" : ""}
+              </h2>
+              <button onClick={() => setExpandedSection(null)}
+                className="p-2 rounded-xl hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {expandedSection === "alertas" && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* BLOQUEADOS enlarged */}
+                    <div className="rounded-2xl p-5 border-2 bg-red-50 border-red-300">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-12 h-12 rounded-xl bg-red-500 flex items-center justify-center">
+                          <AlertTriangle className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-red-600">BLOQUEADOS</p>
+                          <p className="text-4xl font-extrabold text-red-700">{blockedServices.length}</p>
+                          <p className="text-xs text-red-500">Marcado como bloqueado por un colaborador</p>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        {blockedSorted.length > 0 ? blockedSorted.map((s) => {
+                          const techs = techByService.get(s.servicio_id) || [];
+                          const timeDisplay = s.servicio_fecha_inicio ? (() => {
+                            const start = new Date(s.servicio_fecha_inicio);
+                            const diffMs = Date.now() - start.getTime();
+                            const hours = Math.floor(diffMs / (1000 * 60 * 60));
+                            const days = Math.floor(hours / 24);
+                            const remH = hours % 24;
+                            return days > 0 ? `${days}d ${remH}h` : `${hours}h ${Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))}m`;
+                          })() : "";
+                          return (
+                            <button key={s.servicio_id} onClick={() => { navigate(`/services/${s.servicio_id}`); setExpandedSection(null); }}
+                              className="w-full flex items-center gap-2 text-left text-sm text-red-700 hover:bg-red-100/50 rounded-lg px-3 py-2 transition">
+                              <span className="font-semibold text-red-800 shrink-0">{s.servicio_codigo}</span>
+                              <span className="truncate flex-1">— {s.servicio_descripcion}</span>
+                              {techs.length > 0 && <span className="text-red-600 shrink-0">— {techs.map(t => t.name.split(" ")[0]).join(", ")}</span>}
+                              <span className="text-red-500 shrink-0 ml-1">{timeDisplay}</span>
+                              <ChevronRight className="w-4 h-4 shrink-0 text-red-400" />
+                            </button>
+                          );
+                        }) : <p className="text-sm text-gray-400">Sin servicios bloqueados</p>}
+                      </div>
+                    </div>
+
+                    {/* RETRASADOS enlarged */}
+                    <div className="rounded-2xl p-5 border-2 bg-orange-50 border-orange-300">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-12 h-12 rounded-xl bg-orange-500 flex items-center justify-center">
+                          <Clock className="w-6 h-6 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-orange-700">RETRASADOS</p>
+                          <p className="text-4xl font-extrabold text-orange-700">{retrasados.length}</p>
+                        </div>
+                      </div>
+                      <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                        {retrasados.length > 0 ? retrasados.map((s) => {
+                          const techs = techByService.get(s.servicio_id) || [];
+                          const timeDisplay = s.servicio_fecha_inicio ? (() => {
+                            const start = new Date(s.servicio_fecha_inicio);
+                            const diffMs = Date.now() - start.getTime();
+                            const hours = Math.floor(diffMs / (1000 * 60 * 60));
+                            const days = Math.floor(hours / 24);
+                            const remH = hours % 24;
+                            return days > 0 ? `${days}d ${remH}h` : `${hours}h ${Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))}m`;
+                          })() : "";
+                          return (
+                            <button key={s.servicio_id} onClick={() => { navigate(`/services/${s.servicio_id}`); setExpandedSection(null); }}
+                              className="w-full flex items-center gap-2 text-left text-sm text-orange-700 hover:bg-orange-100/50 rounded-lg px-3 py-2 transition">
+                              <span className="font-semibold text-orange-800 shrink-0">{s.servicio_codigo}</span>
+                              <span className="truncate flex-1">— {s.servicio_descripcion}</span>
+                              {techs.length > 0 && <span className="text-orange-600 shrink-0 hidden sm:inline">— {techs.map(t => t.name.split(" ")[0]).join(", ")}</span>}
+                              <span className="text-orange-500 shrink-0 ml-1">{timeDisplay}</span>
+                              <ChevronRight className="w-4 h-4 shrink-0 text-orange-400" />
+                            </button>
+                          );
+                        }) : <p className="text-sm text-gray-400">Sin retrasos detectados</p>}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {expandedSection === "kpis" && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-blue-50 rounded-2xl p-6 border border-blue-100">
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="w-10 h-10 bg-blue-900 rounded-xl flex items-center justify-center">
+                        <Zap className="w-5 h-5 text-yellow-400" />
+                      </div>
+                      <p className="text-gray-800 font-bold">PRODUCTIVIDAD</p>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="bg-white rounded-xl p-4 text-center">
+                        <p className="text-blue-900 text-3xl font-extrabold">{servicesInPeriod.length}</p>
+                        <p className="text-blue-700 font-semibold">Servicios completados</p>
+                        <p className="text-blue-400 text-sm">en el período ({prodFilter})</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-white rounded-xl p-3 text-center">
+                          <p className="text-lg font-extrabold text-blue-900">{topAreaServices}</p>
+                          <p className="text-blue-700 text-xs font-semibold">Mejor área</p>
+                          <p className="text-blue-400 text-xs truncate">{topAreaName}</p>
+                        </div>
+                        <div className="bg-white rounded-xl p-3 text-center">
+                          <p className="text-lg font-extrabold text-blue-900">{topCollabServices}</p>
+                          <p className="text-blue-700 text-xs font-semibold">Mejor collab.</p>
+                          <p className="text-blue-400 text-xs truncate">{topCollabName}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-green-50 rounded-2xl p-6 border border-green-100">
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="w-10 h-10 bg-green-600 rounded-xl flex items-center justify-center">
+                        <TrendingUp className="w-5 h-5 text-white" />
+                      </div>
+                      <p className="text-gray-800 font-bold">EFICIENCIA</p>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-1 gap-3">
+                        <div className="bg-white rounded-xl p-3 text-center">
+                          <p className="text-2xl font-extrabold text-green-700">{avgDays}</p>
+                          <p className="text-green-700 text-xs font-semibold">Días promedio por servicio</p>
+                        </div>
+                        <div className="bg-white rounded-xl p-3 text-center">
+                          <p className="text-2xl font-extrabold text-green-700">{pctTimely}%</p>
+                          <p className="text-green-700 text-xs font-semibold">Servicios oportunos</p>
+                        </div>
+                        <div className="bg-white rounded-xl p-3 text-center">
+                          <p className="text-2xl font-extrabold text-red-600">{pctDelayed}%</p>
+                          <p className="text-red-600 text-xs font-semibold">Retrasados</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-yellow-50 rounded-2xl p-6 border border-yellow-100">
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="w-10 h-10 bg-yellow-500 rounded-xl flex items-center justify-center">
+                        <Star className="w-5 h-5 text-white fill-white" />
+                      </div>
+                      <p className="text-gray-800 font-bold">GESTIÓN DEL CLIENTE</p>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="bg-white rounded-xl p-4 text-center">
+                        <p className="text-4xl font-extrabold text-yellow-500">{realSatisfaction}</p>
+                        <div className="flex gap-1 justify-center mt-1">
+                          {[1,2,3,4,5].map((s) => (
+                            <Star key={s} className={`w-5 h-5 ${s <= Math.round(realSatisfaction) ? "fill-yellow-400 text-yellow-400" : "fill-gray-200 text-gray-200"}`} />
+                          ))}
+                        </div>
+                        <p className="text-gray-400 text-sm mt-1">{califPuntajes.length} calificaciones</p>
+                      </div>
+                      <div className="bg-white rounded-xl p-3 space-y-2">
+                        {[
+                          { label: "Califican", value: `${realPctCalifican}%` },
+                          { label: "Positivos (≥3)", value: `${pctPositivos}%` },
+                          { label: "Negativos (<3)", value: `${pctNegativos}%` },
+                        ].map((m) => (
+                          <div key={m.label} className="flex items-center justify-between text-sm">
+                            <span className="text-gray-500">{m.label}</span>
+                            <span className="font-bold">{m.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {expandedSection === "operativo" && (
+                <div>
+                  {pieData.length > 0 && (
+                    <div className="bg-white rounded-2xl p-5 border border-gray-100">
+                      <h3 className="text-gray-800 font-semibold mb-3">Estado General</h3>
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} dataKey="value" paddingAngle={2}>
+                              {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                            </Pie>
+                            <Tooltip />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+                        {pieData.map((e) => (
+                          <div key={e.name} className="bg-gray-50 rounded-xl p-3 text-center">
+                            <div className="w-3 h-3 rounded-full mx-auto mb-1" style={{ backgroundColor: e.color }} />
+                            <p className="text-gray-800 font-bold">{e.value}</p>
+                            <p className="text-xs text-gray-500">{e.name}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+                    {areaData.map((a) => (
+                      <div key={a.name} className="bg-white rounded-xl p-4 border border-gray-100">
+                        <p className="text-gray-800 font-bold">{a.name}</p>
+                        <div className="flex items-center justify-between mt-2 text-sm">
+                          <span className="text-gray-500">Completados</span>
+                          <span className="text-green-700 font-bold">{a.pctComp}%</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-500">Promedio</span>
+                          <span className="text-blue-700 font-bold">{a.avgDias}d</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {expandedSection === "equipo" && (
+                <div className="bg-white rounded-2xl border border-gray-100">
+                  <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                    <p className="text-gray-600 font-semibold">Ranking de Colaboradores</p>
+                    <span className="text-sm text-gray-400">{equipoRanking.length} colaboradores</span>
+                  </div>
+                  <div className="divide-y divide-gray-50 max-h-[400px] overflow-y-auto">
+                    {equipoRanking.map((c, idx) => {
+                      const rank = equipoAsc ? idx + 1 : equipoRanking.length - idx;
+                      return (
+                        <div key={c.usuario_id} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-50 transition">
+                          <span className="flex-shrink-0 w-7 text-center text-sm font-bold text-gray-400">#{rank}</span>
+                          <div className="w-10 h-10 rounded-full bg-blue-900 flex items-center justify-center flex-shrink-0">
+                            <span className="text-white text-sm font-bold">{c.usuario_nombres[0]}{c.usuario_apellido_paterno?.[0] || ""}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-gray-900 font-semibold">{c.usuario_nombres}</p>
+                            <p className="text-gray-400 text-sm">{c.usuario_rol}</p>
+                          </div>
+                          <div className="flex items-center gap-6 flex-shrink-0">
+                            <div className="text-right">
+                              <p className="text-blue-700 font-bold text-lg">{c.completedServices}</p>
+                              <p className="text-gray-400 text-xs">completados</p>
+                            </div>
+                            <div className="text-right">
+                              <div className="flex items-center gap-0.5 justify-end">
+                                {c.avgRating > 0 ? (
+                                  [1,2,3,4,5].map(s => (
+                                    <Star key={s} className={`w-4 h-4 ${s <= Math.round(c.avgRating) ? "fill-yellow-400 text-yellow-400" : "fill-gray-200 text-gray-200"}`} />
+                                  ))
+                                ) : <span className="text-gray-400 font-bold text-lg">—</span>}
+                              </div>
+                              <p className="text-gray-400 text-xs">prom.</p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {equipoRanking.length === 0 && (
+                      <div className="text-center py-8">
+                        <p className="text-gray-500 font-medium">Sin datos de colaboradores</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {expandedSection === "realtime" && (
+                <div className="bg-white rounded-2xl border border-gray-100">
+                  <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                    <p className="text-gray-600 font-semibold">Últimas actualizaciones del sistema</p>
+                  </div>
+                  <div className="divide-y divide-gray-50 max-h-[400px] overflow-y-auto">
+                    {servicios
+                      .filter(s => s.servicio_estado !== "completado")
+                      .sort((a, b) => getServiceProgress(b.servicio_id) - getServiceProgress(a.servicio_id))
+                      .map((srv) => {
+                        const pct = getServiceProgress(srv.servicio_id);
+                        const srvTasks = allTasks.filter(t => t.servicio_id === srv.servicio_id);
+                        const done = srvTasks.filter(t => t.tarea_estado === "completado").length;
+                        const techs = techByService.get(srv.servicio_id) || [];
+                        const timeDisplay = srv.servicio_fecha_inicio ? (() => {
+                          const start = new Date(srv.servicio_fecha_inicio);
+                          const diffMs = Date.now() - start.getTime();
+                          const hours = Math.floor(diffMs / (1000 * 60 * 60));
+                          const days = Math.floor(hours / 24);
+                          const remainingHours = hours % 24;
+                          if (days > 0) return `${days}d ${remainingHours}h`;
+                          const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                          return `${hours}h ${minutes}m`;
+                        })() : "—";
+                        const isDelayed = isRetrasado(srv);
+                        const statusC: Record<string, string> = { "en_progreso": "text-blue-700 bg-blue-50", "pendiente": "text-yellow-700 bg-yellow-50", "bloqueado": "text-red-700 bg-red-50", "completado": "text-green-700 bg-green-50" };
+                        return (
+                          <button key={srv.servicio_id} onClick={() => { navigate(`/services/${srv.servicio_id}`); setExpandedSection(null); }}
+                            className="w-full flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition text-left">
+                            <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                              <ClipboardList className="w-5 h-5 text-blue-700" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                                <span className="text-gray-900 font-semibold">{srv.servicio_codigo || ""}</span>
+                                <span className={`text-xs px-2 py-0.5 rounded-full ${statusC[srv.servicio_estado] || ""}`} style={{ fontWeight: 500 }}>{srv.servicio_estado === "en_progreso" ? "En progreso" : srv.servicio_estado}</span>
+                                {isDelayed && <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full font-semibold">Retrasado</span>}
+                              </div>
+                              <p className="text-gray-500 text-sm truncate">{srv.servicio_descripcion}</p>
+                              <div className="flex items-center gap-3 text-sm text-gray-400 mt-0.5">
+                                <span>{clienteMap.get(srv.cliente_id!) || "—"}</span>
+                                <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{timeDisplay}</span>
+                                {techs.length > 0 && (
+                                  <span>{techs.map(t => t.name.split(" ")[0]).join(", ")}</span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex-shrink-0 text-right">
+                              <p className="text-gray-700 font-bold text-lg">{pct}%</p>
+                              <p className="text-gray-400 text-sm">{done}/{srvTasks.length} tareas</p>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                          </button>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+
+              {expandedSection === "satisfaccion" && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {areas.map((area) => {
+                    const aServices = servicios.filter(s => s.area_id === area.area_id);
+                    const aCompleted = aServices.filter(s => s.servicio_estado === "completado").length;
+                    const puntajes = areaCalifMap.get(area.area_id) || [];
+                    const avgStars = puntajes.length > 0
+                      ? (puntajes.reduce((a, b) => a + b, 0) / puntajes.length).toFixed(1)
+                      : "—";
+                    return (
+                      <div key={area.area_id} className="bg-white rounded-2xl p-5 border border-gray-100">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="w-10 h-10 bg-blue-900 rounded-xl flex items-center justify-center">
+                            <MapPin className="w-5 h-5 text-yellow-400" />
+                          </div>
+                          <div>
+                            <p className="text-gray-800 font-semibold">{area.area_nombre}</p>
+                            <p className="text-gray-400 text-sm">{userMap.get(area.area_encargado_id!) || "—"}</p>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-500">Satisfacción</span>
+                            <div className="flex items-center gap-1">
+                              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                              <span className="font-bold text-lg">{avgStars}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-500">Completados</span>
+                            <span className="text-green-700 font-bold">{aCompleted}/{aServices.length}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
