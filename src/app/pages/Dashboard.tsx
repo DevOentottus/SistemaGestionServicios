@@ -413,9 +413,7 @@ export default function Dashboard() {
               <div>
                 <p className={`text-xs font-bold ${blockedServices.length > 0 ? "text-red-600" : "text-gray-500"}`}>BLOQUEADOS</p>
                 <p className={`text-3xl font-extrabold ${blockedServices.length > 0 ? "text-red-700" : "text-gray-400"}`}>{blockedServices.length}</p>
-                <p className={`text-[10px] leading-tight mt-1 ${blockedServices.length > 0 ? "text-red-500" : "text-gray-400"}`}>
-                  Marcado como bloqueado por un colaborador
-                </p>
+            
               </div>
             </div>
             <div className="flex-1 p-3 md:p-4 md:pl-2 max-h-[200px] overflow-y-auto">
