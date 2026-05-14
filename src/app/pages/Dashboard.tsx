@@ -28,7 +28,7 @@ const COLOR_MAP: Record<string, { bg: string; text700: string; text400: string }
 };
 
 const sectionIds = ["alertas", "kpis", "operativo", "equipo", "realtime", "satisfaccion"];
-const sectionLabels = ["Alertas", "Indicadores Clave", "Operativo", "Equipo", "Tiempo Real", "Satisfacción"];
+const sectionLabels = ["Alertas", "Indicadores Clave", "Vista Operativa", "Desempeño", "Tiempo Real", "Satisfacción"];
 
 export default function Dashboard() {
   const { currentUser } = useAuth();
@@ -418,7 +418,7 @@ export default function Dashboard() {
           ))}
           <button onClick={() => { setHighlightMode(!highlightMode); setExpandedSection(null); }}
             className={`text-[10px] px-2 py-0.5 rounded transition font-medium flex items-center gap-0.5 ${
-              highlightMode ? 'bg-white text-blue-900' : 'text-blue-200/60 hover:text-white'
+              highlightMode ? 'bg-white text-blue-900' : 'text-blue-200 hover:text-white'
             }`}>
             <Eye className="w-3 h-3" />
             {highlightMode ? 'Salir' : 'Resaltar'}
