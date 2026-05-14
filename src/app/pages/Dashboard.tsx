@@ -43,6 +43,7 @@ export default function Dashboard() {
   const [calificaciones, setCalificaciones] = useState<any[]>([]);
   const [clientes, setClientes] = useState<any[]>([]);
   const [servicioColaboradores, setServicioColaboradores] = useState<ServicioColaborador[]>([]);
+  const [comentariosServicio, setComentariosServicio] = useState<any[]>([]);
   const [prodFilter, setProdFilter] = useState<"semana" | "mes" | "año">("semana");
   const [efiAreaFilter, setEfiAreaFilter] = useState<number | null>(null);
   const [clienteAreaFilter, setClienteAreaFilter] = useState<number | null>(null);
@@ -58,7 +59,7 @@ export default function Dashboard() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [s, t, u, a, r, al, cf, c, sc] = await Promise.all([
+      const [s, t, u, a, r, al, cf, c, sc, cm] = await Promise.all([
         supabase.from("servicios").select("servicio_id, servicio_codigo, servicio_descripcion, servicio_estado, servicio_fecha_inicio, servicio_fecha_fin, cliente_id, area_id, servicio_tiempo_estimado"),
         supabase.from("tareas").select("tarea_id, servicio_id, tarea_titulo, tarea_estado, tarea_completado_por, tarea_fecha_completado"),
         supabase.from("usuarios").select("usuario_id, usuario_nombres, usuario_apellido_paterno, usuario_rol, usuario_activo"),
@@ -68,8 +69,9 @@ export default function Dashboard() {
         supabase.from("calificaciones").select("calificacion_puntaje, calificacion_comentario, servicio_id"),
         supabase.from("clientes").select("cliente_id, cliente_nombres"),
         supabase.from("serviciocolaboradores").select("servicio_id, colaborador_id"),
+        supabase.from("serviciocomentarios").select("servicio_id"),
       ]);
-      if (s.error || t.error || u.error || a.error || r.error || al.error || cf.error || c.error || sc.error) throw "Error loading dashboard data";
+      if (s.error || t.error || u.error || a.error || r.error || al.error || cf.error || c.error || sc.error || cm.error) throw "Error loading dashboard data";
 
       const areasData = (a.data || []) as Area[];
       setAreas(areasData);
@@ -81,6 +83,7 @@ export default function Dashboard() {
       setCalificaciones((cf.data || []) as any[]);
       setClientes((c.data || []) as any[]);
       setServicioColaboradores((sc.data || []) as ServicioColaborador[]);
+      setComentariosServicio((cm.data || []) as any[]);
     } catch (err) {
       console.error("Error loading dashboard:", err);
     } finally {
@@ -225,6 +228,14 @@ export default function Dashboard() {
     if (servicio && servicio.area_id) {
       if (!areaCalifMap.has(servicio.area_id)) areaCalifMap.set(servicio.area_id, []);
       areaCalifMap.get(servicio.area_id)!.push(c.calificacion_puntaje);
+    }
+  });
+
+  const areaComentariosMap = new Map<number, number>();
+  comentariosServicio.forEach((c: { servicio_id: number }) => {
+    const servicio = servicios.find(s => s.servicio_id === c.servicio_id);
+    if (servicio && servicio.area_id) {
+      areaComentariosMap.set(servicio.area_id, (areaComentariosMap.get(servicio.area_id) || 0) + 1);
     }
   });
 
@@ -921,6 +932,10 @@ export default function Dashboard() {
                     <span className="text-gray-500">Completados</span>
                     <span className="text-green-700 font-semibold">{aCompleted}/{aServices.length}</span>
                   </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-500">Observaciones</span>
+                    <span className="text-blue-700 font-semibold">{areaComentariosMap.get(area.area_id) || 0}</span>
+                  </div>
                 </div>
               </div>
             );
@@ -1365,6 +1380,10 @@ export default function Dashboard() {
                           <div className="flex items-center justify-between">
                             <span className="text-gray-500">Completados</span>
                             <span className="text-green-700 font-bold">{aCompleted}/{aServices.length}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-500">Observaciones</span>
+                            <span className="text-blue-700 font-bold">{areaComentariosMap.get(area.area_id) || 0}</span>
                           </div>
                         </div>
                       </div>
