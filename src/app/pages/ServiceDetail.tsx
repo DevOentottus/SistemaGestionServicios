@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
-import { ArrowLeft, CheckCircle2, Circle, MessageSquare, Play, Send, Star, UserPlus, X } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Circle, Lock, Unlock, MessageSquare, Play, Send, Star, UserPlus, X, AlertTriangle } from "lucide-react";
 
 // ── Types (NEW schema) ──
 
@@ -110,6 +110,8 @@ export default function ServiceDetail() {
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [newNote, setNewNote] = useState("");
   const [showAddTech, setShowAddTech] = useState(false);
+  const [showBlockModal, setShowBlockModal] = useState(false);
+  const [blockReason, setBlockReason] = useState("");
 
   // ── Data fetching ──
 
@@ -396,6 +398,68 @@ export default function ServiceDetail() {
     }
   };
 
+  // ── Bloquear / Desbloquear servicio ──
+
+  const blockService = async () => {
+    if (!service || !blockReason.trim()) return;
+    setSaving(true);
+    try {
+      await supabase
+        .from("servicios")
+        .update({ servicio_estado: "bloqueado" })
+        .eq("servicio_id", service.servicio_id);
+
+      const { error: cError } = await supabase
+        .from("serviciocomentarios")
+        .insert([{
+          servicio_id: service.servicio_id,
+          usuario_id: currentUser?.id_usuario || null,
+          serviciocomentario_contenido: `🔒 BLOQUEADO: ${blockReason.trim()}`,
+        }]);
+
+      if (cError) throw cError;
+
+      setService((prev) => (prev ? { ...prev, servicio_estado: "bloqueado" } : prev));
+      setShowBlockModal(false);
+      setBlockReason("");
+      fetchData(); // refresca comentarios
+    } catch (err) {
+      console.error(err);
+      alert("Error bloqueando servicio");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const unblockService = async () => {
+    if (!service) return;
+    setSaving(true);
+    try {
+      await supabase
+        .from("servicios")
+        .update({ servicio_estado: "en_progreso" })
+        .eq("servicio_id", service.servicio_id);
+
+      const { error: cError } = await supabase
+        .from("serviciocomentarios")
+        .insert([{
+          servicio_id: service.servicio_id,
+          usuario_id: currentUser?.id_usuario || null,
+          serviciocomentario_contenido: `✅ Desbloqueado - servicio reanudado`,
+        }]);
+
+      if (cError) throw cError;
+
+      setService((prev) => (prev ? { ...prev, servicio_estado: "en_progreso" } : prev));
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      alert("Error desbloqueando servicio");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const addTechnician = async (userId: number) => {
     if (!service) return;
     try {
@@ -488,15 +552,35 @@ export default function ServiceDetail() {
                 ` · Fin real: ${service.servicio_fecha_fin} ${service.servicio_hora_fin || ""}`}
             </p>
           </div>
-          {service.servicio_estado === "pendiente" && (
-            <button
-              disabled={saving}
-              onClick={startService}
-              className="bg-green-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:bg-green-700"
-            >
-              <Play className="w-4 h-4" /> Iniciar servicio
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {service.servicio_estado === "pendiente" && (
+              <button
+                disabled={saving}
+                onClick={startService}
+                className="bg-green-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:bg-green-700"
+              >
+                <Play className="w-4 h-4" /> Iniciar servicio
+              </button>
+            )}
+            {service.servicio_estado === "en_progreso" && (
+              <button
+                disabled={saving}
+                onClick={() => setShowBlockModal(true)}
+                className="bg-red-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:bg-red-700"
+              >
+                <Lock className="w-4 h-4" /> Bloquear servicio
+              </button>
+            )}
+            {service.servicio_estado === "bloqueado" && (
+              <button
+                disabled={saving}
+                onClick={unblockService}
+                className="bg-amber-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:bg-amber-700"
+              >
+                <Unlock className="w-4 h-4" /> Desbloquear servicio
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -673,6 +757,51 @@ export default function ServiceDetail() {
           </button>
         </div>
       </div>
+
+      {/* ── Modal Bloquear Servicio ── */}
+      {showBlockModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowBlockModal(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-gray-900 font-bold">Bloquear servicio</h3>
+                <p className="text-sm text-gray-500">{service.servicio_codigo}</p>
+              </div>
+              <button onClick={() => setShowBlockModal(false)} className="ml-auto p-1 rounded-lg hover:bg-gray-100">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <label className="block text-xs text-gray-600 mb-1 font-semibold">Motivo del bloqueo</label>
+            <textarea
+              value={blockReason}
+              onChange={(e) => setBlockReason(e.target.value)}
+              rows={3}
+              placeholder="Ej: Esperando repuestos, cliente no responde, requiere aprobación..."
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-red-500 bg-gray-50 resize-none"
+              autoFocus
+            />
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={() => { setShowBlockModal(false); setBlockReason(""); }}
+                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl"
+              >
+                Cancelar
+              </button>
+              <button
+                disabled={saving || !blockReason.trim()}
+                onClick={blockService}
+                className="px-4 py-2 text-sm bg-red-600 text-white rounded-xl hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
+              >
+                <Lock className="w-4 h-4" /> Bloquear
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Feedback del cliente ── */}
       {calificacion && (
