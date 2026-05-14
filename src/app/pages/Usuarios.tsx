@@ -131,7 +131,7 @@ export default function Usuarios() {
     { label: "Teléfono", key: "telefono", placeholder: "Ej: 987654321" },
     { label: "Nombres", key: "nombres", placeholder: "Nombres completos" },
     { label: "Apellido paterno", key: "apellido_paterno", placeholder: "Apellido paterno" },
-    { label: "Apellido materno", key: "apellido_materno", placeholder: "Apellido materno (opcional)" },
+    { label: "Apellido materno", key: "apellido_materno", placeholder: "Apellido materno" },
   ];
 
   const closePasswordModal = () => {
