@@ -28,7 +28,7 @@ const COLOR_MAP: Record<string, { bg: string; text700: string; text400: string }
 };
 
 const sectionIds = ["alertas", "kpis", "operativo", "equipo", "realtime", "satisfaccion"];
-const sectionLabels = ["Alertas", "Indicadores Clave", "Visualización Operativa", "Desempeño del Equipo", "Seguimiento en Tiempo Real", "Satisfacción por Área"];
+const sectionLabels = ["Alertas", "Indicadores", "Visualización Operativa", "Desempeño", "Tiempo Real", "Satisfacción"];
 
 export default function Dashboard() {
   const { currentUser } = useAuth();
@@ -404,6 +404,13 @@ export default function Dashboard() {
         <div className="flex items-center gap-2 shrink-0">
           <h1 className="text-white font-bold text-sm">¡Bienvenido, {currentUser?.nombres}!</h1>
           <span className="bg-yellow-400/20 text-yellow-300 text-[10px] px-2 py-0.5 rounded-full font-semibold">{currentUser?.rol || "Administrador"}</span>
+          <button onClick={() => { setHighlightMode(!highlightMode); setExpandedSection(null); }}
+            className={`text-[10px] px-2 py-0.5 rounded transition font-medium flex items-center gap-0.5 ${
+              highlightMode ? 'bg-white text-blue-900' : 'bg-black/50 text-white'
+            }`}>
+            <Eye className="w-3 h-3" />
+            {highlightMode ? 'Salir' : 'Resaltar'}
+          </button>
         </div>
         <span className="text-blue-300 hidden sm:inline">|</span>
         <p className="text-blue-200 text-xs shrink-0">
@@ -416,13 +423,6 @@ export default function Dashboard() {
               {label}
             </button>
           ))}
-          <button onClick={() => { setHighlightMode(!highlightMode); setExpandedSection(null); }}
-            className={`text-[10px] px-2 py-0.5 rounded transition font-medium flex items-center gap-0.5 ${
-              highlightMode ? 'bg-white text-blue-900' : 'bg-black text-white'
-            }`}>
-            <Eye className="w-3 h-3" />
-            {highlightMode ? 'Salir' : 'Resaltar'}
-          </button>
         </div>
       </div>
 
