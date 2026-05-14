@@ -401,18 +401,16 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div className="bg-gradient-to-r from-blue-900 to-blue-700 rounded-2xl px-5 py-3 text-white flex items-center gap-3 flex-wrap">
-        <div className="flex items-center flex-1 min-w-0">
-          <h1 className="text-white font-bold text-sm truncate">¡Bienvenido, {currentUser?.nombres}!</h1>
-          <div className="flex items-center gap-2 ml-auto shrink-0">
-            <span className="bg-yellow-400/20 text-yellow-300 text-[10px] px-2 py-0.5 rounded-full font-semibold">{currentUser?.rol || "Administrador"}</span>
-            <button onClick={() => { setHighlightMode(!highlightMode); setExpandedSection(null); }}
-              className={`text-[10px] px-2 py-0.5 rounded transition font-medium flex items-center gap-0.5 ${
-                highlightMode ? 'bg-white text-blue-900' : 'bg-black/50 text-white'
-              }`}>
-              <Eye className="w-3 h-3" />
-              {highlightMode ? 'Salir' : 'Resaltar'}
-            </button>
-          </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <h1 className="text-white font-bold text-sm">¡Bienvenido, {currentUser?.nombres}!</h1>
+          <span className="bg-yellow-400/20 text-yellow-300 text-[10px] px-2 py-0.5 rounded-full font-semibold">{currentUser?.rol || "Administrador"}</span>
+          <button onClick={() => { setHighlightMode(!highlightMode); setExpandedSection(null); }}
+            className={`text-[10px] px-2 py-0.5 rounded transition font-medium flex items-center gap-0.5 ${
+              highlightMode ? 'bg-white text-blue-900' : 'bg-black/50 text-white'
+            }`}>
+            <Eye className="w-3 h-3" />
+            {highlightMode ? 'Salir' : 'Resaltar'}
+          </button>
         </div>
         <span className="text-blue-300 hidden sm:inline">|</span>
           <p className="text-blue-200 text-xs shrink-0">
