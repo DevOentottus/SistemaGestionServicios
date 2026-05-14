@@ -400,30 +400,29 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-gradient-to-r from-blue-900 to-blue-700 rounded-2xl p-5 text-white">
-        <div className="flex items-center justify-between mb-1">
-          <h1 className="text-white font-bold text-lg">¡Bienvenido, {currentUser?.nombres}!</h1>
-          <span className="bg-yellow-400/20 text-yellow-300 text-xs px-3 py-1 rounded-full font-semibold">{currentUser?.rol || "Administrador"}</span>
+      <div className="bg-gradient-to-r from-blue-900 to-blue-700 rounded-2xl px-5 py-3 text-white flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2 shrink-0">
+          <h1 className="text-white font-bold text-sm">¡Bienvenido, {currentUser?.nombres}!</h1>
+          <span className="bg-yellow-400/20 text-yellow-300 text-[10px] px-2 py-0.5 rounded-full font-semibold">{currentUser?.rol || "Administrador"}</span>
         </div>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <p className="text-blue-200 text-sm">
-            Panel de visualización — {new Date().toLocaleDateString("es-PE", { weekday: "long", year: "numeric", month: "long", day: "numeric" })} — {new Date().toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {sectionLabels.map((label, i) => (
-              <button key={i} onClick={() => scrollTo(sectionIds[i])}
-                className="text-[11px] bg-white/10 hover:bg-white/20 text-white px-2.5 py-1 rounded-full transition font-medium">
-                {label}
-              </button>
-            ))}
-            <button onClick={() => { setHighlightMode(!highlightMode); setExpandedSection(null); }}
-              className={`text-[11px] px-2.5 py-1 rounded-full transition font-medium flex items-center gap-1 ${
-                highlightMode ? 'bg-white text-blue-900 shadow-md' : 'bg-white/10 hover:bg-white/20 text-white'
-              }`}>
-              <Eye className="w-3 h-3" />
-              {highlightMode ? 'Salir' : 'Resaltar'}
+        <span className="text-blue-300 hidden sm:inline">|</span>
+        <p className="text-blue-200 text-xs shrink-0">
+          Panel de visualización — {new Date().toLocaleDateString("es-PE", { weekday: "long", year: "numeric", month: "long", day: "numeric" })} — {new Date().toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}
+        </p>
+        <div className="flex items-center gap-1 ml-auto">
+          {sectionLabels.map((label, i) => (
+            <button key={i} onClick={() => scrollTo(sectionIds[i])}
+              className="text-[10px] text-blue-200/60 hover:text-white px-2 py-0.5 rounded transition font-medium">
+              {label}
             </button>
-          </div>
+          ))}
+          <button onClick={() => { setHighlightMode(!highlightMode); setExpandedSection(null); }}
+            className={`text-[10px] px-2 py-0.5 rounded transition font-medium flex items-center gap-0.5 ${
+              highlightMode ? 'bg-white text-blue-900' : 'text-blue-200/60 hover:text-white'
+            }`}>
+            <Eye className="w-3 h-3" />
+            {highlightMode ? 'Salir' : 'Resaltar'}
+          </button>
         </div>
       </div>
 
