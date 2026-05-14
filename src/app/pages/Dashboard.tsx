@@ -698,14 +698,14 @@ export default function Dashboard() {
               <TrendingUp className="w-5 h-5 text-blue-600" />
             </div>
             <ResponsiveContainer width="100%" height={180}>
-              <BarChart data={areaData} barGap={4}>
+              <BarChart data={areaData} barGap={2} barCategoryGap="20%">
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip />
-                <Bar dataKey="pendientes" fill="#F59E0B" radius={[0,0,0,0]} name="Pendientes" stackId="a" />
-                <Bar dataKey="enProgreso" fill="#2563EB" radius={[0,0,0,0]} name="En progreso" stackId="a" />
-                <Bar dataKey="bloqueados" fill="#DC2626" radius={[0,0,0,0]} name="Bloqueados" stackId="a" />
-                <Bar dataKey="completados" fill="#16A34A" radius={[4,4,0,0]} name="Completados" stackId="a" />
+                <Bar dataKey="pendientes" fill="#F59E0B" radius={[3,3,0,0]} name="Pendientes" />
+                <Bar dataKey="enProgreso" fill="#2563EB" radius={[3,3,0,0]} name="En progreso" />
+                <Bar dataKey="bloqueados" fill="#DC2626" radius={[3,3,0,0]} name="Bloqueados" />
+                <Bar dataKey="completados" fill="#16A34A" radius={[3,3,0,0]} name="Completados" />
               </BarChart>
             </ResponsiveContainer>
             <div className="flex items-center gap-4 mt-3 justify-center text-xs text-gray-500">
@@ -1155,14 +1155,14 @@ export default function Dashboard() {
                     <h3 className="text-gray-800 font-semibold mb-4">Servicios por Área — cantidad por estado</h3>
                     <div className="h-72">
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={areaData} barGap={4}>
+                        <BarChart data={areaData} barGap={2} barCategoryGap="20%">
                           <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                           <YAxis tick={{ fontSize: 12 }} />
                           <Tooltip />
-                          <Bar dataKey="pendientes" fill="#F59E0B" radius={[0,0,0,0]} name="Pendientes" stackId="a" />
-                          <Bar dataKey="enProgreso" fill="#2563EB" radius={[0,0,0,0]} name="En progreso" stackId="a" />
-                          <Bar dataKey="bloqueados" fill="#DC2626" radius={[0,0,0,0]} name="Bloqueados" stackId="a" />
-                          <Bar dataKey="completados" fill="#16A34A" radius={[4,4,0,0]} name="Completados" stackId="a" />
+                          <Bar dataKey="pendientes" fill="#F59E0B" radius={[3,3,0,0]} name="Pendientes" />
+                          <Bar dataKey="enProgreso" fill="#2563EB" radius={[3,3,0,0]} name="En progreso" />
+                          <Bar dataKey="bloqueados" fill="#DC2626" radius={[3,3,0,0]} name="Bloqueados" />
+                          <Bar dataKey="completados" fill="#16A34A" radius={[3,3,0,0]} name="Completados" />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>
