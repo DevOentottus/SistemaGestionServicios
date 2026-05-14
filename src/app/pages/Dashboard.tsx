@@ -45,6 +45,7 @@ export default function Dashboard() {
   const [servicioColaboradores, setServicioColaboradores] = useState<ServicioColaborador[]>([]);
   const [prodFilter, setProdFilter] = useState<"semana" | "mes" | "año">("semana");
   const [efiAreaFilter, setEfiAreaFilter] = useState<number | null>(null);
+  const [clienteAreaFilter, setClienteAreaFilter] = useState<number | null>(null);
   const [equipoAsc, setEquipoAsc] = useState(false);
   const [highlightMode, setHighlightMode] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
@@ -193,13 +194,22 @@ export default function Dashboard() {
   const demoradosCount = blockedServices.length + retrasados.length;
 
   // ---- Customer KPI ----
-  const califPuntajes = calificaciones.map(c => c.calificacion_puntaje);
+  const serviciosConCalifArea = clienteAreaFilter == null
+    ? servicios
+    : servicios.filter(s => s.area_id === clienteAreaFilter);
+  const serviciosCompletadosArea = clienteAreaFilter == null
+    ? completedServices
+    : completedServices.filter(s => s.area_id === clienteAreaFilter);
+  const calificacionesArea = clienteAreaFilter == null
+    ? calificaciones
+    : calificaciones.filter(c => serviciosConCalifArea.some(s => s.servicio_id === c.servicio_id));
+  const califPuntajes = calificacionesArea.map(c => c.calificacion_puntaje);
   const realSatisfaction = califPuntajes.length > 0 
     ? parseFloat((califPuntajes.reduce((a, b) => a + b, 0) / califPuntajes.length).toFixed(1))
     : 0;
-  const serviciosConCalif = new Set(calificaciones.map(c => c.servicio_id)).size;
-  const realPctCalifican = completedServices.length > 0 
-    ? Math.round((serviciosConCalif / completedServices.length) * 100) 
+  const serviciosConCalif = new Set(calificacionesArea.map(c => c.servicio_id)).size;
+  const realPctCalifican = serviciosCompletadosArea.length > 0 
+    ? Math.round((serviciosConCalif / serviciosCompletadosArea.length) * 100) 
     : 0;
   const pctPositivos = califPuntajes.length > 0
     ? Math.round((califPuntajes.filter(p => p >= 3).length / califPuntajes.length) * 100)
@@ -261,6 +271,9 @@ export default function Dashboard() {
   const areaData = areas.map((a) => {
     const aS = servicios.filter((s) => s.area_id === a.area_id);
     const aCompleted = aS.filter((s) => s.servicio_estado === "completado");
+    const aInProgress = aS.filter((s) => s.servicio_estado === "en_progreso");
+    const aPending = aS.filter((s) => s.servicio_estado === "pendiente");
+    const aBlocked = aS.filter((s) => s.servicio_estado === "bloqueado");
     const avgT = aCompleted.length
       ? Math.round(aCompleted.reduce((acc, s) => {
           if (!s.servicio_fecha_inicio) return acc;
@@ -270,7 +283,16 @@ export default function Dashboard() {
         }, 0) / aCompleted.length)
       : 0;
     const pctComp = aS.length ? Math.round((aCompleted.length / aS.length) * 100) : 0;
-    return { name: a.area_nombre.slice(0, 10), total: aS.length, completados: aCompleted.length, pctComp, avgDias: avgT };
+    return {
+      name: a.area_nombre.slice(0, 10),
+      total: aS.length,
+      completados: aCompleted.length,
+      enProgreso: aInProgress.length,
+      pendientes: aPending.length,
+      bloqueados: aBlocked.length,
+      pctComp,
+      avgDias: avgT,
+    };
   });
 
   const scrollTo = (id: string) => {
@@ -541,13 +563,6 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-            <div className="bg-blue-50 rounded-xl px-3 py-2">
-              <p className="text-xs text-blue-800 font-semibold">
-                Insight: <span className="font-normal">
-                  {topCollabName !== "—" ? `${topCollabName} lidera con ${topCollabServices} servicios completados.` : "Sin datos aún."}
-                </span>
-              </p>
-            </div>
           </div>
 
           {/* EFICIENCIA */}
@@ -585,13 +600,6 @@ export default function Dashboard() {
                 })}
               </div>
             </div>
-            <div className="bg-green-50 rounded-xl px-3 py-2">
-              <p className="text-xs text-green-800 font-semibold">
-                Insight: <span className="font-normal">
-                  {avgMinutes <= 480 ? `Promedio de ${avgMinutes} min por servicio. Buen ritmo de entrega.` : `Promedio de ${avgMinutes} min. Revisar cuellos de botella.`}
-                </span>
-              </p>
-            </div>
           </div>
 
           {/* GESTIÓN DEL CLIENTE */}
@@ -604,6 +612,13 @@ export default function Dashboard() {
                 <p className="text-gray-800 text-sm font-bold">GESTIÓN DEL CLIENTE</p>
                 <p className="text-gray-400 text-xs">Satisfacción y feedback</p>
               </div>
+            </div>
+            <div className="mb-3">
+              <select value={clienteAreaFilter ?? ""} onChange={(e) => setClienteAreaFilter(e.target.value ? Number(e.target.value) : null)}
+                className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-gray-50 text-gray-700 w-full">
+                <option value="">Todas las áreas</option>
+                {areas.map((a) => <option key={a.area_id} value={a.area_id}>{a.area_nombre}</option>)}
+              </select>
             </div>
             <div className="flex-1 space-y-3">
             <div className="flex items-center gap-4 mb-3">
@@ -634,11 +649,6 @@ export default function Dashboard() {
                 ))}
               </div>
             </div>
-            </div>
-            <div className="bg-yellow-50 rounded-xl px-3 py-2">
-              <p className="text-xs text-yellow-800 font-semibold">
-                Insight: <span className="font-normal">Satisfacción {realSatisfaction}/5. El {realPctCalifican}% de servicios completados tienen calificación.</span>
-              </p>
             </div>
           </div>
         </div>
@@ -683,7 +693,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-gray-800 font-semibold">Servicios por Área</h3>
-                <p className="text-gray-400 text-xs">Con % completados y días promedio</p>
+                <p className="text-gray-400 text-xs">Cantidad de servicios por estado</p>
               </div>
               <TrendingUp className="w-5 h-5 text-blue-600" />
             </div>
@@ -691,25 +701,18 @@ export default function Dashboard() {
               <BarChart data={areaData} barGap={4}>
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(value, name) => [value, name === "total" ? "Total" : name === "completados" ? "Completados" : name]} />
-                <Bar dataKey="total" fill="#1d4ed8" radius={[4,4,0,0]} name="Total" />
-                <Bar dataKey="completados" fill="#F59E0B" radius={[4,4,0,0]} name="Completados" />
+                <Tooltip />
+                <Bar dataKey="pendientes" fill="#F59E0B" radius={[0,0,0,0]} name="Pendientes" stackId="a" />
+                <Bar dataKey="enProgreso" fill="#2563EB" radius={[0,0,0,0]} name="En progreso" stackId="a" />
+                <Bar dataKey="bloqueados" fill="#DC2626" radius={[0,0,0,0]} name="Bloqueados" stackId="a" />
+                <Bar dataKey="completados" fill="#16A34A" radius={[4,4,0,0]} name="Completados" stackId="a" />
               </BarChart>
             </ResponsiveContainer>
-            <div className="grid grid-cols-3 gap-3 mt-3">
-              {areaData.map((a) => (
-                <div key={a.name} className="bg-gray-50 rounded-xl p-2.5">
-                  <p className="text-gray-800 text-xs font-bold">{a.name}</p>
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-xs text-gray-500">Compl.</span>
-                    <span className="text-xs text-green-700 font-bold">{a.pctComp}%</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-gray-500">Prom.</span>
-                    <span className="text-xs text-blue-700 font-bold">{a.avgDias}d</span>
-                  </div>
-                </div>
-              ))}
+            <div className="flex items-center gap-4 mt-3 justify-center text-xs text-gray-500">
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-yellow-400" /> Pendientes</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-blue-600" /> En progreso</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-red-600" /> Bloqueados</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-green-600" /> Completados</span>
             </div>
           </div>
         </div>
@@ -1083,6 +1086,13 @@ export default function Dashboard() {
                       </div>
                       <p className="text-gray-800 font-bold">GESTIÓN DEL CLIENTE</p>
                     </div>
+                    <div className="mb-4">
+                      <select value={clienteAreaFilter ?? ""} onChange={(e) => setClienteAreaFilter(e.target.value ? Number(e.target.value) : null)}
+                        className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 w-full">
+                        <option value="">Todas las áreas</option>
+                        {areas.map((a) => <option key={a.area_id} value={a.area_id}>{a.area_nombre}</option>)}
+                      </select>
+                    </div>
                     <div className="space-y-3">
                       <div className="bg-white rounded-xl p-4 text-center">
                         <p className="text-4xl font-extrabold text-yellow-500">{realSatisfaction}</p>
@@ -1142,29 +1152,49 @@ export default function Dashboard() {
               {expandedSection === "operativo-bar" && (
                 <div>
                   <div className="bg-white rounded-2xl p-6 border border-gray-100">
-                    <h3 className="text-gray-800 font-semibold mb-4">Servicios por Área — % completados y días promedio</h3>
+                    <h3 className="text-gray-800 font-semibold mb-4">Servicios por Área — cantidad por estado</h3>
                     <div className="h-72">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={areaData} barGap={4}>
                           <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                           <YAxis tick={{ fontSize: 12 }} />
-                          <Tooltip formatter={(value, name) => [value, name === "total" ? "Total" : name === "completados" ? "Completados" : name]} />
-                          <Bar dataKey="total" fill="#1d4ed8" radius={[4,4,0,0]} name="Total" />
-                          <Bar dataKey="completados" fill="#F59E0B" radius={[4,4,0,0]} name="Completados" />
+                          <Tooltip />
+                          <Bar dataKey="pendientes" fill="#F59E0B" radius={[0,0,0,0]} name="Pendientes" stackId="a" />
+                          <Bar dataKey="enProgreso" fill="#2563EB" radius={[0,0,0,0]} name="En progreso" stackId="a" />
+                          <Bar dataKey="bloqueados" fill="#DC2626" radius={[0,0,0,0]} name="Bloqueados" stackId="a" />
+                          <Bar dataKey="completados" fill="#16A34A" radius={[4,4,0,0]} name="Completados" stackId="a" />
                         </BarChart>
                       </ResponsiveContainer>
+                    </div>
+                    <div className="flex items-center justify-center gap-6 mt-4 text-sm text-gray-500">
+                      <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-yellow-400" /> Pendientes</span>
+                      <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-blue-600" /> En progreso</span>
+                      <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-red-600" /> Bloqueados</span>
+                      <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-green-600" /> Completados</span>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6">
                       {areaData.map((a) => (
                         <div key={a.name} className="bg-gray-50 rounded-xl p-4">
                           <p className="text-gray-800 font-bold">{a.name}</p>
-                          <div className="flex items-center justify-between mt-2">
-                            <span className="text-sm text-gray-500">Completados</span>
-                            <span className="text-sm text-green-700 font-bold">{a.pctComp}%</span>
+                          <div className="flex items-center justify-between mt-2 text-sm">
+                            <span className="text-gray-500">Total</span>
+                            <span className="font-bold">{a.total}</span>
                           </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-500">Promedio</span>
-                            <span className="text-sm text-blue-700 font-bold">{a.avgDias}d</span>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-yellow-600">Pendientes</span>
+                            <span className="font-bold">{a.pendientes}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-blue-600">En progreso</span>
+                            <span className="font-bold">{a.enProgreso}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-red-600">Bloqueados</span>
+                            <span className="font-bold">{a.bloqueados}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-green-600">Completados</span>
+                            <span className="font-bold">{a.completados}</span>
                           </div>
                         </div>
                       ))}
