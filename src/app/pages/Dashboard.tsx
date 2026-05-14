@@ -739,15 +739,6 @@ export default function Dashboard() {
                       <p className="text-blue-700 text-sm font-bold">{c.completedServices}</p>
                       <p className="text-gray-400 text-xs">completados</p>
                     </div>
-                    <div className="w-28">
-                      <div className="flex items-center gap-1.5">
-                        <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-blue-600 rounded-full transition-all" style={{ width: `${c.pctOfTotal}%` }} />
-                        </div>
-                        <span className="text-gray-800 text-xs font-semibold w-8 text-right">{c.pctOfTotal}%</span>
-                      </div>
-                      <p className="text-gray-400 text-xs text-right">del total</p>
-                    </div>
                     <div className="text-right min-w-[60px]">
                       <div className="flex items-center gap-0.5 justify-end">
                         {c.avgRating > 0 ? (
