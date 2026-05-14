@@ -418,7 +418,7 @@ export default function Dashboard() {
           ))}
           <button onClick={() => { setHighlightMode(!highlightMode); setExpandedSection(null); }}
             className={`text-[10px] px-2 py-0.5 rounded transition font-medium flex items-center gap-0.5 ${
-              highlightMode ? 'bg-white text-blue-900' : 'text-blue-200 hover:text-white'
+              highlightMode ? 'bg-white text-blue-900' : 'bg-black text-white'
             }`}>
             <Eye className="w-3 h-3" />
             {highlightMode ? 'Salir' : 'Resaltar'}
@@ -443,9 +443,8 @@ export default function Dashboard() {
               <p className={`text-4xl font-extrabold ${blockedServices.length > 0 ? "text-red-700" : "text-gray-400"}`}>{blockedServices.length}</p>
               <p className={`text-xs font-bold ${blockedServices.length > 0 ? "text-red-600" : "text-gray-500"}`}>BLOQUEOS</p>
             </div>
-            <div className="flex-1 p-2 overflow-y-auto max-h-[105px] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-red-300">
+            <div className="flex-1 p-2 overflow-y-auto max-h-[112px] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-red-300">
               {blockedSorted.length > 0 ? blockedSorted.map((s) => {
-                const techs = techByService.get(s.servicio_id) || [];
                 const timeDisplay = s.servicio_fecha_inicio ? (() => {
                   const start = new Date(s.servicio_fecha_inicio);
                   const diffMs = Date.now() - start.getTime();
@@ -456,14 +455,12 @@ export default function Dashboard() {
                 })() : "";
                 return (
                   <button key={s.servicio_id} onClick={() => navigate(`/services/${s.servicio_id}`)}
-                    className="w-full flex items-center gap-1.5 text-left text-xs text-red-700 hover:bg-red-100/50 rounded-lg px-2 py-1.5 transition">
-                    <span className="font-semibold text-red-800 shrink-0">{s.servicio_codigo}</span>
-                    <span className="truncate flex-1">— {s.servicio_descripcion}</span>
-                    {techs.length > 0 && (
-                      <span className="text-red-600 shrink-0 hidden sm:inline">— {techs.map(t => t.name.split(" ")[0]).join(", ")}</span>
-                    )}
-                    <span className="text-red-500 shrink-0 ml-1 whitespace-nowrap">{timeDisplay || "—"}</span>
-                    <ChevronRight className="w-3 h-3 shrink-0 text-red-400" />
+                    className="w-full flex items-center justify-between text-left text-xs text-red-700 hover:bg-red-100/50 rounded-lg px-2 py-1.5 transition">
+                    <span className="font-semibold text-red-800">{s.servicio_codigo}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-red-500 whitespace-nowrap">{timeDisplay || "—"}</span>
+                      <ChevronRight className="w-3 h-3 text-red-400" />
+                    </div>
                   </button>
                 );
               }) : <p className="text-xs text-gray-400 p-2">Sin servicios bloqueados</p>}
@@ -476,9 +473,8 @@ export default function Dashboard() {
               <p className={`text-4xl font-extrabold ${retrasados.length > 0 ? "text-orange-700" : "text-gray-400"}`}>{retrasados.length}</p>
               <p className={`text-xs font-bold ${retrasados.length > 0 ? "text-orange-700" : "text-gray-500"}`}>RETRASOS</p>
             </div>
-            <div className="flex-1 p-2 overflow-y-auto max-h-[105px] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-orange-300">
+            <div className="flex-1 p-2 overflow-y-auto max-h-[112px] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-orange-300">
               {retrasados.length > 0 ? retrasados.map((s) => {
-                const techs = techByService.get(s.servicio_id) || [];
                 const timeDisplay = s.servicio_fecha_inicio ? (() => {
                   const start = new Date(s.servicio_fecha_inicio);
                   const diffMs = Date.now() - start.getTime();
@@ -489,14 +485,12 @@ export default function Dashboard() {
                 })() : "";
                 return (
                   <button key={s.servicio_id} onClick={() => navigate(`/services/${s.servicio_id}`)}
-                    className="w-full flex items-center gap-1.5 text-left text-xs text-orange-700 hover:bg-orange-100/50 rounded-lg px-2 py-1.5 transition">
-                    <span className="font-semibold text-orange-800 shrink-0">{s.servicio_codigo}</span>
-                    <span className="truncate flex-1">— {s.servicio_descripcion}</span>
-                    {techs.length > 0 && (
-                      <span className="text-orange-600 shrink-0 hidden sm:inline">— {techs.map(t => t.name.split(" ")[0]).join(", ")}</span>
-                    )}
-                    <span className="text-orange-500 shrink-0 ml-1 whitespace-nowrap">{timeDisplay}</span>
-                    <ChevronRight className="w-3 h-3 shrink-0 text-orange-400" />
+                    className="w-full flex items-center justify-between text-left text-xs text-orange-700 hover:bg-orange-100/50 rounded-lg px-2 py-1.5 transition">
+                    <span className="font-semibold text-orange-800">{s.servicio_codigo}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-orange-500 whitespace-nowrap">{timeDisplay}</span>
+                      <ChevronRight className="w-3 h-3 text-orange-400" />
+                    </div>
                   </button>
                 );
               }) : <p className="text-xs text-gray-400 p-2">Sin retrasos detectados</p>}
@@ -962,9 +956,8 @@ export default function Dashboard() {
                       <p className="text-5xl font-extrabold text-red-700">{blockedServices.length}</p>
                       <p className="text-sm font-bold text-red-600">BLOQUEOS</p>
                     </div>
-                    <div className="flex-1 p-3 overflow-y-auto max-h-[116px] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-red-300">
+                    <div className="flex-1 p-3 overflow-y-auto max-h-[144px] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-red-300">
                       {blockedSorted.length > 0 ? blockedSorted.map((s) => {
-                        const techs = techByService.get(s.servicio_id) || [];
                         const timeDisplay = s.servicio_fecha_inicio ? (() => {
                           const start = new Date(s.servicio_fecha_inicio);
                           const diffMs = Date.now() - start.getTime();
@@ -975,12 +968,12 @@ export default function Dashboard() {
                         })() : "";
                         return (
                           <button key={s.servicio_id} onClick={() => { navigate(`/services/${s.servicio_id}`); setExpandedSection(null); }}
-                            className="w-full flex items-center gap-2 text-left text-sm text-red-700 hover:bg-red-100/50 rounded-lg px-3 py-2 transition">
-                            <span className="font-semibold text-red-800 shrink-0">{s.servicio_codigo}</span>
-                            <span className="truncate flex-1">— {s.servicio_descripcion}</span>
-                            {techs.length > 0 && <span className="text-red-600 shrink-0">— {techs.map(t => t.name.split(" ")[0]).join(", ")}</span>}
-                            <span className="text-red-500 shrink-0 ml-1 whitespace-nowrap">{timeDisplay}</span>
-                            <ChevronRight className="w-4 h-4 shrink-0 text-red-400" />
+                            className="w-full flex items-center justify-between text-left text-sm text-red-700 hover:bg-red-100/50 rounded-lg px-3 py-2 transition">
+                            <span className="font-semibold text-red-800">{s.servicio_codigo}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-red-500 whitespace-nowrap">{timeDisplay}</span>
+                              <ChevronRight className="w-4 h-4 text-red-400" />
+                            </div>
                           </button>
                         );
                       }) : <p className="text-sm text-gray-400">Sin servicios bloqueados</p>}
@@ -993,9 +986,8 @@ export default function Dashboard() {
                       <p className="text-5xl font-extrabold text-orange-700">{retrasados.length}</p>
                       <p className="text-sm font-bold text-orange-700">RETRASOS</p>
                     </div>
-                    <div className="flex-1 p-3 overflow-y-auto max-h-[116px] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-orange-300">
+                    <div className="flex-1 p-3 overflow-y-auto max-h-[144px] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-orange-300">
                       {retrasados.length > 0 ? retrasados.map((s) => {
-                        const techs = techByService.get(s.servicio_id) || [];
                         const timeDisplay = s.servicio_fecha_inicio ? (() => {
                           const start = new Date(s.servicio_fecha_inicio);
                           const diffMs = Date.now() - start.getTime();
@@ -1006,12 +998,12 @@ export default function Dashboard() {
                         })() : "";
                         return (
                           <button key={s.servicio_id} onClick={() => { navigate(`/services/${s.servicio_id}`); setExpandedSection(null); }}
-                            className="w-full flex items-center gap-2 text-left text-sm text-orange-700 hover:bg-orange-100/50 rounded-lg px-3 py-2 transition">
-                            <span className="font-semibold text-orange-800 shrink-0">{s.servicio_codigo}</span>
-                            <span className="truncate flex-1">— {s.servicio_descripcion}</span>
-                            {techs.length > 0 && <span className="text-orange-600 shrink-0">— {techs.map(t => t.name.split(" ")[0]).join(", ")}</span>}
-                            <span className="text-orange-500 shrink-0 ml-1 whitespace-nowrap">{timeDisplay}</span>
-                            <ChevronRight className="w-4 h-4 shrink-0 text-orange-400" />
+                            className="w-full flex items-center justify-between text-left text-sm text-orange-700 hover:bg-orange-100/50 rounded-lg px-3 py-2 transition">
+                            <span className="font-semibold text-orange-800">{s.servicio_codigo}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-orange-500 whitespace-nowrap">{timeDisplay}</span>
+                              <ChevronRight className="w-4 h-4 text-orange-400" />
+                            </div>
                           </button>
                         );
                       }) : <p className="text-sm text-gray-400">Sin retrasos detectados</p>}
