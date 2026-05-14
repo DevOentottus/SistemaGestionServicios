@@ -28,7 +28,7 @@ const COLOR_MAP: Record<string, { bg: string; text700: string; text400: string }
 };
 
 const sectionIds = ["alertas", "kpis", "operativo", "equipo", "realtime", "satisfaccion"];
-const sectionLabels = ["Alertas", "KPIs", "Operativo", "Equipo", "Tiempo Real", "Satisfacción"];
+const sectionLabels = ["Alertas", "Indicadores Clave", "Operativo", "Equipo", "Tiempo Real", "Satisfacción"];
 
 export default function Dashboard() {
   const { currentUser } = useAuth();
@@ -399,7 +399,7 @@ export default function Dashboard() {
         className={`${highlightMode ? 'cursor-pointer ring-2 ring-blue-400/60 rounded-2xl p-0.5 transition-all duration-200 hover:ring-blue-500 hover:shadow-lg bg-blue-50/30' : ''}`}>
         <div className="flex items-center gap-2 mb-3">
           <Bell className="w-5 h-5 text-red-600" />
-          <h2 className="text-gray-900 font-bold">Alertas y Prioridades</h2>
+          <h2 className="text-gray-900 font-bold">Alertas</h2>
           <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-semibold">
             {blockedServices.length + retrasados.length} activas
           </span>
@@ -499,7 +499,7 @@ export default function Dashboard() {
         className={`${highlightMode ? 'cursor-pointer ring-2 ring-blue-400/60 rounded-2xl p-0.5 transition-all duration-200 hover:ring-blue-500 hover:shadow-lg bg-blue-50/30' : ''}`}>
         <div className="flex items-center gap-2 mb-3">
           <Target className="w-5 h-5 text-blue-700" />
-          <h2 className="text-gray-900 font-bold">KPIs Principales</h2>
+          <h2 className="text-gray-900 font-bold">Indicadores Clave</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* PRODUCTIVIDAD */}
@@ -932,8 +932,8 @@ export default function Dashboard() {
           <div className="relative bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[85vh] overflow-y-auto p-6 md:p-8 animate-fade-in">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-gray-900">
-                {expandedSection === "alertas" ? "Alertas y Prioridades" :
-                 expandedSection === "kpis" ? "KPIs Principales" :
+                {expandedSection === "alertas" ? "Alertas" :
+                 expandedSection === "kpis" ? "Indicadores Clave" :
                  expandedSection === "operativo-pie" ? "Estado General" :
                  expandedSection === "operativo-bar" ? "Servicios por Área" :
                  expandedSection === "equipo" ? "Desempeño del Equipo" :

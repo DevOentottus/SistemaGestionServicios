@@ -75,6 +75,7 @@ export default function Usuarios() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [saving, setSaving] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   // Cargar usuarios al montar
   useEffect(() => {
@@ -125,7 +126,7 @@ export default function Usuarios() {
   };
 
   const isAdmin = form.rol === "Administrador";
-  const canSave = !!form.nombres && !!form.apellido_paterno && !!form.correo;
+  const canSave = !!form.nombres?.trim() && !!form.apellido_paterno?.trim() && !!form.correo?.trim();
   const basicFormFields: Array<{ label: string; key: BasicFormFieldKey; placeholder: string }> = [
     { label: "DNI", key: "dni", placeholder: "Ej: 74521896" },
     { label: "Teléfono", key: "telefono", placeholder: "Ej: 987654321" },
@@ -151,6 +152,7 @@ export default function Usuarios() {
   const openAdd = () => {
     setEditingUser(null);
     setForm(emptyForm());
+    setFormErrors({});
     setShowModal(true);
   };
 
@@ -167,7 +169,70 @@ export default function Usuarios() {
       password: "",
       confirmPassword: "",
     });
+    setFormErrors({});
     setShowModal(true);
+  };
+
+  // ── Validaciones ──
+
+  const validateField = (key: string, value: string): string => {
+    switch (key) {
+      case "dni":
+        if (!value) return "";
+        if (!/^\d{8}$/.test(value)) return "El DNI debe tener exactamente 8 dígitos";
+        return "";
+      case "telefono":
+        if (!value) return "";
+        if (!/^\d{9}$/.test(value)) return "El teléfono debe tener 9 dígitos";
+        return "";
+      case "nombres":
+        if (!value.trim()) return "Los nombres son obligatorios";
+        if (value.trim().length < 2) return "Debe tener al menos 2 caracteres";
+        if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/.test(value)) return "Solo letras y espacios";
+        return "";
+      case "apellido_paterno":
+        if (!value.trim()) return "El apellido paterno es obligatorio";
+        if (value.trim().length < 2) return "Debe tener al menos 2 caracteres";
+        if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]+$/.test(value)) return "Solo letras y espacios";
+        return "";
+      case "apellido_materno":
+        if (!value) return "";
+        if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑüÜ\s]*$/.test(value)) return "Solo letras y espacios";
+        return "";
+      case "correo":
+        if (!value.trim()) return "El correo es obligatorio";
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return "Correo electrónico inválido";
+        return "";
+      default:
+        return "";
+    }
+  };
+
+  const validateForm = (): Record<string, string> => {
+    const errors: Record<string, string> = {};
+    const fields: BasicFormFieldKey[] = ["dni", "telefono", "nombres", "apellido_paterno", "apellido_materno"];
+    fields.forEach((key) => {
+      const err = validateField(key, form[key]);
+      if (err) errors[key] = err;
+    });
+    if (!editingUser) {
+      if (!form.password) errors.password = "La contraseña es obligatoria";
+      else if (form.password.length < 6) errors.password = "Debe tener al menos 6 caracteres";
+      if (!form.confirmPassword) errors.confirmPassword = "Debes confirmar la contraseña";
+      else if (form.password !== form.confirmPassword) errors.confirmPassword = "Las contraseñas no coinciden";
+    }
+    return errors;
+  };
+
+  const handleFieldChange = (key: string, value: string) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+    if (formErrors[key]) {
+      setFormErrors((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
   };
 
   // Filtrar usuarios
@@ -180,17 +245,9 @@ export default function Usuarios() {
   });
 
   const handleSave = async () => {
-    if (!canSave) return;
-
-    // Validar contraseña solo en creación
-    if (!editingUser && (!form.password || form.password.length < 6)) {
-      alert("La contraseña debe tener al menos 6 caracteres");
-      return;
-    }
-    if (!editingUser && form.password !== form.confirmPassword) {
-      alert("Las contraseñas no coinciden");
-      return;
-    }
+    const errors = validateForm();
+    setFormErrors(errors);
+    if (Object.keys(errors).length > 0) return;
 
     setSaving(true);
     try {
@@ -442,9 +499,23 @@ export default function Usuarios() {
                       type="text"
                       placeholder={field.placeholder}
                       value={form[field.key]}
-                      onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50"
+                      onChange={(e) => handleFieldChange(field.key, e.target.value)}
+                      onBlur={(e) => {
+                        const err = validateField(field.key, e.target.value);
+                        setFormErrors((prev) => {
+                          if (err) return { ...prev, [field.key]: err };
+                          const next = { ...prev };
+                          delete next[field.key];
+                          return next;
+                        });
+                      }}
+                      className={`w-full border rounded-xl px-3 py-2 text-sm outline-none bg-gray-50 ${
+                        formErrors[field.key] ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-blue-500"
+                      }`}
                     />
+                    {formErrors[field.key] && (
+                      <p className="text-xs text-red-600 mt-1">{formErrors[field.key]}</p>
+                    )}
                   </div>
                 ))}
                 <div className="col-span-2">
@@ -453,9 +524,23 @@ export default function Usuarios() {
                     type="text"
                     placeholder={basicFormFields[2].placeholder}
                     value={form.nombres}
-                    onChange={(e) => setForm((prev) => ({ ...prev, nombres: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50"
+                    onChange={(e) => handleFieldChange("nombres", e.target.value)}
+                    onBlur={(e) => {
+                      const err = validateField("nombres", e.target.value);
+                      setFormErrors((prev) => {
+                        if (err) return { ...prev, nombres: err };
+                        const next = { ...prev };
+                        delete next.nombres;
+                        return next;
+                      });
+                    }}
+                    className={`w-full border rounded-xl px-3 py-2 text-sm outline-none bg-gray-50 ${
+                      formErrors.nombres ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-blue-500"
+                    }`}
                   />
+                  {formErrors.nombres && (
+                    <p className="text-xs text-red-600 mt-1">{formErrors.nombres}</p>
+                  )}
                 </div>
                 {basicFormFields.slice(3).map((field) => (
                   <div key={field.key}>
@@ -464,9 +549,23 @@ export default function Usuarios() {
                       type="text"
                       placeholder={field.placeholder}
                       value={form[field.key]}
-                      onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50"
+                      onChange={(e) => handleFieldChange(field.key, e.target.value)}
+                      onBlur={(e) => {
+                        const err = validateField(field.key, e.target.value);
+                        setFormErrors((prev) => {
+                          if (err) return { ...prev, [field.key]: err };
+                          const next = { ...prev };
+                          delete next[field.key];
+                          return next;
+                        });
+                      }}
+                      className={`w-full border rounded-xl px-3 py-2 text-sm outline-none bg-gray-50 ${
+                        formErrors[field.key] ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-blue-500"
+                      }`}
                     />
+                    {formErrors[field.key] && (
+                      <p className="text-xs text-red-600 mt-1">{formErrors[field.key]}</p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -477,9 +576,23 @@ export default function Usuarios() {
                   type="email"
                   placeholder="correo@empresa.com"
                   value={form.correo}
-                  onChange={(e) => setForm((prev) => ({ ...prev, correo: e.target.value }))}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50"
+                  onChange={(e) => handleFieldChange("correo", e.target.value)}
+                  onBlur={(e) => {
+                    const err = validateField("correo", e.target.value);
+                    setFormErrors((prev) => {
+                      if (err) return { ...prev, correo: err };
+                      const next = { ...prev };
+                      delete next.correo;
+                      return next;
+                    });
+                  }}
+                  className={`w-full border rounded-xl px-3 py-2 text-sm outline-none bg-gray-50 ${
+                    formErrors.correo ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-blue-500"
+                  }`}
                 />
+                {formErrors.correo && (
+                  <p className="text-xs text-red-600 mt-1">{formErrors.correo}</p>
+                )}
               </div>
 
               <div className="border border-blue-100 rounded-xl p-4 bg-blue-50">
@@ -513,9 +626,31 @@ export default function Usuarios() {
                       type="password"
                       placeholder="Mínimo 6 caracteres"
                       value={form.password}
-                      onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50"
+                      onChange={(e) => {
+                        setForm((prev) => ({ ...prev, password: e.target.value }));
+                        if (formErrors.password) {
+                          setFormErrors((prev) => {
+                            const next = { ...prev };
+                            delete next.password;
+                            return next;
+                          });
+                        }
+                      }}
+                      onBlur={(e) => {
+                        if (e.target.value && e.target.value.length < 6) {
+                          setFormErrors((prev) => ({ ...prev, password: "Debe tener al menos 6 caracteres" }));
+                        }
+                        if (!e.target.value) {
+                          setFormErrors((prev) => ({ ...prev, password: "La contraseña es obligatoria" }));
+                        }
+                      }}
+                      className={`w-full border rounded-xl px-3 py-2 text-sm outline-none bg-gray-50 ${
+                        formErrors.password ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-blue-500"
+                      }`}
                     />
+                    {formErrors.password && (
+                      <p className="text-xs text-red-600 mt-1">{formErrors.password}</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-xs text-gray-600 mb-1 font-semibold">Confirmar contraseña</label>
@@ -523,9 +658,28 @@ export default function Usuarios() {
                       type="password"
                       placeholder="Repite la contraseña"
                       value={form.confirmPassword}
-                      onChange={(e) => setForm((prev) => ({ ...prev, confirmPassword: e.target.value }))}
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50"
+                      onChange={(e) => {
+                        setForm((prev) => ({ ...prev, confirmPassword: e.target.value }));
+                        if (formErrors.confirmPassword) {
+                          setFormErrors((prev) => {
+                            const next = { ...prev };
+                            delete next.confirmPassword;
+                            return next;
+                          });
+                        }
+                      }}
+                      onBlur={(e) => {
+                        if (e.target.value && e.target.value !== form.password) {
+                          setFormErrors((prev) => ({ ...prev, confirmPassword: "Las contraseñas no coinciden" }));
+                        }
+                      }}
+                      className={`w-full border rounded-xl px-3 py-2 text-sm outline-none bg-gray-50 ${
+                        formErrors.confirmPassword ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-blue-500"
+                      }`}
                     />
+                    {formErrors.confirmPassword && (
+                      <p className="text-xs text-red-600 mt-1">{formErrors.confirmPassword}</p>
+                    )}
                   </div>
                 </>
               )}
