@@ -47,6 +47,7 @@ export default function Dashboard() {
   const [efiAreaFilter, setEfiAreaFilter] = useState<number | null>(null);
   const [clienteAreaFilter, setClienteAreaFilter] = useState<number | null>(null);
   const [equipoAsc, setEquipoAsc] = useState(false);
+  const [realtimeAsc, setRealtimeAsc] = useState(false);
   const [highlightMode, setHighlightMode] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
@@ -797,18 +798,30 @@ export default function Dashboard() {
         </div>
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
           <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-            <p className="text-gray-600 text-sm">Últimas actualizaciones del sistema</p>
-            <button onClick={() => navigate("/services")}
-              className="text-blue-700 text-sm flex items-center gap-1 hover:underline font-medium">
-              Ver todos <ArrowRight className="w-4 h-4" />
-            </button>
+            <p className="text-gray-600 text-sm">Últimas 10 actualizaciones</p>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setRealtimeAsc(!realtimeAsc)}
+                className="flex items-center gap-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full font-medium transition">
+                <ArrowUpDown className="w-3.5 h-3.5" />
+                {realtimeAsc ? "Ascendente" : "Descendente"}
+              </button>
+              <button onClick={() => navigate("/services")}
+                className="text-blue-700 text-sm flex items-center gap-1 hover:underline font-medium">
+                Ver todos <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
           <div className="divide-y divide-gray-50">
             {(() => {
+              const dir = realtimeAsc ? 1 : -1;
               return servicios
-                .filter(s => s.servicio_estado !== "completado")
-                .sort((a, b) => getServiceProgress(b.servicio_id) - getServiceProgress(a.servicio_id))
-                .map((srv) => {
+                .map(srv => ({ srv, latest: Math.max(
+                  srv.servicio_fecha_inicio ? new Date(srv.servicio_fecha_inicio).getTime() : 0,
+                  srv.servicio_fecha_fin ? new Date(srv.servicio_fecha_fin).getTime() : 0
+                ) }))
+                .sort((a, b) => (a.latest - b.latest) * dir)
+                .slice(0, 10)
+                .map(({ srv }) => {
                   const pct = getServiceProgress(srv.servicio_id);
                   const srvTasks = allTasks.filter(t => t.servicio_id === srv.servicio_id);
                   const done = srvTasks.filter(t => t.tarea_estado === "completado").length;
@@ -1253,13 +1266,24 @@ export default function Dashboard() {
               {expandedSection === "realtime" && (
                 <div className="bg-white rounded-2xl border border-gray-100">
                   <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                    <p className="text-gray-600 font-semibold">Últimas actualizaciones del sistema</p>
+                    <p className="text-gray-600 font-semibold">Últimas 10 actualizaciones</p>
+                    <button onClick={() => setRealtimeAsc(!realtimeAsc)}
+                      className="flex items-center gap-1 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-full font-medium transition">
+                      <ArrowUpDown className="w-3.5 h-3.5" />
+                      {realtimeAsc ? "Ascendente" : "Descendente"}
+                    </button>
                   </div>
                   <div className="divide-y divide-gray-50 max-h-[400px] overflow-y-auto">
-                    {servicios
-                      .filter(s => s.servicio_estado !== "completado")
-                      .sort((a, b) => getServiceProgress(b.servicio_id) - getServiceProgress(a.servicio_id))
-                      .map((srv) => {
+                    {(() => {
+                      const dir = realtimeAsc ? 1 : -1;
+                      return servicios
+                        .map(srv => ({ srv, latest: Math.max(
+                          srv.servicio_fecha_inicio ? new Date(srv.servicio_fecha_inicio).getTime() : 0,
+                          srv.servicio_fecha_fin ? new Date(srv.servicio_fecha_fin).getTime() : 0
+                        ) }))
+                        .sort((a, b) => (a.latest - b.latest) * dir)
+                        .slice(0, 10)
+                        .map(({ srv }) => {
                         const pct = getServiceProgress(srv.servicio_id);
                         const srvTasks = allTasks.filter(t => t.servicio_id === srv.servicio_id);
                         const done = srvTasks.filter(t => t.tarea_estado === "completado").length;
@@ -1304,7 +1328,8 @@ export default function Dashboard() {
                             <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
                           </button>
                         );
-                      })}
+                      });
+                  })()}
                   </div>
                 </div>
               )}
