@@ -648,15 +648,14 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div id="operativo"
-        onClick={(e) => { if (highlightMode && !(e.target as HTMLElement).closest('button, a, input, select, textarea')) { setExpandedSection("operativo"); } }}
-        className={`${highlightMode ? 'cursor-pointer ring-2 ring-blue-400/60 rounded-2xl p-0.5 transition-all duration-200 hover:ring-blue-500 hover:shadow-lg bg-blue-50/30' : ''}`}>
+      <div id="operativo">
         <div className="flex items-center gap-2 mb-3">
           <BarChart2 className="w-5 h-5 text-blue-700" />
           <h2 className="text-gray-900 font-bold">Visualización Operativa</h2>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+          <div onClick={() => { if (highlightMode) setExpandedSection("operativo-pie"); }}
+            className={`bg-white rounded-2xl p-5 shadow-sm border border-gray-100 ${highlightMode ? 'cursor-pointer ring-2 ring-blue-400/60 transition-all duration-200 hover:ring-blue-500 hover:shadow-lg' : ''}`}>
             <h3 className="text-gray-800 mb-1 font-semibold">Estado General</h3>
             <p className="text-gray-400 text-xs mb-4">Distribución actual de servicios</p>
             <ResponsiveContainer width="100%" height={160}>
@@ -683,7 +682,8 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="lg:col-span-2 bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+          <div onClick={() => { if (highlightMode) setExpandedSection("operativo-bar"); }}
+            className={`lg:col-span-2 bg-white rounded-2xl p-5 shadow-sm border border-gray-100 ${highlightMode ? 'cursor-pointer ring-2 ring-blue-400/60 transition-all duration-200 hover:ring-blue-500 hover:shadow-lg' : ''}`}>
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-gray-800 font-semibold">Servicios por Área</h3>
@@ -936,7 +936,8 @@ export default function Dashboard() {
               <h2 className="text-xl font-bold text-gray-900">
                 {expandedSection === "alertas" ? "Alertas y Prioridades" :
                  expandedSection === "kpis" ? "KPIs Principales" :
-                 expandedSection === "operativo" ? "Visualización Operativa" :
+                 expandedSection === "operativo-pie" ? "Estado General" :
+                 expandedSection === "operativo-bar" ? "Servicios por Área" :
                  expandedSection === "equipo" ? "Desempeño del Equipo" :
                  expandedSection === "realtime" ? "Seguimiento en Tiempo Real" :
                  expandedSection === "satisfaccion" ? "Satisfacción por Área" : ""}
@@ -960,7 +961,6 @@ export default function Dashboard() {
                         <div>
                           <p className="text-sm font-bold text-red-600">BLOQUEADOS</p>
                           <p className="text-4xl font-extrabold text-red-700">{blockedServices.length}</p>
-                          <p className="text-xs text-red-500">Marcado como bloqueado por un colaborador</p>
                         </div>
                       </div>
                       <div className="space-y-2">
@@ -1114,46 +1114,65 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {expandedSection === "operativo" && (
+              {expandedSection === "operativo-pie" && (
                 <div>
                   {pieData.length > 0 && (
-                    <div className="bg-white rounded-2xl p-5 border border-gray-100">
-                      <h3 className="text-gray-800 font-semibold mb-3">Estado General</h3>
-                      <div className="h-64">
+                    <div className="bg-white rounded-2xl p-6 border border-gray-100">
+                      <h3 className="text-gray-800 font-semibold mb-4">Distribución actual de servicios</h3>
+                      <div className="h-72">
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
-                            <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} dataKey="value" paddingAngle={2}>
+                            <Pie data={pieData} cx="50%" cy="50%" innerRadius={65} outerRadius={110} dataKey="value" paddingAngle={2}>
                               {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                             </Pie>
                             <Tooltip />
                           </PieChart>
                         </ResponsiveContainer>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
                         {pieData.map((e) => (
-                          <div key={e.name} className="bg-gray-50 rounded-xl p-3 text-center">
-                            <div className="w-3 h-3 rounded-full mx-auto mb-1" style={{ backgroundColor: e.color }} />
-                            <p className="text-gray-800 font-bold">{e.value}</p>
+                          <div key={e.name} className="bg-gray-50 rounded-xl p-4 text-center">
+                            <div className="w-4 h-4 rounded-full mx-auto mb-2" style={{ backgroundColor: e.color }} />
+                            <p className="text-gray-800 text-lg font-bold">{e.value}</p>
                             <p className="text-xs text-gray-500">{e.name}</p>
                           </div>
                         ))}
                       </div>
                     </div>
                   )}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
-                    {areaData.map((a) => (
-                      <div key={a.name} className="bg-white rounded-xl p-4 border border-gray-100">
-                        <p className="text-gray-800 font-bold">{a.name}</p>
-                        <div className="flex items-center justify-between mt-2 text-sm">
-                          <span className="text-gray-500">Completados</span>
-                          <span className="text-green-700 font-bold">{a.pctComp}%</span>
+                </div>
+              )}
+
+              {expandedSection === "operativo-bar" && (
+                <div>
+                  <div className="bg-white rounded-2xl p-6 border border-gray-100">
+                    <h3 className="text-gray-800 font-semibold mb-4">Servicios por Área — % completados y días promedio</h3>
+                    <div className="h-72">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={areaData} barGap={4}>
+                          <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                          <YAxis tick={{ fontSize: 12 }} />
+                          <Tooltip formatter={(value, name) => [value, name === "total" ? "Total" : name === "completados" ? "Completados" : name]} />
+                          <Bar dataKey="total" fill="#1d4ed8" radius={[4,4,0,0]} name="Total" />
+                          <Bar dataKey="completados" fill="#F59E0B" radius={[4,4,0,0]} name="Completados" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-6">
+                      {areaData.map((a) => (
+                        <div key={a.name} className="bg-gray-50 rounded-xl p-4">
+                          <p className="text-gray-800 font-bold">{a.name}</p>
+                          <div className="flex items-center justify-between mt-2">
+                            <span className="text-sm text-gray-500">Completados</span>
+                            <span className="text-sm text-green-700 font-bold">{a.pctComp}%</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-500">Promedio</span>
+                            <span className="text-sm text-blue-700 font-bold">{a.avgDias}d</span>
+                          </div>
                         </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-500">Promedio</span>
-                          <span className="text-blue-700 font-bold">{a.avgDias}d</span>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}

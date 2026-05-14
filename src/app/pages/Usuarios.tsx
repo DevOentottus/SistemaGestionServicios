@@ -435,7 +435,29 @@ export default function Usuarios() {
             <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} className="contents">
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                {basicFormFields.map((field) => (
+                {basicFormFields.slice(0, 2).map((field) => (
+                  <div key={field.key}>
+                    <label className="block text-xs text-gray-600 mb-1" style={{ fontWeight: 600 }}>{field.label}</label>
+                    <input
+                      type="text"
+                      placeholder={field.placeholder}
+                      value={form[field.key]}
+                      onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50"
+                    />
+                  </div>
+                ))}
+                <div className="col-span-2">
+                  <label className="block text-xs text-gray-600 mb-1" style={{ fontWeight: 600 }}>{basicFormFields[2].label}</label>
+                  <input
+                    type="text"
+                    placeholder={basicFormFields[2].placeholder}
+                    value={form.nombres}
+                    onChange={(e) => setForm((prev) => ({ ...prev, nombres: e.target.value }))}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 bg-gray-50"
+                  />
+                </div>
+                {basicFormFields.slice(3).map((field) => (
                   <div key={field.key}>
                     <label className="block text-xs text-gray-600 mb-1" style={{ fontWeight: 600 }}>{field.label}</label>
                     <input
