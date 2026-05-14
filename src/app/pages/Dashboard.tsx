@@ -588,7 +588,7 @@ export default function Dashboard() {
                 {[
                   { label: "Min prom.", value: avgMinutes, sub: "por servicio", color: avgMinutes <= 480 ? "green" : "orange" },
                   { label: "Oportunos", value: `${servicios.length > 0 ? Math.round(((servicios.length - demoradosCount) / servicios.length) * 100) : 0}%`, sub: "", color: "green" },
-                  { label: "Demorados", value: demoradosCount, sub: "", color: demoradosCount > 0 ? "red" : "green" },
+                  { label: "Demorados", value: `${servicios.length > 0 ? Math.round((demoradosCount / servicios.length) * 100) : 0}%`, sub: "", color: demoradosCount > 0 ? "red" : "green" },
                 ].map((m) => {
                   const c = COLOR_MAP[m.color] ?? COLOR_MAP.green;
                   return (
@@ -1073,7 +1073,7 @@ export default function Dashboard() {
                           <p className="text-green-700 text-xs font-semibold">Servicios oportunos</p>
                         </div>
                         <div className="bg-white rounded-xl p-3 text-center">
-                          <p className="text-2xl font-extrabold text-red-600">{demoradosCount}</p>
+                          <p className="text-2xl font-extrabold text-red-600">{servicios.length > 0 ? Math.round((demoradosCount / servicios.length) * 100) : 0}%</p>
                           <p className="text-red-600 text-xs font-semibold">Demorados</p>
                         </div>
                       </div>

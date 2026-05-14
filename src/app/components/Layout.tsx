@@ -47,7 +47,7 @@ export default function Layout() {
             <div className="w-9 h-9 bg-yellow-400 rounded-lg flex items-center justify-center">
               <Wrench className="w-5 h-5 text-blue-900" />
             </div>
-            <span style={{ fontWeight: 700 }}>STS Service - Portal Cliente</span>
+            <span style={{ fontWeight: 700 }}>Servicios STS - Portal Cliente</span>
           </div>
           <button onClick={() => { logout(); navigate("/login"); }} className="text-blue-200 hover:text-white text-sm flex items-center gap-1">
             <LogOut className="w-4 h-4" /> Salir
@@ -89,7 +89,7 @@ export default function Layout() {
             <Wrench className="w-6 h-6 text-blue-900" />
           </div>
           <div>
-            <p className="text-white text-sm" style={{ fontWeight: 700 }}>STS Service</p>
+            <p className="text-white text-sm" style={{ fontWeight: 700 }}>Servicios STS</p>
             <p className="text-blue-300 text-xs">Gestión Técnica</p>
           </div>
           <button className="ml-auto lg:hidden" onClick={() => setSidebarOpen(false)}>
@@ -164,7 +164,7 @@ export default function Layout() {
 
           <div className="flex-1">
             <h3 className="text-gray-800 text-sm" style={{ fontWeight: 600 }}>
-              {filteredNav.find(n => location.pathname.startsWith(n.path))?.label || "STS Service"}
+              {filteredNav.find(n => location.pathname.startsWith(n.path))?.label || "Servicios STS"}
             </h3>
           </div>
 
