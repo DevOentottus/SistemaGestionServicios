@@ -443,7 +443,6 @@ export default function Dashboard() {
             <div className="flex flex-col items-center justify-center gap-0.5 p-4 min-w-[140px] border-r border-red-200">
               <p className={`text-4xl font-extrabold ${blockedServices.length > 0 ? "text-red-700" : "text-gray-400"}`}>{blockedServices.length}</p>
               <p className={`text-xs font-bold ${blockedServices.length > 0 ? "text-red-600" : "text-gray-500"}`}>BLOQUEOS</p>
-              <p className={`text-[10px] text-center leading-tight mt-1 ${blockedServices.length > 0 ? "text-red-500" : "text-gray-400"}`}>Marcado como bloqueado por un colaborador</p>
             </div>
             <div className="flex-1 p-3 overflow-y-auto max-h-[110px] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-red-300">
               {blockedSorted.length > 0 ? blockedSorted.map((s) => {
@@ -477,7 +476,6 @@ export default function Dashboard() {
             <div className="flex flex-col items-center justify-center gap-0.5 p-4 min-w-[140px] border-r border-orange-200">
               <p className={`text-4xl font-extrabold ${retrasados.length > 0 ? "text-orange-700" : "text-gray-400"}`}>{retrasados.length}</p>
               <p className={`text-xs font-bold ${retrasados.length > 0 ? "text-orange-700" : "text-gray-500"}`}>RETRASOS</p>
-              <p className={`text-[10px] text-center leading-tight mt-1 ${retrasados.length > 0 ? "text-orange-500" : "text-gray-400"}`}>Servicios en progreso sin actualización (tarea completada) en {RETRASADO_THRESHOLD_MIN} min</p>
             </div>
             <div className="flex-1 p-3 overflow-y-auto max-h-[110px] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-orange-300">
               {retrasados.length > 0 ? retrasados.map((s) => {
