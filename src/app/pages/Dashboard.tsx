@@ -325,7 +325,7 @@ export default function Dashboard() {
         <div className="bg-gradient-to-r from-blue-900 to-blue-700 rounded-2xl p-6 text-white">
           <h1 className="text-white mb-1 font-bold">¡Bienvenido, {currentUser?.nombres}!</h1>
           <p className="text-blue-200 text-sm">
-            {new Date().toLocaleDateString("es-PE", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+            {new Date().toLocaleDateString("es-PE", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" })}
           </p>
           <div className="flex items-center gap-2 mt-3">
             <span className="bg-yellow-400/20 text-yellow-300 text-sm px-3 py-1.5 rounded-full font-semibold">{currentUser?.rol}</span>
@@ -413,8 +413,8 @@ export default function Dashboard() {
           </button>
         </div>
         <span className="text-blue-300 hidden sm:inline">|</span>
-        <p className="text-blue-200 text-xs shrink-0">
-          Panel de visualización — {new Date().toLocaleDateString("es-PE", { weekday: "long", year: "numeric", month: "long", day: "numeric" })} — {new Date().toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}
+          <p className="text-blue-200 text-xs shrink-0">
+          Panel de visualización — {new Date().toLocaleDateString("es-PE", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" })} — {new Date().toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}
         </p>
         <div className="flex items-center gap-1 ml-auto">
           {sectionLabels.map((label, i) => (
