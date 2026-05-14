@@ -13,7 +13,7 @@ import {
   PieChart, Pie, Cell,
 } from "recharts";
 
-type Servicio = { servicio_id: number; servicio_codigo: string | null; servicio_descripcion: string | null; servicio_estado: string; servicio_fecha_inicio: string | null; servicio_fecha_fin: string | null; cliente_id: number | null; area_id: number | null };
+type Servicio = { servicio_id: number; servicio_codigo: string | null; servicio_descripcion: string | null; servicio_estado: string; servicio_fecha_inicio: string | null; servicio_fecha_fin: string | null; cliente_id: number | null; area_id: number | null; servicio_tiempo_estimado: number | null };
 type Tarea = { tarea_id: number; servicio_id: number; tarea_titulo: string; tarea_estado: string; tarea_completado_por: number | null; tarea_fecha_completado: string | null };
 type Usuario = { usuario_id: number; usuario_nombres: string; usuario_apellido_paterno: string | null; usuario_rol: string; usuario_activo: boolean };
 type Area = { area_id: number; area_nombre: string; area_encargado_id: number | null };
@@ -57,7 +57,7 @@ export default function Dashboard() {
     setLoading(true);
     try {
       const [s, t, u, a, r, al, cf, c, sc] = await Promise.all([
-        supabase.from("servicios").select("servicio_id, servicio_codigo, servicio_descripcion, servicio_estado, servicio_fecha_inicio, servicio_fecha_fin, cliente_id, area_id"),
+        supabase.from("servicios").select("servicio_id, servicio_codigo, servicio_descripcion, servicio_estado, servicio_fecha_inicio, servicio_fecha_fin, cliente_id, area_id, servicio_tiempo_estimado"),
         supabase.from("tareas").select("tarea_id, servicio_id, tarea_titulo, tarea_estado, tarea_completado_por, tarea_fecha_completado"),
         supabase.from("usuarios").select("usuario_id, usuario_nombres, usuario_apellido_paterno, usuario_rol, usuario_activo"),
         supabase.from("areas").select("area_id, area_nombre, area_encargado_id").order("area_nombre"),
@@ -179,19 +179,18 @@ export default function Dashboard() {
   const servicesForEfficiency = efiAreaFilter == null
     ? completedServices
     : completedServices.filter(s => s.area_id === efiAreaFilter);
-  const avgDays = servicesForEfficiency.length
+  const avgMinutes = servicesForEfficiency.length
     ? Math.round(servicesForEfficiency.reduce((acc, s) => {
+        if (s.servicio_tiempo_estimado != null) return acc + s.servicio_tiempo_estimado;
         if (!s.servicio_fecha_inicio) return acc;
         const start = new Date(s.servicio_fecha_inicio);
         const end = s.servicio_fecha_fin ? new Date(s.servicio_fecha_fin) : new Date();
-        return acc + Math.max(0, Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+        const days = Math.max(0, Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+        return acc + days * 480; // ~8h laborales por día
       }, 0) / servicesForEfficiency.length)
     : 0;
 
-  const retrasadosCount = retrasados.length;
-  const timelyCount = servicios.length - retrasadosCount;
-  const pctTimely = servicios.length > 0 ? Math.round((timelyCount / servicios.length) * 100) : 0;
-  const pctDelayed = servicios.length > 0 ? Math.round((retrasadosCount / servicios.length) * 100) : 0;
+  const demoradosCount = blockedServices.length + retrasados.length;
 
   // ---- Customer KPI ----
   const califPuntajes = calificaciones.map(c => c.calificacion_puntaje);
@@ -572,16 +571,15 @@ export default function Dashboard() {
               </div>
               <div className="grid grid-cols-3 gap-3 mb-2">
                 {[
-                  { label: "Días prom.", value: avgDays, sub: "por servicio", color: avgDays <= 7 ? "green" : "orange" },
-                  { label: "Oportunos", value: `${pctTimely}%`, sub: "no retrasados", color: pctTimely >= 70 ? "green" : "orange" },
-                  { label: "Retrasados", value: `${pctDelayed}%`, sub: "del total", color: pctDelayed > 0 ? "red" : "green" },
+                  { label: "Min prom.", value: avgMinutes, sub: "por servicio", color: avgMinutes <= 480 ? "green" : "orange" },
+                  { label: "Oportunos", value: `${servicios.length > 0 ? Math.round(((servicios.length - demoradosCount) / servicios.length) * 100) : 0}%`, sub: "", color: "green" },
+                  { label: "Demorados", value: demoradosCount, sub: "", color: demoradosCount > 0 ? "red" : "green" },
                 ].map((m) => {
                   const c = COLOR_MAP[m.color] ?? COLOR_MAP.green;
                   return (
                   <div key={m.label} className={`rounded-xl p-3 text-center ${c.bg}`}>
                     <p className={`${c.text700} text-2xl font-extrabold`}>{m.value}</p>
                     <p className={`${c.text700} text-xs font-semibold`}>{m.label}</p>
-                    <p className={`${c.text400} text-xs`}>{m.sub}</p>
                   </div>
                   );
                 })}
@@ -590,7 +588,7 @@ export default function Dashboard() {
             <div className="bg-green-50 rounded-xl px-3 py-2">
               <p className="text-xs text-green-800 font-semibold">
                 Insight: <span className="font-normal">
-                  {avgDays <= 7 ? "Promedio menor a 7 días. Buen ritmo de entrega." : `Promedio de ${avgDays} días. Revisar cuellos de botella.`}
+                  {avgMinutes <= 480 ? `Promedio de ${avgMinutes} min por servicio. Buen ritmo de entrega.` : `Promedio de ${avgMinutes} min. Revisar cuellos de botella.`}
                 </span>
               </p>
             </div>
@@ -1064,16 +1062,16 @@ export default function Dashboard() {
                     <div className="space-y-3">
                       <div className="grid grid-cols-1 gap-3">
                         <div className="bg-white rounded-xl p-3 text-center">
-                          <p className="text-2xl font-extrabold text-green-700">{avgDays}</p>
-                          <p className="text-green-700 text-xs font-semibold">Días promedio por servicio</p>
+                          <p className="text-2xl font-extrabold text-green-700">{avgMinutes}</p>
+                          <p className="text-green-700 text-xs font-semibold">Min promedio por servicio</p>
                         </div>
                         <div className="bg-white rounded-xl p-3 text-center">
-                          <p className="text-2xl font-extrabold text-green-700">{pctTimely}%</p>
+                          <p className="text-2xl font-extrabold text-green-700">{servicios.length > 0 ? Math.round(((servicios.length - demoradosCount) / servicios.length) * 100) : 0}%</p>
                           <p className="text-green-700 text-xs font-semibold">Servicios oportunos</p>
                         </div>
                         <div className="bg-white rounded-xl p-3 text-center">
-                          <p className="text-2xl font-extrabold text-red-600">{pctDelayed}%</p>
-                          <p className="text-red-600 text-xs font-semibold">Retrasados</p>
+                          <p className="text-2xl font-extrabold text-red-600">{demoradosCount}</p>
+                          <p className="text-red-600 text-xs font-semibold">Demorados</p>
                         </div>
                       </div>
                     </div>
