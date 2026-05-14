@@ -28,7 +28,7 @@ const COLOR_MAP: Record<string, { bg: string; text700: string; text400: string }
 };
 
 const sectionIds = ["alertas", "kpis", "operativo", "equipo", "realtime", "satisfaccion"];
-const sectionLabels = ["Alertas", "Indicadores Clave", "Vista Operativa", "Desempeño", "Tiempo Real", "Satisfacción"];
+const sectionLabels = ["Alertas", "Indicadores Clave", "Visualización Operativa", "Desempeño del Equipo", "Seguimiento en Tiempo Real", "Satisfacción por Área"];
 
 export default function Dashboard() {
   const { currentUser } = useAuth();
