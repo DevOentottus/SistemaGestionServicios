@@ -607,7 +607,7 @@ export default function Business() {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
-                <th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold">Nombre</th><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold">Tareas</th><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold">Estado</th><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold">Acciones</th>
+                <th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold w-1/2">Nombre</th><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold w-1/6">Tareas</th><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold w-1/6">Estado</th><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold w-1/6">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -633,15 +633,14 @@ export default function Business() {
         <div className="px-5 py-4 border-b border-gray-100">
           <div className="flex items-center gap-2 mb-3"><Briefcase className="w-5 h-5 text-blue-700" /><h2 className="text-gray-800 font-semibold">Servicios registrados</h2><span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{services.length}</span></div>
           <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><input type="text" placeholder="Buscar por código, descripción o cliente..." value={searchService} onChange={e => setSearchService(e.target.value)} className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-blue-500 bg-gray-50" /></div>
-            <div className="relative"><select value={filterArea} onChange={e => setFilterArea(e.target.value)} className="appearance-none pl-3 pr-8 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-blue-500 bg-gray-50 cursor-pointer"><option value="Todas">Todas las áreas</option>{areas.map(a => <option key={a.area_id} value={a.area_id}>{a.area_nombre}</option>)}</select><ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /></div>
+            <div className="relative flex-1"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><input type="text" placeholder="Buscar servicio..." value={searchService} onChange={e => setSearchService(e.target.value)} className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-blue-500 bg-gray-50" /></div>
             <div className="relative"><select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="appearance-none pl-3 pr-8 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-blue-500 bg-gray-50 cursor-pointer"><option value="Todos">Todos los estados</option><option>Pendiente</option><option>En progreso</option><option>Completado</option><option>Bloqueado</option></select><ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /></div>
           </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead><tr className="bg-gray-50 border-b border-gray-100"><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold">Servicio</th><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold">Tareas</th><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold">Estado</th><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold"></th></tr></thead>
+            <thead><tr className="bg-gray-50 border-b border-gray-100"><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold w-1/2">Servicio</th><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold w-1/6">Tareas</th><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold w-1/6">Estado</th><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold w-1/6">Acciones</th></tr></thead>
             <tbody className="divide-y divide-gray-50">
               {filteredServices.map(service => {
                 const completadas = service.tareas.filter(t => t.completada).length;
@@ -656,10 +655,10 @@ export default function Business() {
                       </td>
                       <td className="px-5 py-4"><span className="text-xs text-gray-600">{completadas}/{service.tareas.length}</span></td>
                       <td className="px-5 py-4"><span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${statusColors[service.servicio_estado]}`}><span className={`w-1.5 h-1.5 rounded-full ${service.servicio_estado === "Completado" ? "bg-green-600" : service.servicio_estado === "En progreso" ? "bg-blue-600" : service.servicio_estado === "Pendiente" ? "bg-yellow-600" : "bg-red-600"}`} />{service.servicio_estado}</span></td>
-                      <td className="px-5 py-4 text-right flex items-center justify-end gap-1">
+                      <td className="px-5 py-4"><div className="flex items-center gap-1">
                         <button onClick={() => openTemplateFromService(service)} className="p-1.5 rounded-lg hover:bg-purple-50 text-purple-700 transition" title="Crear plantilla desde este servicio"><Layers className="w-4 h-4" /></button>
                         <button onClick={() => setExpandedServiceId(isExpanded ? null : service.servicio_id)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition"><ChevronRight className={`w-4 h-4 transition-transform ${isExpanded ? "rotate-90" : ""}`} /></button>
-                      </td>
+                      </div></td>
                     </tr>
                     {isExpanded && (
                       <tr><td colSpan={4} className="bg-gray-50 px-5 py-4 border-t border-gray-100">
