@@ -641,7 +641,7 @@ export default function Business() {
 
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead><tr className="bg-gray-50 border-b border-gray-100"><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold">Código</th><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold">Cliente / Descripción</th><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold">Tareas</th><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold">Estado</th><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold"></th></tr></thead>
+            <thead><tr className="bg-gray-50 border-b border-gray-100"><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold">Servicio</th><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold">Tareas</th><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold">Estado</th><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold"></th></tr></thead>
             <tbody className="divide-y divide-gray-50">
               {filteredServices.map(service => {
                 const completadas = service.tareas.filter(t => t.completada).length;
@@ -649,8 +649,11 @@ export default function Business() {
                 return (
                   <React.Fragment key={service.servicio_id}>
                     <tr className="hover:bg-gray-50 transition">
-                      <td className="px-5 py-4"><span className="text-xs font-mono bg-gray-100 text-gray-700 px-2 py-1 rounded">{service.servicio_codigo}</span></td>
-                      <td className="px-5 py-4"><p className="text-gray-900 font-medium text-sm">{service.cliente_nombres}</p><p className="text-gray-500 text-xs truncate max-w-xs">{service.servicio_descripcion}</p></td>
+                      <td className="px-5 py-4">
+                        <span className="text-xs font-mono bg-gray-100 text-gray-700 px-2 py-1 rounded">{service.servicio_codigo}</span>
+                        <p className="text-gray-900 font-medium text-sm mt-1">{service.cliente_nombres}</p>
+                        <p className="text-gray-500 text-xs truncate max-w-xs">{service.servicio_descripcion}</p>
+                      </td>
                       <td className="px-5 py-4"><span className="text-xs text-gray-600">{completadas}/{service.tareas.length}</span></td>
                       <td className="px-5 py-4"><span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${statusColors[service.servicio_estado]}`}><span className={`w-1.5 h-1.5 rounded-full ${service.servicio_estado === "Completado" ? "bg-green-600" : service.servicio_estado === "En progreso" ? "bg-blue-600" : service.servicio_estado === "Pendiente" ? "bg-yellow-600" : "bg-red-600"}`} />{service.servicio_estado}</span></td>
                       <td className="px-5 py-4 text-right flex items-center justify-end gap-1">
@@ -659,7 +662,7 @@ export default function Business() {
                       </td>
                     </tr>
                     {isExpanded && (
-                      <tr><td colSpan={5} className="bg-gray-50 px-5 py-4 border-t border-gray-100">
+                      <tr><td colSpan={4} className="bg-gray-50 px-5 py-4 border-t border-gray-100">
                           <div className="space-y-3">
                           <h4 className="text-xs text-gray-500 font-semibold uppercase tracking-wider flex items-center gap-2"><List className="w-4 h-4" /> Tareas documentadas</h4>
                           <div className="space-y-2">
