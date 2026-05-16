@@ -308,7 +308,7 @@ export default function ClientView() {
       // 2. Verificar si ya tiene calificación en la BD
       const { data: calExistente } = await supabase
         .from("calificaciones")
-        .select("calificacion_puntaje, calificacion_comentario, calificacion_sugerencia, calificacion_fecha, calificacion_hora")
+        .select("calificacion_puntaje, calificacion_comentario, calificacion_observacion, calificacion_sugerencia, calificacion_fecha, calificacion_hora")
         .eq("servicio_id", s.servicio_id)
         .maybeSingle();
       if (calExistente) {
@@ -318,7 +318,7 @@ export default function ClientView() {
           [s.servicio_id]: {
             estrellas: calExistente.calificacion_puntaje,
             comentario: calExistente.calificacion_comentario || "",
-            observacion: "",
+            observacion: calExistente.calificacion_observacion || "",
             sugerencia: calExistente.calificacion_sugerencia || "",
             fechaEnvio: `${calExistente.calificacion_fecha} ${calExistente.calificacion_hora}`,
           },
@@ -375,18 +375,13 @@ export default function ClientView() {
     const fecha = now.toISOString().split("T")[0];
     const hora = now.toTimeString().split(" ")[0].slice(0, 5);
 
-    // Armar comentario completo incluyendo observación
-    let comentarioCompleto = ratingForm.comentario || "";
-    if (ratingForm.observacion) {
-      comentarioCompleto += (comentarioCompleto ? "\n" : "") + "Observación: " + ratingForm.observacion;
-    }
-
-    // Guardar en Supabase
+    // Guardar en Supabase — cada campo por separado
     const payload = {
       servicio_id: service.servicio_id,
       cliente_id: service.cliente_id,
       calificacion_puntaje: ratingForm.selected,
-      calificacion_comentario: comentarioCompleto || null,
+      calificacion_comentario: ratingForm.comentario || null,
+      calificacion_observacion: ratingForm.observacion || null,
       calificacion_sugerencia: ratingForm.sugerencia || null,
       calificacion_fecha: fecha,
       calificacion_hora: hora,
