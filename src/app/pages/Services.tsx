@@ -77,8 +77,6 @@ interface ServiceForm {
   telefonoCliente: string;
   descripcion: string;
   areaId: number | null;
-  fechaInicio: string;
-  horaInicio: string;
   tiempoEstimado: string;
   tecnicos: number[];
   tareasCustom: string[];
@@ -224,8 +222,6 @@ const defaultForm = (areas: Area[]): ServiceForm => ({
   telefonoCliente: "",
   descripcion: "",
   areaId: areas[0]?.area_id ?? null,
-  fechaInicio: new Date().toISOString().slice(0, 10),
-  horaInicio: "",
   tiempoEstimado: "",
   tecnicos: [],
   tareasCustom: [],
@@ -474,8 +470,8 @@ export default function Services() {
             tecnico_principal_id: form.tecnicos[0] ?? null,
             servicio_descripcion: form.descripcion.trim(),
             servicio_estado: "pendiente",
-            servicio_fecha_inicio: form.fechaInicio || null,
-            servicio_hora_inicio: form.horaInicio || null,
+            servicio_fecha_inicio: new Date().toISOString().slice(0, 10),
+            servicio_hora_inicio: new Date().toTimeString().slice(0, 5),
             servicio_tiempo_estimado: form.tiempoEstimado
               ? parseInt(form.tiempoEstimado, 10)
               : null,
@@ -764,19 +760,7 @@ export default function Services() {
                     ))}
                   </select>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <FormInput
-                    label="Fecha Inicio"
-                    value={form.fechaInicio}
-                    onChange={(v) => updateField("fechaInicio", v)}
-                    type="date"
-                  />
-                  <FormInput
-                    label="Hora Inicio"
-                    value={form.horaInicio}
-                    onChange={(v) => updateField("horaInicio", v)}
-                    type="time"
-                  />
+                <div>
                   <FormInput
                     label="Tiempo Est. (min)"
                     value={form.tiempoEstimado}
@@ -816,24 +800,29 @@ export default function Services() {
                     {areaTechs.map((u) => {
                       const selected = form.tecnicos.includes(u.usuario_id);
                       return (
-                        <button
+                        <label
                           key={u.usuario_id}
-                          onClick={() =>
-                            updateField(
-                              "tecnicos",
-                              selected
-                                ? form.tecnicos.filter((x) => x !== u.usuario_id)
-                                : [...form.tecnicos, u.usuario_id]
-                            )
-                          }
-                          className={`w-full text-left border rounded-xl px-3 py-2 text-sm ${
+                          className={`flex items-center gap-3 border rounded-xl px-3 py-2.5 text-sm cursor-pointer transition ${
                             selected
                               ? "bg-blue-50 border-blue-400"
                               : "border-gray-200 hover:bg-gray-50"
                           }`}
                         >
+                          <input
+                            type="checkbox"
+                            checked={selected}
+                            onChange={() =>
+                              updateField(
+                                "tecnicos",
+                                selected
+                                  ? form.tecnicos.filter((x) => x !== u.usuario_id)
+                                  : [...form.tecnicos, u.usuario_id]
+                              )
+                            }
+                            className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
                           {usuarioNombre(u.usuario_id)}
-                        </button>
+                        </label>
                       );
                     })}
                     {areaTechs.length === 0 && (
