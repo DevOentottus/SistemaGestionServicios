@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
@@ -112,6 +112,7 @@ export default function ServiceDetail() {
   const [showAddTech, setShowAddTech] = useState(false);
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [blockReason, setBlockReason] = useState("");
+  const [elapsed, setElapsed] = useState(0);
 
   // ── Data fetching ──
 
@@ -191,6 +192,45 @@ export default function ServiceDetail() {
   useEffect(() => {
     fetchData();
   }, [id]);
+
+  // ── Cronómetro ──
+  useEffect(() => {
+    if (!service?.servicio_fecha_inicio) {
+      setElapsed(0);
+      return;
+    }
+    const startStr = `${service.servicio_fecha_inicio}T${service.servicio_hora_inicio || "00:00"}`;
+    const startMs = new Date(startStr).getTime();
+    if (isNaN(startMs)) { setElapsed(0); return; }
+
+    const tick = () => {
+      const endMs = isCompleted && service.servicio_fecha_fin
+        ? new Date(`${service.servicio_fecha_fin}T${service.servicio_hora_fin || "23:59"}`).getTime()
+        : Date.now();
+      setElapsed(Math.max(0, Math.floor((endMs - startMs) / 1000)));
+    };
+
+    tick();
+    if (!isCompleted) {
+      const interval = setInterval(tick, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [service?.servicio_fecha_inicio, service?.servicio_hora_inicio,
+      service?.servicio_estado, service?.servicio_fecha_fin, service?.servicio_hora_fin]);
+
+  const formatElapsed = (s: number) => {
+    if (s <= 0) return "";
+    const d = Math.floor(s / 86400);
+    const h = Math.floor((s % 86400) / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    const parts: string[] = [];
+    if (d > 0) parts.push(`${d}d`);
+    if (h > 0 || d > 0) parts.push(`${h}h`);
+    parts.push(`${m}m`);
+    parts.push(`${sec}s`);
+    return parts.join(" ");
+  };
 
   // ── Derived state ──
 
@@ -544,10 +584,10 @@ export default function ServiceDetail() {
               {estadoLabel(service.servicio_estado)}
             </p>
             <p className="text-xs text-gray-400 mt-1">
-              Progreso {progress}% ({completed}/{tasks.length}) · Inicio planificado:{" "}
-              {service.servicio_fecha_inicio || "—"} {service.servicio_hora_inicio || ""}
+              Progreso {progress}% ({completed}/{tasks.length})
               {service.servicio_tiempo_estimado != null &&
                 ` · Tiempo estimado: ${service.servicio_tiempo_estimado} min`}
+              {elapsed > 0 && ` · ⏱ ${isCompleted ? "Duración total: " : ""}${formatElapsed(elapsed)}`}
               {service.servicio_fecha_fin &&
                 ` · Fin real: ${service.servicio_fecha_fin} ${service.servicio_hora_fin || ""}`}
             </p>
