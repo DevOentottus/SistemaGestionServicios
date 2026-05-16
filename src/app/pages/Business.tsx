@@ -653,17 +653,15 @@ export default function Business() {
                       <td className="px-5 py-4"><p className="text-gray-900 font-medium text-sm">{service.cliente_nombres}</p><p className="text-gray-500 text-xs truncate max-w-xs">{service.servicio_descripcion}</p></td>
                       <td className="px-5 py-4"><span className="text-xs text-gray-600">{completadas}/{service.tareas.length}</span></td>
                       <td className="px-5 py-4"><span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${statusColors[service.servicio_estado]}`}><span className={`w-1.5 h-1.5 rounded-full ${service.servicio_estado === "Completado" ? "bg-green-600" : service.servicio_estado === "En progreso" ? "bg-blue-600" : service.servicio_estado === "Pendiente" ? "bg-yellow-600" : "bg-red-600"}`} />{service.servicio_estado}</span></td>
-                      <td className="px-5 py-4 text-right"><button onClick={() => setExpandedServiceId(isExpanded ? null : service.servicio_id)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition"><ChevronRight className={`w-4 h-4 transition-transform ${isExpanded ? "rotate-90" : ""}`} /></button></td>
+                      <td className="px-5 py-4 text-right flex items-center justify-end gap-1">
+                        <button onClick={() => openTemplateFromService(service)} className="p-1.5 rounded-lg hover:bg-purple-50 text-purple-700 transition" title="Crear plantilla desde este servicio"><Layers className="w-4 h-4" /></button>
+                        <button onClick={() => setExpandedServiceId(isExpanded ? null : service.servicio_id)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition"><ChevronRight className={`w-4 h-4 transition-transform ${isExpanded ? "rotate-90" : ""}`} /></button>
+                      </td>
                     </tr>
                     {isExpanded && (
-                      <tr><td colSpan={6} className="bg-gray-50 px-5 py-4 border-t border-gray-100">
+                      <tr><td colSpan={5} className="bg-gray-50 px-5 py-4 border-t border-gray-100">
                           <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <h4 className="text-xs text-gray-500 font-semibold uppercase tracking-wider flex items-center gap-2"><List className="w-4 h-4" /> Tareas documentadas</h4>
-                            <button onClick={() => openTemplateFromService(service)} className="flex items-center gap-1 text-xs text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 px-2.5 py-1.5 rounded-lg transition font-semibold">
-                              <Layers className="w-3.5 h-3.5" /> Crear plantilla
-                            </button>
-                          </div>
+                          <h4 className="text-xs text-gray-500 font-semibold uppercase tracking-wider flex items-center gap-2"><List className="w-4 h-4" /> Tareas documentadas</h4>
                           <div className="space-y-2">
                             {service.tareas.sort((a,b) => a.orden - b.orden).map(task => (
                               <div key={task.id} className={`flex items-start gap-3 p-3 rounded-xl ${task.completada ? "bg-green-50 border border-green-100" : "bg-white border border-gray-100"}`}>
