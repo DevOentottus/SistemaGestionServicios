@@ -405,11 +405,11 @@ async function main() {
   // CALIFICACIONES
   // ==========================================
   var califData = [
-    { puntaje: 5, comentario: "Excelente servicio, muy profesionales.", sugerencia: "" },
-    { puntaje: 4, comentario: "Buen servicio, pero demoró un poco más de lo esperado.", sugerencia: "Mejorar comunicación de tiempos" },
-    { puntaje: 5, comentario: "Rápidos y eficientes. Recomendados.", sugerencia: "Nada, todo perfecto" },
-    { puntaje: 4, comentario: "Solucionaron el problema, volvería a contratarlos.", sugerencia: "Agendar con más anticipación" },
-    { puntaje: 3, comentario: "Cumplieron pero hubo algunos retrasos.", sugerencia: "Mejorar puntualidad" },
+    { puntaje: 5, comentario: "Excelente servicio, muy profesionales.", sugerencia: "", observacion: "El técnico fue muy atento y explicó todo el proceso." },
+    { puntaje: 4, comentario: "Buen servicio, pero demoró un poco más de lo esperado.", sugerencia: "Mejorar comunicación de tiempos", observacion: "Tuvimos que llamar varias veces para saber el estado." },
+    { puntaje: 5, comentario: "Rápidos y eficientes. Recomendados.", sugerencia: "Nada, todo perfecto", observacion: "Dejaron todo limpio y ordenado después del trabajo." },
+    { puntaje: 4, comentario: "Solucionaron el problema, volvería a contratarlos.", sugerencia: "Agendar con más anticipación", observacion: "El equipo usó protectores en los pisos, se agradece." },
+    { puntaje: 3, comentario: "Cumplieron pero hubo algunos retrasos.", sugerencia: "Mejorar puntualidad", observacion: "Llegaron 2 horas después de lo acordado." },
   ];
 
   var califInserts = [];
@@ -424,6 +424,7 @@ async function main() {
         calificacion_puntaje: cal.puntaje,
         calificacion_comentario: cal.comentario,
         calificacion_sugerencia: cal.sugerencia,
+        calificacion_observacion: cal.observacion,
       });
       completadosCount++;
     }

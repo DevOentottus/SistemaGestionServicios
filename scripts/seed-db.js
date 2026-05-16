@@ -183,7 +183,7 @@ async function seed() {
 
   // === CALIFICACIONES ===
   await supabase.from("calificaciones").insert([
-    { servicio_id: s1, cliente_id: c1, calificacion_puntaje: 5, calificacion_comentario: "Excelente servicio, rápido y eficiente.", calificacion_sugerencia: "Agregar opción de seguimiento en tiempo real vía WhatsApp" },
+    { servicio_id: s1, cliente_id: c1, calificacion_puntaje: 5, calificacion_comentario: "Excelente servicio, rápido y eficiente.", calificacion_sugerencia: "Agregar opción de seguimiento en tiempo real vía WhatsApp", calificacion_observacion: "El técnico llegó temprano y terminó antes de lo previsto." },
   ]);
   console.log("✅ Calificaciones insertadas");
 

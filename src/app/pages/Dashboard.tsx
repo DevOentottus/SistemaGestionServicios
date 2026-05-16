@@ -81,10 +81,10 @@ export default function Dashboard() {
         supabase.from("areas").select("area_id, area_nombre, area_encargado_id").order("area_nombre"),
         supabase.from("solicitudesinternas").select("*"),
         supabase.from("auditoria").select("auditoria_id, usuario_id, auditoria_accion, auditoria_tabla, auditoria_fecha").order("auditoria_fecha", { ascending: false }),
-        supabase.from("calificaciones").select("calificacion_puntaje, calificacion_comentario, servicio_id"),
+        supabase.from("calificaciones").select("calificacion_puntaje, calificacion_comentario, calificacion_observacion, calificacion_fecha, calificacion_hora, servicio_id, cliente_id"),
         supabase.from("clientes").select("cliente_id, cliente_nombres"),
         supabase.from("serviciocolaboradores").select("servicio_id, colaborador_id"),
-        supabase.from("serviciocomentarios").select("serviciocomentario_id, servicio_id, usuario_id, serviciocomentario_contenido, serviciocomentario_fecha, serviciocomentario_hora"),
+        supabase.from("serviciocomentarios").select("servicio_id"),
       ]);
       if (s.error || t.error || u.error || a.error || r.error || al.error || cf.error || c.error || sc.error || cm.error) throw "Error loading dashboard data";
 
@@ -246,26 +246,37 @@ export default function Dashboard() {
     }
   });
 
-  const areaComentariosMap = new Map<number, any[]>();
-  const areaComentariosRaw = new Map<number, any[]>();
-  comentariosServicio.forEach((c: { servicio_id: number; serviciocomentario_contenido: string; usuario_id: number; serviciocomentario_fecha: string; serviciocomentario_hora: string }) => {
+  const areaComentariosMap = new Map<number, number>();
+  comentariosServicio.forEach((c: { servicio_id: number }) => {
     const servicio = servicios.find(s => s.servicio_id === c.servicio_id);
     if (servicio && servicio.area_id) {
-      if (!areaComentariosRaw.has(servicio.area_id)) areaComentariosRaw.set(servicio.area_id, []);
-      areaComentariosRaw.get(servicio.area_id)!.push({
-        ...c,
-        usuario_nombre: userMap.get(c.usuario_id) || "—",
+      areaComentariosMap.set(servicio.area_id, (areaComentariosMap.get(servicio.area_id) || 0) + 1);
+    }
+  });
+
+  // ---- Observaciones de clientes (desde calificaciones) ----
+  const areaObsMap = new Map<number, any[]>();
+  const areaObsRaw = new Map<number, any[]>();
+  calificaciones.forEach((c: any) => {
+    if (!c.calificacion_observacion) return;
+    const servicio = servicios.find(s => s.servicio_id === c.servicio_id);
+    if (servicio && servicio.area_id) {
+      if (!areaObsRaw.has(servicio.area_id)) areaObsRaw.set(servicio.area_id, []);
+      areaObsRaw.get(servicio.area_id)!.push({
+        contenido: c.calificacion_observacion,
+        cliente_nombre: clienteMap.get(c.cliente_id) || "—",
+        fecha: c.calificacion_fecha,
+        hora: c.calificacion_hora,
       });
     }
   });
-  // Sort each area's comments by fecha+hora descending (most recent first)
-  for (const [areaId, comments] of areaComentariosRaw) {
-    comments.sort((a: any, b: any) => {
-      const dateA = `${a.serviciocomentario_fecha}T${a.serviciocomentario_hora}`;
-      const dateB = `${b.serviciocomentario_fecha}T${b.serviciocomentario_hora}`;
+  for (const [areaId, obs] of areaObsRaw) {
+    obs.sort((a: any, b: any) => {
+      const dateA = `${a.fecha}T${a.hora}`;
+      const dateB = `${b.fecha}T${b.hora}`;
       return dateB.localeCompare(dateA);
     });
-    areaComentariosMap.set(areaId, comments);
+    areaObsMap.set(areaId, obs);
   }
 
   // ---- Equipo ranking ----
@@ -928,21 +939,21 @@ export default function Dashboard() {
                     <div className="flex items-center justify-between text-xs cursor-pointer" onClick={() => setPopoverArea(popoverArea === area.area_id ? null : area.area_id)}>
                       <span className="text-gray-500">Observaciones</span>
                       <span className="text-blue-700 font-semibold flex items-center gap-0.5">
-                        {areaComentariosMap.get(area.area_id)?.length || 0}
+                        {areaObsMap.get(area.area_id)?.length || 0}
                         <ChevronDown className={`w-3 h-3 transition-transform ${popoverArea === area.area_id ? 'rotate-180' : ''}`} />
                       </span>
                     </div>
                     {popoverArea === area.area_id && (
                       <div ref={popoverRef}
                         className="absolute right-0 top-full mt-1 z-50 bg-white rounded-xl shadow-xl border border-gray-200 min-w-[280px] max-w-[320px] max-h-60 overflow-y-auto p-3 space-y-2 animate-fade-in">
-                        {(areaComentariosMap.get(area.area_id) || []).length === 0 ? (
+                        {(areaObsMap.get(area.area_id) || []).length === 0 ? (
                           <p className="text-gray-400 text-xs text-center py-2">Sin observaciones</p>
                         ) : (
-                          (areaComentariosMap.get(area.area_id) || []).map((c: any, i: number) => (
-                            <div key={c.serviciocomentario_id || i} className="border-b border-gray-100 pb-2 last:border-0 last:pb-0">
-                              <p className="text-xs text-gray-700 leading-relaxed">{c.serviciocomentario_contenido}</p>
+                          (areaObsMap.get(area.area_id) || []).map((c: any, i: number) => (
+                            <div key={i} className="border-b border-gray-100 pb-2 last:border-0 last:pb-0">
+                              <p className="text-xs text-gray-700 leading-relaxed">{c.contenido}</p>
                               <p className="text-[10px] text-gray-400 mt-0.5">
-                                {c.usuario_nombre} — {c.serviciocomentario_fecha}
+                                {c.cliente_nombre} — {c.fecha}
                               </p>
                             </div>
                           ))
@@ -1385,21 +1396,21 @@ export default function Dashboard() {
                             <div className="flex items-center justify-between cursor-pointer" onClick={() => setPopoverArea(popoverArea === area.area_id ? null : area.area_id)}>
                               <span className="text-gray-500">Observaciones</span>
                               <span className="text-blue-700 font-bold flex items-center gap-0.5">
-                                {areaComentariosMap.get(area.area_id)?.length || 0}
+                                {areaObsMap.get(area.area_id)?.length || 0}
                                 <ChevronDown className={`w-3.5 h-3.5 transition-transform ${popoverArea === area.area_id ? 'rotate-180' : ''}`} />
                               </span>
                             </div>
                             {popoverArea === area.area_id && (
                               <div ref={popoverRef}
                                 className="absolute right-0 top-full mt-1 z-50 bg-white rounded-xl shadow-xl border border-gray-200 min-w-[300px] max-w-[360px] max-h-60 overflow-y-auto p-3 space-y-2">
-                                {(areaComentariosMap.get(area.area_id) || []).length === 0 ? (
+                                {(areaObsMap.get(area.area_id) || []).length === 0 ? (
                                   <p className="text-gray-400 text-xs text-center py-2">Sin observaciones</p>
                                 ) : (
-                                  (areaComentariosMap.get(area.area_id) || []).map((c: any, i: number) => (
-                                    <div key={c.serviciocomentario_id || i} className="border-b border-gray-100 pb-2 last:border-0 last:pb-0">
-                                      <p className="text-sm text-gray-700 leading-relaxed">{c.serviciocomentario_contenido}</p>
+                                  (areaObsMap.get(area.area_id) || []).map((c: any, i: number) => (
+                                    <div key={i} className="border-b border-gray-100 pb-2 last:border-0 last:pb-0">
+                                      <p className="text-sm text-gray-700 leading-relaxed">{c.contenido}</p>
                                       <p className="text-xs text-gray-400 mt-0.5">
-                                        {c.usuario_nombre} — {c.serviciocomentario_fecha}
+                                        {c.cliente_nombre} — {c.fecha}
                                       </p>
                                     </div>
                                   ))
