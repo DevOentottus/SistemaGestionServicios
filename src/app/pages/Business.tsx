@@ -88,6 +88,9 @@ export default function Business() {
   const [searchTemplate, setSearchTemplate] = useState("");
   const [saving, setSaving] = useState(false);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [tmplPage, setTmplPage] = useState(0);
+  const [servPage, setServPage] = useState(0);
+  const PER_PAGE = 5;
 
   const isAdmin = currentUser?.rol === "Administrador" || currentUser?.rol === "Encargado";
 
@@ -564,6 +567,15 @@ export default function Business() {
     (t.plantilla_descripcion || "").toLowerCase().includes(searchTemplate.toLowerCase())
   );
 
+  const tmplPages = Math.max(1, Math.ceil(filteredTemplates.length / PER_PAGE));
+  const servPages = Math.max(1, Math.ceil(filteredServices.length / PER_PAGE));
+  const paginatedTmpl = filteredTemplates.slice(tmplPage * PER_PAGE, (tmplPage + 1) * PER_PAGE);
+  const paginatedServ = filteredServices.slice(servPage * PER_PAGE, (servPage + 1) * PER_PAGE);
+
+  // Reset pages when filters change
+  useEffect(() => { setTmplPage(0); }, [searchTemplate]);
+  useEffect(() => { setServPage(0); }, [searchService, filterStatus]);
+
   if (loading) {
     return <div className="flex justify-center items-center h-64"><Loader2 className="animate-spin w-8 h-8 text-blue-900" /></div>;
   }
@@ -611,7 +623,7 @@ export default function Business() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {filteredTemplates.map(t => (
+              {paginatedTmpl.map(t => (
                 <tr key={t.plantilla_id} className="hover:bg-gray-50 transition">
                   <td className="px-5 py-4"><p className="text-gray-900 font-semibold text-sm">{t.plantilla_nombre}</p><p className="text-gray-500 text-xs truncate max-w-xs">{t.plantilla_descripcion}</p><p className="text-gray-400 text-xs mt-1">Creado: {t.plantilla_fecha_creacion}</p></td>
                   <td className="px-5 py-4"><span className="text-xs text-gray-600">{t.tareas.length} tareas</span></td>
@@ -626,6 +638,24 @@ export default function Business() {
           </table>
           {filteredTemplates.length === 0 && <div className="text-center py-8 text-gray-400 text-sm">No se encontraron plantillas</div>}
         </div>
+        {filteredTemplates.length > PER_PAGE && (
+          <div className="flex items-center justify-center gap-2 px-5 py-3 border-t border-gray-100">
+            <button onClick={() => setTmplPage(p => Math.max(0, p - 1))} disabled={tmplPage === 0}
+              className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition font-medium">
+              Anterior
+            </button>
+            {Array.from({ length: tmplPages }, (_, i) => (
+              <button key={i} onClick={() => setTmplPage(i)}
+                className={`w-7 h-7 text-xs rounded-lg transition font-medium ${i === tmplPage ? 'bg-blue-900 text-white' : 'hover:bg-gray-100 text-gray-600'}`}>
+                {i + 1}
+              </button>
+            ))}
+            <button onClick={() => setTmplPage(p => Math.min(tmplPages - 1, p + 1))} disabled={tmplPage >= tmplPages - 1}
+              className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition font-medium">
+              Siguiente
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Servicios registrados */}
@@ -642,7 +672,7 @@ export default function Business() {
           <table className="w-full">
             <thead><tr className="bg-gray-50 border-b border-gray-100"><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold w-1/2">Servicio</th><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold w-1/6">Tareas</th><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold w-1/6">Estado</th><th className="text-left text-xs text-gray-500 px-5 py-3 font-semibold w-1/6">Acciones</th></tr></thead>
             <tbody className="divide-y divide-gray-50">
-              {filteredServices.map(service => {
+              {paginatedServ.map(service => {
                 const completadas = service.tareas.filter(t => t.completada).length;
                 const isExpanded = expandedServiceId === service.servicio_id;
                 return (
@@ -695,6 +725,24 @@ export default function Business() {
           </table>
           {filteredServices.length === 0 && <div className="text-center py-10 text-gray-400 text-sm">No se encontraron servicios</div>}
         </div>
+        {filteredServices.length > PER_PAGE && (
+          <div className="flex items-center justify-center gap-2 px-5 py-3 border-t border-gray-100">
+            <button onClick={() => setServPage(p => Math.max(0, p - 1))} disabled={servPage === 0}
+              className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition font-medium">
+              Anterior
+            </button>
+            {Array.from({ length: servPages }, (_, i) => (
+              <button key={i} onClick={() => setServPage(i)}
+                className={`w-7 h-7 text-xs rounded-lg transition font-medium ${i === servPage ? 'bg-blue-900 text-white' : 'hover:bg-gray-100 text-gray-600'}`}>
+                {i + 1}
+              </button>
+            ))}
+            <button onClick={() => setServPage(p => Math.min(servPages - 1, p + 1))} disabled={servPage >= servPages - 1}
+              className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition font-medium">
+              Siguiente
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Modal de plantilla */}
