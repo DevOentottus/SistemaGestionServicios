@@ -83,6 +83,7 @@ export default function Business() {
   const [showTemplateModal, setShowTemplateModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [templateForm, setTemplateForm] = useState(emptyTemplateForm);
+  const [sourceServiceId, setSourceServiceId] = useState<number | null>(null);
   const [searchTemplate, setSearchTemplate] = useState("");
   const [saving, setSaving] = useState(false);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
@@ -432,10 +433,24 @@ export default function Business() {
 
   const openAddTemplate = () => {
     setEditingTemplate(null);
+    setSourceServiceId(null);
     setTemplateForm({
       nombre: "",
       descripcion: "",
       tareas: [{ nombre: "", orden: 1 }],
+    });
+    setShowTemplateModal(true);
+  };
+
+  const openTemplateFromService = (service: Service) => {
+    setEditingTemplate(null);
+    setSourceServiceId(service.servicio_id);
+    setTemplateForm({
+      nombre: `Plantilla desde ${service.servicio_codigo}`,
+      descripcion: `Creada desde el servicio ${service.servicio_codigo}: ${service.servicio_descripcion}`,
+      tareas: service.tareas
+        .sort((a, b) => a.orden - b.orden)
+        .map(t => ({ nombre: t.nombre, orden: t.orden })),
     });
     setShowTemplateModal(true);
   };
@@ -626,8 +641,13 @@ export default function Business() {
                     </tr>
                     {isExpanded && (
                       <tr><td colSpan={6} className="bg-gray-50 px-5 py-4 border-t border-gray-100">
-                        <div className="space-y-3">
-                          <h4 className="text-xs text-gray-500 font-semibold uppercase tracking-wider flex items-center gap-2"><List className="w-4 h-4" /> Tareas documentadas</h4>
+                          <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-xs text-gray-500 font-semibold uppercase tracking-wider flex items-center gap-2"><List className="w-4 h-4" /> Tareas documentadas</h4>
+                            <button onClick={() => openTemplateFromService(service)} className="flex items-center gap-1 text-xs text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 px-2.5 py-1.5 rounded-lg transition font-semibold">
+                              <Layers className="w-3.5 h-3.5" /> Crear plantilla
+                            </button>
+                          </div>
                           <div className="space-y-2">
                             {service.tareas.sort((a,b) => a.orden - b.orden).map(task => (
                               <div key={task.id} className={`flex items-start gap-3 p-3 rounded-xl ${task.completada ? "bg-green-50 border border-green-100" : "bg-white border border-gray-100"}`}>
