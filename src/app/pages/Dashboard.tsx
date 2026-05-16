@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { supabase } from "../../lib/supabase";
@@ -6,7 +6,7 @@ import {
   ClipboardList, Users, MapPin, CheckCircle2, Clock, AlertTriangle,
   TrendingUp, ArrowRight, Activity, Star,
   Zap, Target, BarChart2, Bell, ChevronRight,
-  Loader2, ArrowUpDown, X, Eye,
+  Loader2, ArrowUpDown, X, Eye, ChevronDown,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -51,10 +51,25 @@ export default function Dashboard() {
   const [realtimeAsc, setRealtimeAsc] = useState(false);
   const [highlightMode, setHighlightMode] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const [popoverArea, setPopoverArea] = useState<number | null>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchData();
   }, []);
+
+  const handleClickOutside = useCallback((e: MouseEvent) => {
+    if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+      setPopoverArea(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (popoverArea !== null) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [popoverArea, handleClickOutside]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -69,7 +84,7 @@ export default function Dashboard() {
         supabase.from("calificaciones").select("calificacion_puntaje, calificacion_comentario, servicio_id"),
         supabase.from("clientes").select("cliente_id, cliente_nombres"),
         supabase.from("serviciocolaboradores").select("servicio_id, colaborador_id"),
-        supabase.from("serviciocomentarios").select("servicio_id"),
+        supabase.from("serviciocomentarios").select("serviciocomentario_id, servicio_id, usuario_id, serviciocomentario_contenido, serviciocomentario_fecha, serviciocomentario_hora"),
       ]);
       if (s.error || t.error || u.error || a.error || r.error || al.error || cf.error || c.error || sc.error || cm.error) throw "Error loading dashboard data";
 
@@ -231,13 +246,27 @@ export default function Dashboard() {
     }
   });
 
-  const areaComentariosMap = new Map<number, number>();
-  comentariosServicio.forEach((c: { servicio_id: number }) => {
+  const areaComentariosMap = new Map<number, any[]>();
+  const areaComentariosRaw = new Map<number, any[]>();
+  comentariosServicio.forEach((c: { servicio_id: number; serviciocomentario_contenido: string; usuario_id: number; serviciocomentario_fecha: string; serviciocomentario_hora: string }) => {
     const servicio = servicios.find(s => s.servicio_id === c.servicio_id);
     if (servicio && servicio.area_id) {
-      areaComentariosMap.set(servicio.area_id, (areaComentariosMap.get(servicio.area_id) || 0) + 1);
+      if (!areaComentariosRaw.has(servicio.area_id)) areaComentariosRaw.set(servicio.area_id, []);
+      areaComentariosRaw.get(servicio.area_id)!.push({
+        ...c,
+        usuario_nombre: userMap.get(c.usuario_id) || "—",
+      });
     }
   });
+  // Sort each area's comments by fecha+hora descending (most recent first)
+  for (const [areaId, comments] of areaComentariosRaw) {
+    comments.sort((a: any, b: any) => {
+      const dateA = `${a.serviciocomentario_fecha}T${a.serviciocomentario_hora}`;
+      const dateB = `${b.serviciocomentario_fecha}T${b.serviciocomentario_hora}`;
+      return dateB.localeCompare(dateA);
+    });
+    areaComentariosMap.set(areaId, comments);
+  }
 
   // ---- Equipo ranking ----
   const servicioCalifMap = new Map<number, number[]>();
@@ -895,9 +924,31 @@ export default function Dashboard() {
                     <span className="text-gray-500">Completados</span>
                     <span className="text-green-700 font-semibold">{aCompleted}/{aServices.length}</span>
                   </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-500">Observaciones</span>
-                    <span className="text-blue-700 font-semibold">{areaComentariosMap.get(area.area_id) || 0}</span>
+                  <div className="relative">
+                    <div className="flex items-center justify-between text-xs cursor-pointer" onClick={() => setPopoverArea(popoverArea === area.area_id ? null : area.area_id)}>
+                      <span className="text-gray-500">Observaciones</span>
+                      <span className="text-blue-700 font-semibold flex items-center gap-0.5">
+                        {areaComentariosMap.get(area.area_id)?.length || 0}
+                        <ChevronDown className={`w-3 h-3 transition-transform ${popoverArea === area.area_id ? 'rotate-180' : ''}`} />
+                      </span>
+                    </div>
+                    {popoverArea === area.area_id && (
+                      <div ref={popoverRef}
+                        className="absolute right-0 top-full mt-1 z-50 bg-white rounded-xl shadow-xl border border-gray-200 min-w-[280px] max-w-[320px] max-h-60 overflow-y-auto p-3 space-y-2 animate-fade-in">
+                        {(areaComentariosMap.get(area.area_id) || []).length === 0 ? (
+                          <p className="text-gray-400 text-xs text-center py-2">Sin observaciones</p>
+                        ) : (
+                          (areaComentariosMap.get(area.area_id) || []).map((c: any, i: number) => (
+                            <div key={c.serviciocomentario_id || i} className="border-b border-gray-100 pb-2 last:border-0 last:pb-0">
+                              <p className="text-xs text-gray-700 leading-relaxed">{c.serviciocomentario_contenido}</p>
+                              <p className="text-[10px] text-gray-400 mt-0.5">
+                                {c.usuario_nombre} — {c.serviciocomentario_fecha}
+                              </p>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1330,9 +1381,31 @@ export default function Dashboard() {
                             <span className="text-gray-500">Completados</span>
                             <span className="text-green-700 font-bold">{aCompleted}/{aServices.length}</span>
                           </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-500">Observaciones</span>
-                            <span className="text-blue-700 font-bold">{areaComentariosMap.get(area.area_id) || 0}</span>
+                          <div className="relative">
+                            <div className="flex items-center justify-between cursor-pointer" onClick={() => setPopoverArea(popoverArea === area.area_id ? null : area.area_id)}>
+                              <span className="text-gray-500">Observaciones</span>
+                              <span className="text-blue-700 font-bold flex items-center gap-0.5">
+                                {areaComentariosMap.get(area.area_id)?.length || 0}
+                                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${popoverArea === area.area_id ? 'rotate-180' : ''}`} />
+                              </span>
+                            </div>
+                            {popoverArea === area.area_id && (
+                              <div ref={popoverRef}
+                                className="absolute right-0 top-full mt-1 z-50 bg-white rounded-xl shadow-xl border border-gray-200 min-w-[300px] max-w-[360px] max-h-60 overflow-y-auto p-3 space-y-2">
+                                {(areaComentariosMap.get(area.area_id) || []).length === 0 ? (
+                                  <p className="text-gray-400 text-xs text-center py-2">Sin observaciones</p>
+                                ) : (
+                                  (areaComentariosMap.get(area.area_id) || []).map((c: any, i: number) => (
+                                    <div key={c.serviciocomentario_id || i} className="border-b border-gray-100 pb-2 last:border-0 last:pb-0">
+                                      <p className="text-sm text-gray-700 leading-relaxed">{c.serviciocomentario_contenido}</p>
+                                      <p className="text-xs text-gray-400 mt-0.5">
+                                        {c.usuario_nombre} — {c.serviciocomentario_fecha}
+                                      </p>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
