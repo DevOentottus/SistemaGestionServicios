@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { supabase } from "../../lib/supabase";
 import {
-  Users, TrendingUp, Clock, CheckCircle2, Loader2,
+  Users, TrendingUp, Clock, CheckCircle2,
   Search, ArrowUp, ArrowDown, Award, Star,
   Filter, X, AlertTriangle,
 } from "lucide-react";
@@ -175,6 +175,9 @@ export default function PerformanceDashboard() {
   // ── UI state for Phase 4 ──
   const [selectedColabId, setSelectedColabId] = useState<number | null>(null);
   const [comparacionIds, setComparacionIds] = useState<number[]>([]);
+  const [showComparison, setShowComparison] = useState(false);
+  const [sortField, setSortField] = useState<string>("score");
+  const [sortAsc, setSortAsc] = useState(false);
 
   const toggleComparacion = (id: number) => {
     setComparacionIds(prev => 
@@ -284,17 +287,8 @@ export default function PerformanceDashboard() {
     }
   };
 
-  // ── Loading state ──
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <Loader2 className="animate-spin w-8 h-8 text-blue-900" />
-      </div>
-    );
-  }
-
   // ──────────────────────────────────────────────
-  // Computed KPIs (useMemo)
+  // Computed KPIs (useMemo) — ALWAYS before any conditional return
   // ──────────────────────────────────────────────
 
   // 1. Colaboradores filtrados (already filtered at query level, kept as
@@ -481,6 +475,26 @@ export default function PerformanceDashboard() {
     }));
   }, [visibleColaboradores, areaColabMap, colabMetrics, areas]);
 
+  // 10b. Average time per area chart data
+  const tiempoPorArea = useMemo(() => {
+    const areaMap = new Map<number, { total: number; count: number }>();
+    visibleColaboradores.forEach(col => {
+      const areasCol = areaColabMap.get(col.usuario_id) || [];
+      const metric = colabMetrics.get(col.usuario_id);
+      if (!metric) return;
+      areasCol.forEach(area => {
+        if (!areaMap.has(area.area_id)) areaMap.set(area.area_id, { total: 0, count: 0 });
+        const entry = areaMap.get(area.area_id)!;
+        entry.total += metric.tiempoPromedio;
+        entry.count += 1;
+      });
+    });
+    return Array.from(areaMap.entries()).map(([areaId, data]) => ({
+      area: areas.find(a => a.area_id === areaId)?.area_nombre || `#${areaId}`,
+      tiempo: data.count > 0 ? Math.round((data.total / data.count) * 10) / 10 : 0,
+    }));
+  }, [visibleColaboradores, areaColabMap, colabMetrics, areas]);
+
   // 11. Ranking data
   const rankingData = useMemo(() => {
     return visibleColaboradores
@@ -503,6 +517,23 @@ export default function PerformanceDashboard() {
       .filter((x): x is NonNullable<typeof x> => x !== null)
       .sort((a, b) => b.score - a.score);
   }, [visibleColaboradores, colabMetrics, areaColabMap]);
+
+  // 11b. Sorted ranking (by sortField/sortAsc)
+  const sortedRanking = useMemo(() => {
+    const data = [...rankingData];
+    data.sort((a, b) => {
+      let cmp = 0;
+      const aVal = (a as any)[sortField] ?? 0;
+      const bVal = (b as any)[sortField] ?? 0;
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        cmp = aVal - bVal;
+      } else {
+        cmp = String(aVal).localeCompare(String(bVal));
+      }
+      return sortAsc ? cmp : -cmp;
+    });
+    return data;
+  }, [rankingData, sortField, sortAsc]);
 
   // 12. Daily productivity chart
   const productividadDiaria = useMemo(() => {
@@ -561,8 +592,67 @@ export default function PerformanceDashboard() {
     return { col, metric, evals, tareasColab, serviciosColab, califs, tComentarios, sComentarios, instruc, solic, historial, audit };
   }, [selectedColabId, visibleColaboradores, colabMetrics, evaluacionesPorColaborador, tareasPorColaborador, serviciosPorColaborador, calificacionesPorColaborador, tareaComentarios, servicioComentarios, instrucciones, solicitudes, servicioHistorial, auditoria, areas]);
 
+  // 14. Comparison chart data
+  const comparisonData = useMemo(() => {
+    return comparacionIds.map(id => {
+      const col = visibleColaboradores.find(c => c.usuario_id === id);
+      const m = colabMetrics.get(id);
+      if (!col || !m) return null;
+      return {
+        nombre: col.usuario_nombres.split(' ')[0],
+        eficiencia: m.eficiencia,
+        completadas: m.tareasCompletadas,
+        tiempo: m.tiempoPromedio,
+        rating: m.ratingPromedio,
+      };
+    }).filter((x): x is NonNullable<typeof x> => x !== null);
+  }, [comparacionIds, visibleColaboradores, colabMetrics]);
+
   // ── Render ──
-  return (
+  return loading ? (
+    <div className="space-y-5">
+      <div>
+        <h1 className="text-gray-900 font-bold text-2xl">Panel de Rendimiento</h1>
+        <p className="text-gray-500 text-sm">Colaboradores · Cargando datos...</p>
+      </div>
+      {/* Skeleton KPI cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[1,2,3,4].map(i => (
+          <div key={i} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 animate-pulse">
+            <div className="w-9 h-9 bg-gray-200 rounded-xl mb-2" />
+            <div className="h-7 bg-gray-200 rounded w-16 mb-1" />
+            <div className="h-3 bg-gray-200 rounded w-20" />
+          </div>
+        ))}
+      </div>
+      {/* Skeleton grid */}
+      <div>
+        <div className="h-5 bg-gray-200 rounded w-48 mb-3" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          {[1,2,3,4,5,6].map(i => (
+            <div key={i} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 animate-pulse">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 bg-gray-200 rounded-full" />
+                <div className="flex-1">
+                  <div className="h-4 bg-gray-200 rounded w-24 mb-1" />
+                  <div className="h-3 bg-gray-200 rounded w-16" />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2 mb-2">
+                {[1,2,3].map(j => (
+                  <div key={j} className="bg-gray-50 rounded-lg p-1.5">
+                    <div className="h-5 bg-gray-200 rounded w-8 mx-auto mb-1" />
+                    <div className="h-3 bg-gray-200 rounded w-10 mx-auto" />
+                  </div>
+                ))}
+              </div>
+              <div className="h-1.5 bg-gray-200 rounded-full" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  ) : (
     <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -619,7 +709,7 @@ export default function PerformanceDashboard() {
           </div>
           {comparacionIds.length >= 2 && (
             <button
-              onClick={() => setComparacionIds([])}
+              onClick={() => setShowComparison(true)}
               className="px-3 py-2 bg-blue-900 text-white rounded-xl text-sm font-semibold hover:bg-blue-800 transition"
             >
               Comparar ({comparacionIds.length})
@@ -765,7 +855,7 @@ export default function PerformanceDashboard() {
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {productividadDiaria.length > 0 && (
-          <div className="lg:col-span-2 bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
             <h3 className="text-gray-800 font-semibold mb-4">Productividad Diaria</h3>
             <ResponsiveContainer width="100%" height={220}>
               <LineChart data={productividadDiaria}>
@@ -792,6 +882,20 @@ export default function PerformanceDashboard() {
             </ResponsiveContainer>
           </div>
         )}
+
+        {tiempoPorArea.length > 0 && (
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+            <h3 className="text-gray-800 font-semibold mb-4">Tiempo Prom. por Área</h3>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={tiempoPorArea}>
+                <XAxis dataKey="area" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 11 }} unit=" min" />
+                <Tooltip />
+                <Bar dataKey="tiempo" fill="#F59E0B" radius={[4, 4, 0, 0]} name="Minutos promedio" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
 
       {/* Ranking Table */}
@@ -808,15 +912,28 @@ export default function PerformanceDashboard() {
                   <th className="text-left px-5 py-3 font-semibold">#</th>
                   <th className="text-left px-5 py-3 font-semibold">Colaborador</th>
                   <th className="text-left px-5 py-3 font-semibold">Áreas</th>
-                  <th className="text-center px-5 py-3 font-semibold">Completadas</th>
-                  <th className="text-center px-5 py-3 font-semibold">Eficiencia</th>
-                  <th className="text-center px-5 py-3 font-semibold">Tiempo Prom.</th>
-                  <th className="text-center px-5 py-3 font-semibold">Rating</th>
-                  <th className="text-center px-5 py-3 font-semibold">Score</th>
+                  {[
+                    { key: 'completadas', label: 'Completadas' },
+                    { key: 'eficiencia', label: 'Eficiencia' },
+                    { key: 'tiempoPromedio', label: 'Tiempo Prom.' },
+                    { key: 'rating', label: 'Rating' },
+                    { key: 'score', label: 'Score' },
+                  ].map(col => (
+                    <th
+                      key={col.key}
+                      onClick={() => {
+                        if (sortField === col.key) setSortAsc(!sortAsc);
+                        else { setSortField(col.key); setSortAsc(false); }
+                      }}
+                      className="text-center px-5 py-3 font-semibold cursor-pointer hover:text-gray-700"
+                    >
+                      {col.label} {sortField === col.key ? (sortAsc ? '↑' : '↓') : ''}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {rankingData.map((item, idx) => (
+                {sortedRanking.map((item, idx) => (
                   <tr key={item.id} className={`hover:bg-gray-50 transition ${idx < 3 ? 'bg-yellow-50/50' : ''}`}>
                     <td className="px-5 py-3">
                       {idx === 0 ? <Award className="w-5 h-5 text-yellow-500" /> :
@@ -839,6 +956,59 @@ export default function PerformanceDashboard() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* Comparison Modal */}
+      {showComparison && comparisonData.length >= 2 && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowComparison(false)}>
+          <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[85vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-bold text-gray-900">Comparación de Rendimiento</h2>
+              <button onClick={() => setShowComparison(false)} className="p-2 hover:bg-gray-100 rounded-xl">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Efficiency comparison */}
+            <div className="mb-6">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Eficiencia (%)</h3>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={comparisonData}>
+                  <XAxis dataKey="nombre" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 11 }} domain={[0, 100]} />
+                  <Tooltip />
+                  <Bar dataKey="eficiencia" fill="#2563EB" radius={[4, 4, 0, 0]} name="Eficiencia %" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Completed tasks comparison */}
+            <div className="mb-6">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Tareas Completadas</h3>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={comparisonData}>
+                  <XAxis dataKey="nombre" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip />
+                  <Bar dataKey="completadas" fill="#16A34A" radius={[4, 4, 0, 0]} name="Tareas completadas" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Rating comparison */}
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Rating Promedio</h3>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={comparisonData}>
+                  <XAxis dataKey="nombre" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 11 }} domain={[0, 5]} />
+                  <Tooltip />
+                  <Bar dataKey="rating" fill="#F59E0B" radius={[4, 4, 0, 0]} name="Rating" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
       )}
