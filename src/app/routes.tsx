@@ -12,6 +12,7 @@ import Supervision from "./pages/Supervision";
 import Business from "./pages/Business";
 import Reports from "./pages/Reports";
 import Audit from "./pages/Audit";
+import PerformanceDashboard from "./pages/PerformanceDashboard";
 import ClientView from "./pages/ClientView";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { RequireRole } from "./components/RequireRole";
@@ -104,6 +105,16 @@ export const router = createBrowserRouter([
             element: (
               <RequireRole allowedRoles={["Administrador", "Encargado"]}>
                 <Reports />
+              </RequireRole>
+            ),
+          },
+
+          // Rendimiento — Administrador y Encargado
+          {
+            path: "performance",
+            element: (
+              <RequireRole allowedRoles={["Administrador", "Encargado"]}>
+                <PerformanceDashboard />
               </RequireRole>
             ),
           },
