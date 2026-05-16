@@ -4,7 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import {
   Briefcase, Plus, Edit2, ToggleLeft, ToggleRight, Search, X, Check, ChevronDown,
   List, Clock, User, Copy, Layers, ChevronRight, CheckCircle2, Circle,
-  Save, Trash2, Loader2, GripVertical,
+  Save, Trash2, Loader2, GripVertical, Eye,
 } from "lucide-react";
 import React from "react";
 
@@ -655,9 +655,9 @@ export default function Business() {
                       </td>
                       <td className="px-5 py-4"><span className="text-xs text-gray-600">{completadas}/{service.tareas.length}</span></td>
                       <td className="px-5 py-4"><span className={`inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full ${statusColors[service.servicio_estado]}`}><span className={`w-1.5 h-1.5 rounded-full ${service.servicio_estado === "Completado" ? "bg-green-600" : service.servicio_estado === "En progreso" ? "bg-blue-600" : service.servicio_estado === "Pendiente" ? "bg-yellow-600" : "bg-red-600"}`} />{service.servicio_estado}</span></td>
-                      <td className="px-5 py-4"><div className="flex items-center gap-1">
+                      <td className="px-5 py-4 text-right"><div className="flex items-center justify-end gap-1">
+                        <button onClick={() => setExpandedServiceId(isExpanded ? null : service.servicio_id)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition" title="Ver tareas del servicio"><Eye className="w-4 h-4" /></button>
                         <button onClick={() => openTemplateFromService(service)} className="p-1.5 rounded-lg hover:bg-purple-50 text-purple-700 transition" title="Crear plantilla desde este servicio"><Layers className="w-4 h-4" /></button>
-                        <button onClick={() => setExpandedServiceId(isExpanded ? null : service.servicio_id)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 transition"><ChevronRight className={`w-4 h-4 transition-transform ${isExpanded ? "rotate-90" : ""}`} /></button>
                       </div></td>
                     </tr>
                     {isExpanded && (
