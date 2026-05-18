@@ -3,6 +3,7 @@ import { supabase } from "../../lib/supabase";
 import {
   Users, Search, ChevronDown, Loader2, Phone, Mail, MapPin,
   Star, ClipboardList, Eye, Calendar, Hash, CheckCircle2,
+  MessageCircle,
 } from "lucide-react";
 
 // ── Tipos ──
@@ -29,6 +30,7 @@ type Cliente = {
 type ServicioResumen = {
   servicio_id: number;
   servicio_codigo: string;
+  servicio_codigo_acceso: string;
   servicio_descripcion: string | null;
   servicio_estado: string;
   servicio_fecha_inicio: string | null;
@@ -73,6 +75,14 @@ function Estrellas({ puntaje }: { puntaje: number }) {
   );
 }
 
+/** Formatea un número de teléfono para WhatsApp y arma el link con mensaje */
+function whatsappUrl(telefono: string, mensaje: string): string {
+  const digits = telefono.replace(/\D/g, "");
+  // Si empieza con 9 (celular Perú) sin código de país, agregar +51
+  const full = digits.startsWith("51") ? digits : digits.startsWith("9") ? `51${digits}` : digits;
+  return `https://wa.me/${full}?text=${encodeURIComponent(mensaje)}`;
+}
+
 export default function Clientes() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,7 +110,7 @@ export default function Clientes() {
       // 2. Servicios de todos los clientes
       const { data: servicios, error: errServ } = await supabase
         .from("servicios")
-        .select("servicio_id, servicio_codigo, servicio_descripcion, servicio_estado, servicio_fecha_inicio, area_id, cliente_id")
+        .select("servicio_id, servicio_codigo, servicio_codigo_acceso, servicio_descripcion, servicio_estado, servicio_fecha_inicio, area_id, cliente_id")
         .in("cliente_id", clienteIds)
         .order("servicio_fecha_inicio", { ascending: false });
       if (errServ) throw errServ;
@@ -162,6 +172,7 @@ export default function Clientes() {
         cliente.servicios.push({
           servicio_id: s.servicio_id,
           servicio_codigo: s.servicio_codigo || "SRV-000",
+          servicio_codigo_acceso: s.servicio_codigo_acceso || "",
           servicio_descripcion: s.servicio_descripcion,
           servicio_estado: estado,
           servicio_fecha_inicio: s.servicio_fecha_inicio,
@@ -520,11 +531,28 @@ export default function Clientes() {
                                             )}
                                           </div>
                                         </div>
-                                        <span
-                                          className={`text-[10px] px-2 py-1 rounded-full font-medium flex-shrink-0 ${statusColors[s.servicio_estado] || "bg-gray-100 text-gray-600"}`}
-                                        >
-                                          {statusLabel[s.servicio_estado] || s.servicio_estado}
-                                        </span>
+                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                          <span
+                                            className={`text-[10px] px-2 py-1 rounded-full font-medium ${statusColors[s.servicio_estado] || "bg-gray-100 text-gray-600"}`}
+                                          >
+                                            {statusLabel[s.servicio_estado] || s.servicio_estado}
+                                          </span>
+                                          {cliente.cliente_telefono && s.servicio_codigo_acceso && (
+                                            <a
+                                              href={whatsappUrl(
+                                                cliente.cliente_telefono,
+                                                `Hola, soy de Servicios STS. Puedes darle seguimiento a tu servicio ${s.servicio_codigo} aquí: ${window.location.origin}/client\n\nTu código de acceso es: ${s.servicio_codigo_acceso}`
+                                              )}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="p-1.5 rounded-lg hover:bg-green-100 text-green-600 transition"
+                                              title="Enviar por WhatsApp"
+                                              onClick={(e) => e.stopPropagation()}
+                                            >
+                                              <MessageCircle className="w-4 h-4" />
+                                            </a>
+                                          )}
+                                        </div>
                                       </div>
                                     ))}
                                     {cliente.servicios.length > 10 && (
