@@ -12,6 +12,7 @@ const navItems = [
   { path: "/usuarios", label: "Usuarios", icon: Users, roles: ["Administrador"] },
   { path: "/areas", label: "Áreas de Servicio", icon: MapPin, roles: ["Administrador", "Encargado"] },
   { path: "/services", label: "Servicios", icon: ClipboardList, roles: ["Administrador", "Encargado", "Colaborador"] },
+  { path: "/clientes", label: "Clientes", icon: Users, roles: ["Administrador", "Encargado"] },
   { path: "/business", label: "Negocio", icon: Briefcase, roles: ["Administrador", "Encargado"] },
   { path: "/monitor", label: "Monitor / Sala", icon: Monitor, roles: ["Administrador", "Encargado"] },
 
