@@ -5,6 +5,7 @@ import {
   Loader2,
   Clock,
   User,
+  ChevronRight,
 } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -50,93 +51,118 @@ function formatHora(time: string | null | undefined): string {
 
 function CompletedDot() {
   return (
-    <div className="w-8 h-8 rounded-full border-2 border-green-500 bg-green-100 flex items-center justify-center flex-shrink-0">
-      <CheckCircle2 className="w-5 h-5 text-green-600" />
+    <div className="w-10 h-10 rounded-full border-2 border-green-500 bg-green-100 flex items-center justify-center flex-shrink-0 shadow-sm">
+      <CheckCircle2 className="w-6 h-6 text-green-600" />
     </div>
   );
 }
 
 function InProgressDot() {
   return (
-    <div className="w-8 h-8 rounded-full border-2 border-amber-400 bg-amber-50 flex items-center justify-center flex-shrink-0 animate-pulse">
-      <Play className="w-4 h-4 text-amber-500 ml-0.5" />
+    <div className="w-10 h-10 rounded-full border-2 border-amber-400 bg-amber-50 flex items-center justify-center flex-shrink-0 shadow-sm animate-pulse">
+      <Play className="w-5 h-5 text-amber-500 ml-0.5" />
     </div>
   );
 }
 
 function PendingDot() {
   return (
-    <div className="w-8 h-8 rounded-full border-2 border-gray-300 bg-gray-50 flex items-center justify-center flex-shrink-0">
-      <Circle className="w-4 h-4 text-gray-400" />
+    <div className="w-10 h-10 rounded-full border-2 border-gray-300 bg-gray-50 flex items-center justify-center flex-shrink-0">
+      <Circle className="w-5 h-5 text-gray-400" />
     </div>
   );
 }
 
-// ── Flowchart Item ───────────────────────────────────────────────────────────
+// ── Connector arrow ──────────────────────────────────────────────────────────
 
-function FlowItem({
+function Connector({ completed }: { completed: boolean }) {
+  return (
+    <div className="flex items-center flex-shrink-0 mx-1">
+      <div
+        className={`w-6 h-0.5 ${completed ? "bg-green-400" : "bg-gray-200"}`}
+      />
+      <ChevronRight
+        className={`w-4 h-4 -ml-1 ${
+          completed ? "text-green-400" : "text-gray-300"
+        }`}
+      />
+    </div>
+  );
+}
+
+// ── Horizontal Step ──────────────────────────────────────────────────────────
+
+function FlowStep({
   task,
   user,
-  isLast,
+  showConnector,
+  connectorCompleted,
 }: {
   task: FlowTask;
   user?: Usuario;
-  isLast: boolean;
+  showConnector: boolean;
+  connectorCompleted: boolean;
 }) {
   const isCompleted = task.tarea_estado === "completado";
   const isInProgress = task.tarea_estado === "en_progreso";
 
   return (
-    <div className="relative flex gap-4">
-      {/* Vertical connector + dot */}
-      <div className="flex flex-col items-center">
-        {isCompleted ? <CompletedDot /> : isInProgress ? <InProgressDot /> : <PendingDot />}
-        {!isLast && (
-          <div
-            className={`w-0.5 flex-1 mt-1 ${
-              isCompleted ? "bg-green-300" : "bg-gray-200"
-            }`}
-          />
+    <div className="flex items-center">
+      {/* Step card */}
+      <div className="flex flex-col items-center min-w-[120px] max-w-[160px]">
+        {/* Dot */}
+        {isCompleted ? (
+          <CompletedDot />
+        ) : isInProgress ? (
+          <InProgressDot />
+        ) : (
+          <PendingDot />
         )}
-      </div>
 
-      {/* Content */}
-      <div className="flex-1 pb-6">
-        <div className="flex items-center gap-2">
-          <p
-            className={`text-sm font-semibold ${
-              isCompleted
-                ? "text-gray-800"
-                : isInProgress
-                ? "text-amber-800"
-                : "text-gray-400"
-            }`}
-          >
-            {task.tarea_titulo}
-          </p>
-          {isInProgress && (
-            <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
-              En proceso
-            </span>
-          )}
-        </div>
+        {/* Title */}
+        <p
+          className={`text-xs text-center mt-2 leading-tight px-1 ${
+            isCompleted
+              ? "text-gray-800 font-semibold"
+              : isInProgress
+              ? "text-amber-800 font-semibold"
+              : "text-gray-400"
+          }`}
+        >
+          {task.tarea_titulo}
+        </p>
 
+        {/* Badge for in-progress */}
+        {isInProgress && (
+          <span className="mt-1 text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+            En proceso
+          </span>
+        )}
+
+        {/* Metadata for completed */}
         {isCompleted && task.tarea_fecha_completado && (
-          <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
-            <span className="flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              {formatFecha(task.tarea_fecha_completado)} ·{" "}
+          <div className="mt-2 flex flex-col items-center gap-0.5 text-[10px] text-gray-500 leading-tight">
+            <span className="flex items-center gap-1 whitespace-nowrap">
+              <Clock className="w-2.5 h-2.5" />
+              {formatFecha(task.tarea_fecha_completado)}
+            </span>
+            <span className="whitespace-nowrap">
               {formatHora(task.tarea_hora_completado)}
             </span>
             {task.tarea_completado_por && (
-              <span className="flex items-center gap-1">
-                <User className="w-3 h-3" />
+              <span className="flex items-center gap-1 whitespace-nowrap truncate max-w-[130px]">
+                <User className="w-2.5 h-2.5 flex-shrink-0" />
                 {userName(user)}
               </span>
             )}
           </div>
         )}
       </div>
+
+      {/* Connector arrow */}
+      {showConnector && (
+        <Connector completed={isCompleted} />
+      )}
     </div>
   );
 }
@@ -145,9 +171,11 @@ function FlowItem({
 
 function FlowEmpty() {
   return (
-    <div className="flex flex-col items-center justify-center py-8 text-gray-400">
+    <div className="flex flex-col items-center justify-center py-10 text-gray-400">
       <p className="text-sm">No hay tareas registradas</p>
-      <p className="text-xs mt-1">Las tareas aparecerán aquí en orden de ejecución</p>
+      <p className="text-xs mt-1">
+        Las tareas aparecerán aquí en orden de ejecución
+      </p>
     </div>
   );
 }
@@ -156,7 +184,7 @@ function FlowEmpty() {
 
 function FlowLoading() {
   return (
-    <div className="flex items-center justify-center py-8 text-gray-400">
+    <div className="flex items-center justify-center py-10 text-gray-400">
       <Loader2 className="w-5 h-5 animate-spin mr-2" />
       <span className="text-sm">Cargando tareas...</span>
     </div>
@@ -180,19 +208,27 @@ export default function ServiceTaskFlowchart({
   if (tasks.length === 0) return <FlowEmpty />;
 
   return (
-    <div className="pl-1">
-      {tasks.map((task, idx) => (
-        <FlowItem
-          key={task.tarea_id}
-          task={task}
-          user={
-            task.tarea_completado_por
-              ? usersMap[task.tarea_completado_por]
-              : undefined
-          }
-          isLast={idx === tasks.length - 1}
-        />
-      ))}
+    <div className="overflow-x-auto pb-2 -mx-1">
+      <div className="flex items-start min-w-fit px-1">
+        {tasks.map((task, idx) => {
+          const user = task.tarea_completado_por
+            ? usersMap[task.tarea_completado_por]
+            : undefined;
+
+          const prevCompleted =
+            idx > 0 && tasks[idx - 1].tarea_estado === "completado";
+
+          return (
+            <FlowStep
+              key={task.tarea_id}
+              task={task}
+              user={user}
+              showConnector={idx < tasks.length - 1}
+              connectorCompleted={task.tarea_estado === "completado"}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }

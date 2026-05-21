@@ -16,14 +16,22 @@ type TaskLike = {
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
 const usersMap = {
-  1: { usuario_id: 1, usuario_nombres: "Luciana", usuario_apellido_paterno: "Chuquitucto" },
-  2: { usuario_id: 2, usuario_nombres: "Pedro", usuario_apellido_paterno: "Torres" },
+  1: {
+    usuario_id: 1,
+    usuario_nombres: "Luciana",
+    usuario_apellido_paterno: "Chuquitucto",
+  },
+  2: {
+    usuario_id: 2,
+    usuario_nombres: "Pedro",
+    usuario_apellido_paterno: "Torres",
+  },
 };
 
 const mixedTasks: TaskLike[] = [
   {
     tarea_id: 1,
-    tarea_titulo: "Inspección inicial de equipos",
+    tarea_titulo: "Inspección inicial",
     tarea_estado: "completado",
     tarea_orden: 1,
     tarea_fecha_completado: "2026-05-13",
@@ -32,7 +40,7 @@ const mixedTasks: TaskLike[] = [
   },
   {
     tarea_id: 2,
-    tarea_titulo: "Desmontaje y revisión de componentes",
+    tarea_titulo: "Desmontaje",
     tarea_estado: "completado",
     tarea_orden: 2,
     tarea_fecha_completado: "2026-05-03",
@@ -41,7 +49,7 @@ const mixedTasks: TaskLike[] = [
   },
   {
     tarea_id: 3,
-    tarea_titulo: "Reconfiguración de equipos",
+    tarea_titulo: "Reconfiguración",
     tarea_estado: "en_progreso",
     tarea_orden: 3,
     tarea_fecha_completado: null,
@@ -50,7 +58,7 @@ const mixedTasks: TaskLike[] = [
   },
   {
     tarea_id: 4,
-    tarea_titulo: "Pruebas de conectividad",
+    tarea_titulo: "Pruebas",
     tarea_estado: "pendiente",
     tarea_orden: 4,
     tarea_fecha_completado: null,
@@ -107,10 +115,10 @@ describe("ServiceTaskFlowchart — mixed states", () => {
       <ServiceTaskFlowchart tasks={mixedTasks} usersMap={usersMap} />
     );
 
-    expect(screen.getByText("Inspección inicial de equipos")).toBeTruthy();
-    expect(screen.getByText("Desmontaje y revisión de componentes")).toBeTruthy();
-    expect(screen.getByText("Reconfiguración de equipos")).toBeTruthy();
-    expect(screen.getByText("Pruebas de conectividad")).toBeTruthy();
+    expect(screen.getByText("Inspección inicial")).toBeTruthy();
+    expect(screen.getByText("Desmontaje")).toBeTruthy();
+    expect(screen.getByText("Reconfiguración")).toBeTruthy();
+    expect(screen.getByText("Pruebas")).toBeTruthy();
   });
 
   it("shows 'En proceso' badge for in-progress task", () => {
@@ -126,11 +134,12 @@ describe("ServiceTaskFlowchart — mixed states", () => {
       <ServiceTaskFlowchart tasks={mixedTasks} usersMap={usersMap} />
     );
 
-    // Completed task metadata: date, time, user
     const bodyText = document.body.textContent || "";
+    // First completed task
     expect(bodyText).toContain("13 may. 2026");
     expect(bodyText).toContain("13:08");
     expect(bodyText).toContain("Luciana Chuquitucto");
+    // Second completed task
     expect(bodyText).toContain("11:00");
     expect(bodyText).toContain("Pedro Torres");
   });
@@ -140,10 +149,9 @@ describe("ServiceTaskFlowchart — mixed states", () => {
       <ServiceTaskFlowchart tasks={mixedTasks} usersMap={usersMap} />
     );
 
-    // The pending and in-progress task boxes should not contain time metadata
-    // We check that they are rendered but the specific metadata is only for completed
-    const reconfigEl = screen.getByText("Reconfiguración de equipos");
-    expect(reconfigEl).toBeTruthy();
+    // Pending and in-progress tasks render without time metadata
+    expect(screen.getByText("Pruebas")).toBeTruthy();
+    expect(screen.getByText("Reconfiguración")).toBeTruthy();
   });
 });
 
@@ -165,7 +173,6 @@ describe("ServiceTaskFlowchart — no user metadata", () => {
       <ServiceTaskFlowchart tasks={noUserTask} usersMap={usersMap} />
     );
 
-    // Should still show date and time
     const bodyText = document.body.textContent || "";
     expect(bodyText).toContain("10:00");
     expect(bodyText).toContain("Tarea sin responsable");
