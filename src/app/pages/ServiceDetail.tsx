@@ -743,22 +743,6 @@ export default function ServiceDetail() {
           usersMap={usersMap}
           loading={loading}
         />
-
-        {/* Separador */}
-        <hr className="my-4 border-gray-100" />
-
-        {/* Timeline de historial de cambios */}
-        <div className="flex items-center gap-2 mb-3">
-          <Clock className="w-4 h-4 text-gray-500" />
-          <h4 className="text-sm text-gray-700 font-semibold">
-            Historial de cambios de estado
-          </h4>
-        </div>
-        <ServiceTimeline
-          entries={historial}
-          usersMap={usersMap}
-          loading={historialLoading}
-        />
       </div>
 
       {/* ── Tareas y avance ── */}
@@ -882,6 +866,21 @@ export default function ServiceDetail() {
             <Send className="w-4 h-4" />
           </button>
         </div>
+      </div>
+
+      {/* ── Historial de cambios de estado ── */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <Clock className="w-4 h-4 text-gray-500" />
+          <h3 className="text-gray-900" style={{ fontWeight: 700 }}>
+            Historial de cambios de estado
+          </h3>
+        </div>
+        <ServiceTimeline
+          entries={historial}
+          usersMap={usersMap}
+          loading={historialLoading}
+        />
       </div>
 
       {/* ── Modal Bloquear Servicio ── */}
