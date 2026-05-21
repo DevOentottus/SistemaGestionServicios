@@ -1,9 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import ServiceTaskFlowchart from "./ServiceTaskFlowchart";
-import type { FlowTask } from "./ServiceTaskFlowchart";
 
-// We need the type - let's define a compatible shape
+// Local type matching the component's expected props shape
 type TaskLike = {
   tarea_id: number;
   tarea_titulo: string;
