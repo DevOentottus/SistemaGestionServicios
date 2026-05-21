@@ -1,42 +1,41 @@
 schema: spec-driven
 
 context: |
-  Tech stack: React 18 + TypeScript + Vite 6 + Tailwind 4
-  Architecture: shadcn/ui components, MUI, Supabase backend, React Router
-  Testing: No test framework detected
-  Style: tsconfig strict mode, no linter/formatter configured
+  Tech stack: React 18 + TypeScript (strict) + Vite 6 + Tailwind 4 + MUI 7 + Radix UI + Supabase + React Router 7
+  Architecture: Pages routing with RBAC (ProtectedRoute + RequireRole), Supabase for backend, AuthContext for session, no global state store (page-local state)
+  Testing: Vitest 3 + @testing-library/react + jsdom
+  Style: ESLint 9 (ts+react) + Prettier (semi, double quotes, printWidth 120) + tsc --noEmit
 
-strict_tdd: false
+strict_tdd: true
 
 testing:
   ## Testing Capabilities
-  **Strict TDD Mode**: disabled
-  **Detected**: 2026-05-05
+  **Strict TDD Mode**: enabled
+  **Detected**: 2026-05-20
 
   ### Test Runner
-  - Command: `NOT AVAILABLE`
-  - Framework: None detected
+  - Command: `vitest run` / `vitest`
+  - Framework: vitest 3.1.1
 
   ### Test Layers
   | Layer | Available | Tool |
   |-------|-----------|------|
-  | Unit | ❌ | — |
-  | Integration | ❌ | — |
+  | Unit | ✅ | vitest |
+  | Integration | ✅ | @testing-library/react 16 + @testing-library/jest-dom 6 |
   | E2E | ❌ | — |
 
   ### Coverage
-  - Available: ❌
-  - Command: `—`
+  - Available: ❌ (@vitest/coverage-* not installed; install @vitest/coverage-v8 to enable)
+  - Command: `vitest --coverage`
 
   ### Quality Tools
   | Tool | Available | Command |
   |------|-----------|---------|
-  | Linter | ❌ | — |
+  | Linter | ✅ | `eslint . --ext .ts,.tsx` |
   | Type checker | ✅ | `tsc --noEmit` |
-  | Formatter | ❌ | — |
+  | Formatter | ✅ | `prettier --check "src/**/*.{ts,tsx}"` |
 
-  **Note**: Strict TDD Mode is disabled — no test runner detected in the project.
-  To enable TDD, add a test framework (Vitest recommended for Vite projects).
+  **Note**: Strict TDD Mode enabled — vitest + @testing-library/react detected.
 
 rules:
   proposal:
@@ -50,13 +49,15 @@ rules:
     - Document architecture decisions with rationale
   tasks:
     - Group tasks by phase (infrastructure, implementation, testing)
-    - Use hierarchical numbers (1.1, 1.2, etc.)
+    - Use hierarchical numbering (1.1, 1.2, etc.)
     - Keep tasks small enough to complete in one session
   apply:
     - Follow existing code patterns and conventions
     - Load relevant coding skills for the project stack
+    - Write tests before implementation (RED phase) when Strict TDD Mode is enabled
   verify:
-    - Run tests if test infrastructure exists
+    - Run `pnpm test:run` if test infrastructure exists
     - Compare implementation against every spec scenario
+    - Run `pnpm typecheck` before final sign-off
   archive:
     - Warn before merging destructive deltas (large removals)

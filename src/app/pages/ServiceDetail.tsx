@@ -2,7 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
-import { ArrowLeft, CheckCircle2, Circle, Lock, Unlock, MessageSquare, Play, Send, Star, UserPlus, X, AlertTriangle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Circle, Clock, Lock, Unlock, MessageSquare, Play, Send, Star, UserPlus, X, AlertTriangle, Activity } from "lucide-react";
+import { ServiceProgressStepper, ServiceTimeline } from "../components/operational-view";
+import {
+  fetchHistorial,
+  recordTransition,
+  type HistorialEntry,
+} from "../services/historialService";
 
 // ── Types (NEW schema) ──
 
@@ -104,6 +110,8 @@ export default function ServiceDetail() {
   const [areas, setAreas] = useState<Area[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [calificacion, setCalificacion] = useState<Calificacion | null>(null);
+  const [historial, setHistorial] = useState<HistorialEntry[]>([]);
+  const [historialLoading, setHistorialLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [newComment, setNewComment] = useState("");
@@ -120,7 +128,7 @@ export default function ServiceDetail() {
     if (!id) return;
     setLoading(true);
     try {
-      const [s, t, c, n, r, u, a, cl, cal] = await Promise.all([
+      const [s, t, c, n, r, u, a, cl, cal, hist] = await Promise.all([
         supabase
           .from("servicios")
           .select(
@@ -165,6 +173,7 @@ export default function ServiceDetail() {
           .select("*")
           .eq("servicio_id", id)
           .maybeSingle(),
+        fetchHistorial(Number(id)),
       ]);
 
       if (s.error || t.error || c.error || n.error || r.error || u.error || a.error || cl.error || cal.error)
@@ -181,6 +190,7 @@ export default function ServiceDetail() {
       setAreas((a.data || []) as Area[]);
       setClientes((cl.data || []) as Cliente[]);
       setCalificacion((cal.data || null) as Calificacion | null);
+      setHistorial(hist);
     } catch (err) {
       console.error(err);
       alert("Error cargando detalle de servicio");
@@ -268,6 +278,8 @@ export default function ServiceDetail() {
   const updateServiceProgressAndDates = async (nextTasks: Tarea[]) => {
     if (!service) return;
 
+    const estadoAnterior = service.servicio_estado;
+
     const done = nextTasks.filter((t) => t.tarea_estado === "completado").length;
     const total = nextTasks.length;
     const prog = total === 0 ? 0 : Math.round((done / total) * 100);
@@ -303,6 +315,16 @@ export default function ServiceDetail() {
     if (error) throw error;
 
     setService((prev) => (prev ? { ...prev, ...updateData } : prev));
+
+    // Auto-registro en historial si hubo cambio de estado
+    if (estado !== estadoAnterior) {
+      await recordTransition({
+        servicioId: service.servicio_id,
+        estadoAnterior,
+        estadoNuevo: estado,
+        usuarioId: currentUser?.id_usuario || null,
+      });
+    }
   };
 
   // ── Actions ──
@@ -333,6 +355,18 @@ export default function ServiceDetail() {
             }
           : prev
       );
+
+      // Auto-registro en historial
+      await recordTransition({
+        servicioId: service.servicio_id,
+        estadoAnterior: "pendiente",
+        estadoNuevo: "en_progreso",
+        usuarioId: currentUser?.id_usuario || null,
+      });
+
+      // Refrescar historial
+      const hist = await fetchHistorial(service.servicio_id);
+      setHistorial(hist);
     } catch (err) {
       console.error(err);
       alert("Error iniciando servicio");
@@ -462,7 +496,16 @@ export default function ServiceDetail() {
       setService((prev) => (prev ? { ...prev, servicio_estado: "bloqueado" } : prev));
       setShowBlockModal(false);
       setBlockReason("");
-      fetchData(); // refresca comentarios
+
+      // Auto-registro en historial
+      await recordTransition({
+        servicioId: service.servicio_id,
+        estadoAnterior: "en_progreso",
+        estadoNuevo: "bloqueado",
+        usuarioId: currentUser?.id_usuario || null,
+      });
+
+      fetchData(); // refresca comentarios e historial
     } catch (err) {
       console.error(err);
       alert("Error bloqueando servicio");
@@ -491,6 +534,15 @@ export default function ServiceDetail() {
       if (cError) throw cError;
 
       setService((prev) => (prev ? { ...prev, servicio_estado: "en_progreso" } : prev));
+
+      // Auto-registro en historial
+      await recordTransition({
+        servicioId: service.servicio_id,
+        estadoAnterior: "bloqueado",
+        estadoNuevo: "en_progreso",
+        usuarioId: currentUser?.id_usuario || null,
+      });
+
       fetchData();
     } catch (err) {
       console.error(err);
@@ -673,6 +725,40 @@ export default function ServiceDetail() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* ── Visualización Operativa: Stepper + Timeline ── */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Activity className="w-5 h-5 text-blue-600" />
+          <h3 className="text-gray-900" style={{ fontWeight: 700 }}>
+            Avance del servicio
+          </h3>
+        </div>
+
+        {/* Stepper horizontal */}
+        <ServiceProgressStepper
+          currentState={service.servicio_estado}
+          historial={historial}
+          usersMap={usersMap}
+          loading={loading}
+        />
+
+        {/* Separador */}
+        <hr className="my-4 border-gray-100" />
+
+        {/* Timeline vertical */}
+        <div className="flex items-center gap-2 mb-3">
+          <Clock className="w-4 h-4 text-gray-500" />
+          <h4 className="text-sm text-gray-700 font-semibold">
+            Historial de cambios
+          </h4>
+        </div>
+        <ServiceTimeline
+          entries={historial}
+          usersMap={usersMap}
+          loading={historialLoading}
+        />
       </div>
 
       {/* ── Tareas y avance ── */}
