@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../context/AuthContext";
 import { ArrowLeft, CheckCircle2, Circle, Clock, Lock, Unlock, MessageSquare, Play, Send, Star, UserPlus, X, AlertTriangle, Activity } from "lucide-react";
-import { ServiceProgressStepper, ServiceTimeline } from "../components/operational-view";
+import { ServiceTaskFlowchart, ServiceTimeline } from "../components/operational-view";
 import {
   fetchHistorial,
   recordTransition,
@@ -32,6 +32,7 @@ type Tarea = {
   tarea_titulo: string;
   tarea_estado: string;
   tarea_fecha_completado: string | null;
+  tarea_hora_completado: string | null;
   tarea_completado_por: number | null;
   tarea_orden: number | null;
 };
@@ -139,7 +140,7 @@ export default function ServiceDetail() {
         supabase
           .from("tareas")
           .select(
-            "tarea_id, servicio_id, tarea_titulo, tarea_estado, tarea_fecha_completado, tarea_completado_por, tarea_orden"
+            "tarea_id, servicio_id, tarea_titulo, tarea_estado, tarea_fecha_completado, tarea_hora_completado, tarea_completado_por, tarea_orden"
           )
           .eq("servicio_id", id)
           .order("tarea_orden"),
@@ -408,6 +409,7 @@ export default function ServiceDetail() {
               ...t,
               tarea_estado: newEstado,
               tarea_fecha_completado: dbUpdate.tarea_fecha_completado,
+              tarea_hora_completado: dbUpdate.tarea_hora_completado ?? null,
               tarea_completado_por: dbUpdate.tarea_completado_por,
             }
           : t
@@ -727,19 +729,17 @@ export default function ServiceDetail() {
         )}
       </div>
 
-      {/* ── Visualización Operativa: Stepper + Timeline ── */}
+      {/* ── Visualización Operativa: Diagrama de Flujo de Tareas ── */}
       <div className="bg-white rounded-2xl border border-gray-100 p-5">
         <div className="flex items-center gap-2 mb-4">
           <Activity className="w-5 h-5 text-blue-600" />
           <h3 className="text-gray-900" style={{ fontWeight: 700 }}>
-            Avance del servicio
+            Diagrama de flujo de avance
           </h3>
         </div>
 
-        {/* Stepper horizontal */}
-        <ServiceProgressStepper
-          currentState={service.servicio_estado}
-          historial={historial}
+        <ServiceTaskFlowchart
+          tasks={tasks}
           usersMap={usersMap}
           loading={loading}
         />
@@ -747,11 +747,11 @@ export default function ServiceDetail() {
         {/* Separador */}
         <hr className="my-4 border-gray-100" />
 
-        {/* Timeline vertical */}
+        {/* Timeline de historial de cambios */}
         <div className="flex items-center gap-2 mb-3">
           <Clock className="w-4 h-4 text-gray-500" />
           <h4 className="text-sm text-gray-700 font-semibold">
-            Historial de cambios
+            Historial de cambios de estado
           </h4>
         </div>
         <ServiceTimeline
