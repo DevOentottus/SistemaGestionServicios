@@ -3,10 +3,7 @@ import {
   Loader2,
   Inbox,
   ArrowRight,
-  Circle,
-  CheckCircle2,
   AlertTriangle,
-  Play,
 } from "lucide-react";
 import type { HistorialEntry } from "../../services/historialService";
 
@@ -33,21 +30,16 @@ function formatTime(time: string | null | undefined): string {
   return time.slice(0, 5);
 }
 
-// Color-coded icon per state
-function StateIcon({ estado }: { estado: string }) {
-  const cls = "w-4 h-4";
-  switch (estado) {
-    case "pendiente":
-      return <Circle className={`${cls} text-gray-400`} />;
-    case "en_progreso":
-      return <Play className={`${cls} text-amber-500`} />;
-    case "completado":
-      return <CheckCircle2 className={`${cls} text-green-500`} />;
-    case "bloqueado":
-      return <AlertTriangle className={`${cls} text-red-500`} />;
-    default:
-      return <Circle className={`${cls} text-gray-400`} />;
-  }
+function formatDateHeader(date: string | null): string {
+  if (!date) return "Sin fecha";
+  // Convert ISO/YYYY-MM-DD to readable: "20 may 2026"
+  const d = new Date(date + "T00:00:00");
+  if (isNaN(d.getTime())) return date;
+  return d.toLocaleDateString("es-PE", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 const stateDotClass = (estado: string): string => {
@@ -100,9 +92,7 @@ function TimelineItem({
             stateDotClass(entry.serviciohistorial_estado_nuevo)
           }`}
         />
-        {!isLast && (
-          <div className="w-0.5 flex-1 bg-gray-200 mt-1" />
-        )}
+        {!isLast && <div className="w-0.5 flex-1 bg-gray-200 mt-1" />}
       </div>
 
       {/* Content */}
@@ -125,11 +115,22 @@ function TimelineItem({
             {entry.serviciohistorial_fecha || "—"} ·{" "}
             {formatTime(entry.serviciohistorial_hora)}
           </span>
-          <span>
-            Por: {user ? userName(user) : "—"}
-          </span>
+          <span>Por: {user ? userName(user) : "—"}</span>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Date header ───────────────────────────────────────────────────────────────
+
+function DateHeader({ date }: { date: string }) {
+  return (
+    <div className="flex items-center gap-3 mb-2 mt-4 first:mt-0">
+      <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+        {formatDateHeader(date)}
+      </span>
+      <hr className="flex-1 border-gray-200" />
     </div>
   );
 }
@@ -188,15 +189,37 @@ export default function ServiceTimeline({
   const userForEntry = (entry: HistorialEntry): Usuario | undefined =>
     entry.usuario_id ? usersMap[entry.usuario_id] : undefined;
 
+  // Group entries by date
+  const grouped = entries.reduce<
+    { date: string; entries: HistorialEntry[] }[]
+  >((acc, entry) => {
+    const date = entry.serviciohistorial_fecha || "sin-fecha";
+    const last = acc[acc.length - 1];
+    if (last && last.date === date) {
+      last.entries.push(entry);
+    } else {
+      acc.push({ date, entries: [entry] });
+    }
+    return acc;
+  }, []);
+
   return (
     <div className="pl-1">
-      {entries.map((entry, idx) => (
-        <TimelineItem
-          key={entry.serviciohistorial_id}
-          entry={entry}
-          user={userForEntry(entry)}
-          isLast={idx === entries.length - 1}
-        />
+      {grouped.map((group, gi) => (
+        <div key={group.date}>
+          <DateHeader date={group.date} />
+          {group.entries.map((entry, ei) => (
+            <TimelineItem
+              key={entry.serviciohistorial_id}
+              entry={entry}
+              user={userForEntry(entry)}
+              isLast={
+                gi === grouped.length - 1 &&
+                ei === group.entries.length - 1
+              }
+            />
+          ))}
+        </div>
       ))}
     </div>
   );

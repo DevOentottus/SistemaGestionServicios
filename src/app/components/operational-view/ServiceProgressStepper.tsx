@@ -9,18 +9,13 @@ type Usuario = {
   usuario_apellido_paterno: string | null;
 };
 
-type HistorialTimelineEntry = HistorialEntry & {
-  user?: Usuario;
-};
-
 type StepperStep = {
   key: string;
   label: string;
-  state: "pending" | "active" | "completed" | "detour";
+  state: "pending" | "active" | "completed";
   date?: string | null;
   time?: string | null;
   user?: string;
-  isBlocker?: boolean;
 };
 
 const STEP_ORDER = ["pendiente", "en_progreso", "completado"] as const;
@@ -32,36 +27,49 @@ const stepLabels: Record<string, string> = {
   bloqueado: "Bloqueado",
 };
 
-const stepColors: Record<string, string> = {
-  pendiente: "text-gray-400 border-gray-300 bg-gray-100",
-  pendiente_active: "text-blue-600 border-blue-500 bg-blue-50",
-  pendiente_completed: "text-blue-700 border-blue-500 bg-blue-100",
-
-  en_progreso: "text-gray-400 border-gray-300 bg-gray-100",
-  en_progreso_active: "text-amber-600 border-amber-500 bg-amber-50",
-  en_progreso_completed: "text-amber-700 border-amber-500 bg-amber-100",
-
-  completado: "text-gray-400 border-gray-300 bg-gray-100",
-  completado_active: "text-green-600 border-green-500 bg-green-50",
-  completado_completed: "text-green-700 border-green-500 bg-green-100",
-
-  bloqueado: "text-red-600 border-red-400 bg-red-50",
+const stepColors: Record<string, Record<string, string>> = {
+  pendiente: {
+    pending: "text-gray-400 border-gray-300 bg-gray-100",
+    active: "text-blue-600 border-blue-500 bg-blue-50",
+    completed: "text-blue-700 border-blue-500 bg-blue-100",
+  },
+  en_progreso: {
+    pending: "text-gray-400 border-gray-300 bg-gray-100",
+    active: "text-amber-600 border-amber-500 bg-amber-50",
+    completed: "text-amber-700 border-amber-500 bg-amber-100",
+  },
+  completado: {
+    pending: "text-gray-400 border-gray-300 bg-gray-100",
+    active: "text-green-600 border-green-500 bg-green-50",
+    completed: "text-green-700 border-green-500 bg-green-100",
+  },
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-function getStepClass(key: string, state: string): string {
-  const k = `${key}_${state}`;
-  return stepColors[k] || stepColors[key] || "text-gray-400 border-gray-300 bg-gray-100";
-}
 
 const userName = (u: Usuario | undefined) =>
   u ? `${u.usuario_nombres} ${u.usuario_apellido_paterno || ""}`.trim() : "—";
 
 function formatTime(time: string | null | undefined): string {
   if (!time) return "—";
-  // TIME format from DB: HH:MM:SS.mmmmmm -> HH:MM
   return time.slice(0, 5);
+}
+
+/** Derive step status from the current service state (positional logic) */
+function getStepStatus(
+  step: string,
+  currentState: string
+): "pending" | "active" | "completed" {
+  const order = ["pendiente", "en_progreso", "completado"];
+  // bloqueado is a detour — visually it's "in between" en_progreso and completado
+  const effective =
+    currentState === "bloqueado" ? "en_progreso" : currentState;
+  const currentIdx = order.indexOf(effective);
+  const stepIdx = order.indexOf(step);
+
+  if (stepIdx < currentIdx) return "completed";
+  if (stepIdx === currentIdx) return "active";
+  return "pending";
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -88,29 +96,15 @@ export default function ServiceProgressStepper({
     );
   }
 
-  // Derive which steps are completed from historial
-  const completedStates = new Set<string>();
-  let wasEverBloqueado = false;
+  // Check if service was ever bloqueado
+  const wasEverBloqueado = historial.some(
+    (h) =>
+      h.serviciohistorial_estado_nuevo === "bloqueado" ||
+      h.serviciohistorial_estado_anterior === "bloqueado"
+  );
+  const isBlocked = currentState === "bloqueado";
 
-  for (const entry of historial) {
-    if (entry.serviciohistorial_estado_nuevo === "completado") {
-      completedStates.add("completado");
-    }
-    if (entry.serviciohistorial_estado_nuevo === "en_progreso") {
-      completedStates.add("en_progreso");
-    }
-    if (entry.serviciohistorial_estado_nuevo === "pendiente") {
-      completedStates.add("pendiente");
-    }
-    if (
-      entry.serviciohistorial_estado_nuevo === "bloqueado" ||
-      entry.serviciohistorial_estado_anterior === "bloqueado"
-    ) {
-      wasEverBloqueado = true;
-    }
-  }
-
-  // Find the latest transition for each state to get date/time/user
+  // Find the latest transition for each state to get date/time/user metadata
   function lastTransition(state: string): HistorialEntry | undefined {
     const filtered = historial.filter(
       (h) => h.serviciohistorial_estado_nuevo === state
@@ -118,19 +112,13 @@ export default function ServiceProgressStepper({
     return filtered[filtered.length - 1];
   }
 
-  // Build steps
+  // Build steps based on POSITION in the flow, not historial entries
   const steps: StepperStep[] = STEP_ORDER.map((key) => {
-    const isCompleted = completedStates.has(key);
-    const isCurrent = currentState === key;
+    const state = getStepStatus(key, currentState);
     const transition = lastTransition(key);
     const user = transition?.usuario_id
       ? usersMap[transition.usuario_id]
       : undefined;
-
-    let state: "pending" | "active" | "completed";
-    if (isCompleted) state = "completed";
-    else if (isCurrent) state = "active";
-    else state = "pending";
 
     return {
       key,
@@ -142,73 +130,74 @@ export default function ServiceProgressStepper({
     };
   });
 
-  const isBlocked = currentState === "bloqueado";
-
   return (
     <div>
       {/* Stepper */}
       <div className="flex items-center w-full">
-        {steps.map((step, idx) => (
-          <div key={step.key} className="flex items-center flex-1 last:flex-none">
-            {/* Step circle + label */}
-            <div className="flex flex-col items-center">
-              <div
-                className={`w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all ${
-                  step.state === "completed"
-                    ? getStepClass(step.key, "completed")
-                    : step.state === "active"
-                    ? getStepClass(step.key, "active")
-                    : getStepClass(step.key, "pending")
-                }`}
-              >
-                {step.state === "completed" ? (
-                  <CheckCircle2 className="w-5 h-5" />
-                ) : step.state === "active" && step.key === "bloqueado" ? (
-                  <AlertTriangle className="w-5 h-5" />
-                ) : (
-                  <Circle className="w-5 h-5" />
+        {steps.map((step, idx) => {
+          const prevCompleted =
+            idx > 0 && steps[idx - 1].state === "completed";
+
+          return (
+            <div
+              key={step.key}
+              className="flex items-center flex-1 last:flex-none"
+            >
+              {/* Step circle + label */}
+              <div className="flex flex-col items-center">
+                <div
+                  className={`w-10 h-10 rounded-full border-2 flex items-center justify-center transition-all ${
+                    stepColors[step.key]?.[step.state] ??
+                    "text-gray-400 border-gray-300 bg-gray-100"
+                  }`}
+                >
+                  {step.state === "completed" ? (
+                    <CheckCircle2 className="w-5 h-5" />
+                  ) : (
+                    <Circle className="w-5 h-5" />
+                  )}
+                </div>
+                <span
+                  className={`text-xs mt-1.5 font-semibold ${
+                    step.state === "completed"
+                      ? "text-gray-700"
+                      : step.state === "active"
+                      ? "text-gray-900"
+                      : "text-gray-400"
+                  }`}
+                >
+                  {step.label}
+                </span>
+                {step.date && (
+                  <span className="text-[10px] text-gray-400 leading-tight">
+                    {step.date}
+                  </span>
+                )}
+                {step.time && (
+                  <span className="text-[10px] text-gray-400 leading-tight">
+                    {formatTime(step.time)}
+                  </span>
+                )}
+                {step.user && step.state === "completed" && (
+                  <span className="text-[10px] text-gray-500 leading-tight max-w-[80px] truncate">
+                    {step.user}
+                  </span>
                 )}
               </div>
-              <span
-                className={`text-xs mt-1.5 font-semibold ${
-                  step.state === "completed"
-                    ? "text-gray-700"
-                    : step.state === "active"
-                    ? "text-gray-900"
-                    : "text-gray-400"
-                }`}
-              >
-                {step.label}
-              </span>
-              {step.date && (
-                <span className="text-[10px] text-gray-400 leading-tight">
-                  {step.date}
-                </span>
-              )}
-              {step.time && (
-                <span className="text-[10px] text-gray-400 leading-tight">
-                  {formatTime(step.time)}
-                </span>
-              )}
-              {step.user && step.state === "completed" && (
-                <span className="text-[10px] text-gray-500 leading-tight max-w-[80px] truncate">
-                  {step.user}
-                </span>
+
+              {/* Connector line */}
+              {idx < steps.length - 1 && (
+                <div className="flex-1 h-0.5 mx-2 self-start mt-5">
+                  <div
+                    className={`h-full rounded ${
+                      prevCompleted ? "bg-blue-500" : "bg-gray-200"
+                    }`}
+                  />
+                </div>
               )}
             </div>
-
-            {/* Connector line */}
-            {idx < steps.length - 1 && (
-              <div className="flex-1 h-0.5 mx-2 self-start mt-5">
-                <div
-                  className={`h-full rounded ${
-                    step.state === "completed" ? "bg-blue-500" : "bg-gray-200"
-                  }`}
-                />
-              </div>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Bloqueado detour badge */}
