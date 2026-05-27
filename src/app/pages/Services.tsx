@@ -669,7 +669,7 @@ export default function Services() {
 
                     const codeBadge = (
                       <span
-                        className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-lg"
+                        className="text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded-lg"
                         style={{ fontWeight: 700 }}
                       >
                         {s.servicio_codigo || "SIN-CODIGO"}
