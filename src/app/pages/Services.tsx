@@ -656,15 +656,15 @@ export default function Services() {
                     const label = formatElapsedShort(elapsed);
                     const prefix = getTimerPrefix(s.servicio_estado);
 
-                    let bgClass = "bg-green-100";
+                    let bgClass = "bg-green-200";
                     if (s.servicio_estado === "bloqueado") {
-                      bgClass = "bg-red-100";
+                      bgClass = "bg-red-200";
                     } else if (
                       s.servicio_estado !== "cancelado" &&
                       s.servicio_tiempo_estimado != null &&
                       elapsed > s.servicio_tiempo_estimado * 60
                     ) {
-                      bgClass = "bg-amber-100";
+                      bgClass = "bg-amber-200";
                     }
 
                     const codeBadge = (
