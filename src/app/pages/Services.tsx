@@ -44,6 +44,8 @@ type Servicio = {
   servicio_estado: string;
   servicio_fecha_inicio: string | null;
   servicio_hora_inicio: string | null;
+  servicio_fecha_fin: string | null;
+  servicio_hora_fin: string | null;
   servicio_tiempo_estimado: number | null;
   cliente_id: number | null;
   area_id: number | null;
@@ -111,6 +113,53 @@ const fullName = (c: {
   [c.cliente_nombres, c.cliente_apellido_paterno, c.cliente_apellido_materno]
     .filter(Boolean)
     .join(" ");
+
+// ─── Timer helpers ──────────────────────────────────────────────────────────
+
+const computeElapsed = (s: Servicio): number => {
+  if (!s.servicio_fecha_inicio) return 0;
+  const startStr = `${s.servicio_fecha_inicio}T${s.servicio_hora_inicio || "00:00"}`;
+  const startMs = new Date(startStr).getTime();
+  if (isNaN(startMs)) return 0;
+  const isCompleted = s.servicio_estado === "completado";
+  const endMs =
+    isCompleted && s.servicio_fecha_fin
+      ? new Date(`${s.servicio_fecha_fin}T${s.servicio_hora_fin || "23:59"}`).getTime()
+      : Date.now();
+  return Math.max(0, Math.floor((endMs - startMs) / 1000));
+};
+
+const getTimerColor = (s: Servicio, elapsed: number): string => {
+  if (s.servicio_estado === "bloqueado") return "text-red-500";
+  if (s.servicio_tiempo_estimado != null) {
+    const estimatedSec = s.servicio_tiempo_estimado * 60;
+    if (elapsed > estimatedSec) return "text-amber-500";
+  }
+  return "text-green-600";
+};
+
+const getTimerPrefix = (estado: string): string => {
+  switch (estado) {
+    case "pendiente": return "En espera";
+    case "en_progreso": return "En progreso";
+    case "completado": return "Completado";
+    case "cancelado": return "Cancelado";
+    case "bloqueado": return "Bloqueado";
+    default: return estadoLabel(estado);
+  }
+};
+
+const formatElapsedShort = (sec: number): string => {
+  if (sec <= 0) return "";
+  const d = Math.floor(sec / 86400);
+  const h = Math.floor((sec % 86400) / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+};
 
 // ─── Sub-components ─────────────────────────────────────────────────────────
 
@@ -253,6 +302,7 @@ export default function Services() {
   const [newTask, setNewTask] = useState("");
   const [form, setForm] = useState<ServiceForm>(defaultForm([]));
   const [clienteDropdownOpen, setClienteDropdownOpen] = useState(false);
+  const [tick, setTick] = useState(0);
 
   const updateField = <K extends keyof ServiceForm>(key: K, value: ServiceForm[K]) =>
     setForm((p) => ({ ...p, [key]: value }));
@@ -270,7 +320,7 @@ export default function Services() {
         supabase
           .from("servicios")
           .select(
-            "servicio_id, servicio_codigo, servicio_descripcion, servicio_estado, servicio_fecha_inicio, servicio_hora_inicio, servicio_tiempo_estimado, cliente_id, area_id"
+            "servicio_id, servicio_codigo, servicio_descripcion, servicio_estado, servicio_fecha_inicio, servicio_hora_inicio, servicio_fecha_fin, servicio_hora_fin, servicio_tiempo_estimado, cliente_id, area_id"
           )
           .order("servicio_fecha_inicio", { ascending: false }),
         supabase
@@ -318,6 +368,12 @@ export default function Services() {
 
   useEffect(() => {
     fetchData();
+  }, []);
+
+  // Tick cada 1s para refrescar cronómetros en vivo
+  useEffect(() => {
+    const interval = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(interval);
   }, []);
 
   // Sync default area when areas load
@@ -602,13 +658,30 @@ export default function Services() {
             .map((x) => x.colaborador_id);
           return (
             <div key={s.servicio_id} className="bg-white border border-gray-100 rounded-2xl p-4">
-              <div className="flex justify-between mb-2">
-                <span
-                  className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-lg"
-                  style={{ fontWeight: 700 }}
-                >
-                  {s.servicio_codigo || "SIN-CODIGO"}
-                </span>
+              <div className="flex justify-between items-center mb-2">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-lg"
+                    style={{ fontWeight: 700 }}
+                  >
+                    {s.servicio_codigo || "SIN-CODIGO"}
+                  </span>
+                  {(() => {
+                    const elapsed = computeElapsed(s);
+                    const label = formatElapsedShort(elapsed);
+                    const color = getTimerColor(s, elapsed);
+                    const prefix = getTimerPrefix(s.servicio_estado);
+                    if (s.servicio_estado === "cancelado") {
+                      return <span className="text-xs text-gray-500">{prefix}</span>;
+                    }
+                    if (!label) return null;
+                    return (
+                      <span className={`text-xs font-mono ${color}`}>
+                        {prefix} ⏱ {label}
+                      </span>
+                    );
+                  })()}
+                </div>
                 <span className="text-xs text-gray-500">
                   {estadoLabel(s.servicio_estado)}
                 </span>
