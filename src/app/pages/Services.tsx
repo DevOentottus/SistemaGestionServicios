@@ -129,15 +129,6 @@ const computeElapsed = (s: Servicio): number => {
   return Math.max(0, Math.floor((endMs - startMs) / 1000));
 };
 
-const getTimerColor = (s: Servicio, elapsed: number): string => {
-  if (s.servicio_estado === "bloqueado") return "text-red-500";
-  if (s.servicio_tiempo_estimado != null) {
-    const estimatedSec = s.servicio_tiempo_estimado * 60;
-    if (elapsed > estimatedSec) return "text-amber-500";
-  }
-  return "text-green-600";
-};
-
 const getTimerPrefix = (estado: string): string => {
   switch (estado) {
     case "pendiente": return "En espera";
@@ -659,26 +650,54 @@ export default function Services() {
           return (
             <div key={s.servicio_id} className="bg-white border border-gray-100 rounded-2xl p-4">
               <div className="flex justify-between items-center mb-2">
-                <div className="flex items-center gap-2">
-                  <span
-                    className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-lg"
-                    style={{ fontWeight: 700 }}
-                  >
-                    {s.servicio_codigo || "SIN-CODIGO"}
-                  </span>
+                <div className="flex items-center gap-2 flex-wrap">
                   {(() => {
                     const elapsed = computeElapsed(s);
                     const label = formatElapsedShort(elapsed);
-                    const color = getTimerColor(s, elapsed);
                     const prefix = getTimerPrefix(s.servicio_estado);
-                    if (s.servicio_estado === "cancelado") {
-                      return <span className="text-xs text-gray-500">{prefix}</span>;
+
+                    let bgClass = "bg-green-100";
+                    if (s.servicio_estado === "bloqueado") {
+                      bgClass = "bg-red-100";
+                    } else if (
+                      s.servicio_estado !== "cancelado" &&
+                      s.servicio_tiempo_estimado != null &&
+                      elapsed > s.servicio_tiempo_estimado * 60
+                    ) {
+                      bgClass = "bg-amber-100";
                     }
-                    if (!label) return null;
-                    return (
-                      <span className={`text-xs font-mono ${color}`}>
-                        {prefix} ⏱ {label}
+
+                    const codeBg = s.servicio_estado === "cancelado" ? "bg-gray-200" : bgClass;
+                    const codeBadge = (
+                      <span
+                        className={`text-xs ${codeBg} text-black px-2 py-1 rounded-lg`}
+                        style={{ fontWeight: 700 }}
+                      >
+                        {s.servicio_codigo || "SIN-CODIGO"}
                       </span>
+                    );
+
+                    if (s.servicio_estado === "cancelado") {
+                      return (
+                        <>
+                          {codeBadge}
+                          <span className="text-xs text-gray-500">{prefix}</span>
+                        </>
+                      );
+                    }
+
+                    if (!label) return codeBadge;
+
+                    return (
+                      <>
+                        {codeBadge}
+                        <span
+                          className={`text-xs ${bgClass} text-black px-2 py-1 rounded-lg`}
+                          style={{ fontWeight: 700 }}
+                        >
+                          {prefix} ⏱ {label}
+                        </span>
+                      </>
                     );
                   })()}
                 </div>
