@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../auth/AuthContext";
 import { supabase } from "../../lib/supabase";
 import {
   ClipboardList, Users, MapPin, CheckCircle2, Clock, AlertTriangle,

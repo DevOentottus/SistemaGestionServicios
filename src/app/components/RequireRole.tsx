@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
-import { useAuth } from "../../context/AuthContext";
+import { Navigate } from "react-router-dom";
+import { useAuth } from "../../auth/AuthContext";
 
 type RequireRoleProps = {
   allowedRoles: string[];
@@ -8,19 +9,17 @@ type RequireRoleProps = {
 
 /**
  * RequireRole — Protege una ruta por rol.
- *
- * Si el usuario no tiene el rol requerido muestra una pantalla
- * de acceso denegado en lugar del contenido.
- *
- * Uso:
- *   <RequireRole allowedRoles={["Administrador"]}>
- *     <Usuarios />
- *   </RequireRole>
+ * Se mantiene para compatibilidad, pero las nuevas rutas
+ * deberían usar RequirePermission.
  */
 export function RequireRole({ allowedRoles, children }: RequireRoleProps) {
-  const { hasRole, currentUser } = useAuth();
+  const { isAuthenticated, currentUser } = useAuth();
 
-  if (!hasRole(...allowedRoles)) {
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!currentUser || !allowedRoles.includes(currentUser.rol)) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md text-center">

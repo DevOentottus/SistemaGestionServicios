@@ -4,8 +4,8 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Usuarios from "./pages/Usuarios";
 import Areas from "./pages/Areas";
-import Services from "./pages/Services.tsx";
-import ServiceDetail from "./pages/ServiceDetail.tsx";
+import Services from "./pages/Services";
+import ServiceDetail from "./pages/ServiceDetail";
 import Monitor from "./pages/Monitor";
 import Communications from "./pages/Communications";
 import Supervision from "./pages/Supervision";
@@ -15,7 +15,8 @@ import Audit from "./pages/Audit";
 import PerformanceDashboard from "./pages/PerformanceDashboard";
 import ClientView from "./pages/ClientView";
 import Clientes from "./pages/Clientes";
-import { ProtectedRoute } from "./components/ProtectedRoute";
+import { ProtectedRoute } from "../auth/ProtectedRoute";
+import { RequirePermission } from "../auth/RequirePermission";
 import { RequireRole } from "./components/RequireRole";
 
 export const router = createBrowserRouter([
@@ -43,23 +44,23 @@ export const router = createBrowserRouter([
           { index: true, element: <Dashboard /> },
           { path: "dashboard", element: <Dashboard /> },
 
-          // Usuarios — solo Administrador
+          // Usuarios — permisos de sistema
           {
             path: "usuarios",
             element: (
-              <RequireRole allowedRoles={["Administrador"]}>
+              <RequirePermission perm="sistema:usuarios:listar">
                 <Usuarios />
-              </RequireRole>
+              </RequirePermission>
             ),
           },
 
-          // Áreas — Administrador y Encargado
+          // Áreas — permisos de negocio
           {
             path: "areas",
             element: (
-              <RequireRole allowedRoles={["Administrador", "Encargado"]}>
+              <RequirePermission perm="negocio:areas:gestionar">
                 <Areas />
-              </RequireRole>
+              </RequirePermission>
             ),
           },
 
@@ -67,76 +68,76 @@ export const router = createBrowserRouter([
           { path: "services", element: <Services /> },
           { path: "services/:id", element: <ServiceDetail /> },
 
-          // Clientes — Administrador y Encargado
+          // Clientes — permisos de negocio
           {
             path: "clientes",
             element: (
-              <RequireRole allowedRoles={["Administrador", "Encargado"]}>
+              <RequirePermission perm="negocio:clientes:gestionar">
                 <Clientes />
-              </RequireRole>
+              </RequirePermission>
             ),
           },
 
-          // Negocio — Administrador y Encargado
+          // Negocio — permisos de negocio
           {
             path: "business",
             element: (
-              <RequireRole allowedRoles={["Administrador", "Encargado"]}>
+              <RequirePermission perm="negocio:servicios:crear">
                 <Business />
-              </RequireRole>
+              </RequirePermission>
             ),
           },
 
-          // Monitor — Administrador y Encargado
+          // Monitor — permisos de listar servicios
           {
             path: "monitor",
             element: (
-              <RequireRole allowedRoles={["Administrador", "Encargado"]}>
+              <RequirePermission perm="negocio:servicios:listar">
                 <Monitor />
-              </RequireRole>
+              </RequirePermission>
             ),
           },
 
           // Comunicación — todos los roles internos
           { path: "communications", element: <Communications /> },
 
-          // Supervisión — Administrador y Encargado
+          // Supervisión — permisos de supervisar tareas
           {
             path: "supervision",
             element: (
-              <RequireRole allowedRoles={["Administrador", "Encargado"]}>
+              <RequirePermission perm="negocio:tareas:supervisar">
                 <Supervision />
-              </RequireRole>
+              </RequirePermission>
             ),
           },
 
-          // Reportes — Administrador y Encargado
+          // Reportes — permisos de reportes
           {
             path: "reports",
             element: (
-              <RequireRole allowedRoles={["Administrador", "Encargado"]}>
+              <RequirePermission perm={["negocio:reportes:ver", "negocio:reportes:exportar"]}>
                 <Reports />
-              </RequireRole>
+              </RequirePermission>
             ),
           },
 
-          // Rendimiento — Administrador y Encargado
+          // Rendimiento — permisos de reportes
           {
             path: "performance",
             element: (
-              <RequireRole allowedRoles={["Administrador", "Encargado"]}>
+              <RequirePermission perm="negocio:reportes:ver">
                 <PerformanceDashboard />
-              </RequireRole>
+              </RequirePermission>
             ),
           },
 
-          // Auditoría — solo Administrador
+          // Auditoría — solo permisos de sistema
           {
             path: "audit",
             element: (
-              <RequireRole allowedRoles={["Administrador"]}>
+              <RequirePermission perm="sistema:auditoria:ver">
                 <Audit />
-              </RequireRole>
+              </RequirePermission>
             ),
           },
         ],

@@ -1,27 +1,11 @@
-import { useState, useMemo } from "react";
-import { Outlet, useNavigate, useLocation, Navigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
+import { useState } from "react";
+import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../../auth/AuthContext";
 import {
-  LayoutDashboard, Users, MapPin, ClipboardList, Monitor,
-  Eye, BarChart2, BarChart3, LogOut, Menu, X, Wrench, ChevronRight,
-  Bell, Settings, UserCircle, Briefcase,
+  LogOut, Menu, X, Wrench,
+  Bell, Settings,
 } from "lucide-react";
-
-const navItems = [
-  { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard, roles: ["Administrador", "Encargado", "Colaborador"] },
-  { path: "/usuarios", label: "Usuarios", icon: Users, roles: ["Administrador"] },
-  { path: "/areas", label: "Áreas de Servicio", icon: MapPin, roles: ["Administrador", "Encargado"] },
-  { path: "/services", label: "Servicios", icon: ClipboardList, roles: ["Administrador", "Encargado", "Colaborador"] },
-  { path: "/clientes", label: "Clientes", icon: Users, roles: ["Administrador", "Encargado"] },
-  { path: "/business", label: "Negocio", icon: Briefcase, roles: ["Administrador", "Encargado"] },
-  { path: "/monitor", label: "Monitor / Sala", icon: Monitor, roles: ["Administrador", "Encargado"] },
-
-  { path: "/supervision", label: "Supervisión", icon: Eye, roles: ["Administrador", "Encargado"] },
-  { path: "/reports", label: "Reportes", icon: BarChart2, roles: ["Administrador", "Encargado"] },
-  { path: "/performance", label: "Rendimiento", icon: BarChart3, roles: ["Administrador", "Encargado"] },
-
-  { path: "/client", label: "Vista Cliente", icon: Monitor, roles: ["Administrador", "Encargado", "Colaborador"] },
-];
+import { SidebarNav } from "../../auth/SidebarDinamica";
 
 /** Obtiene las iniciales del usuario: "Juan Perez" → "JP" */
 const getInitials = (nombres?: string, apellido?: string): string => {
@@ -59,10 +43,6 @@ export default function Layout() {
       </div>
     );
   }
-
-  const filteredNav = navItems.filter((item) =>
-    item.roles.includes(currentUser?.rol || "")
-  );
 
   const handleLogout = () => {
     logout();
@@ -118,28 +98,8 @@ export default function Layout() {
           </div>
         </div>
 
-        {/* Nav */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {filteredNav.map((item) => {
-            const active = location.pathname === item.path || location.pathname.startsWith(item.path + "/");
-            return (
-              <button
-                key={item.path}
-                onClick={() => { navigate(item.path); setSidebarOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150
-                ${active
-                  ? "bg-yellow-400 text-blue-900 shadow-sm"
-                  : "text-blue-200 hover:bg-blue-800 hover:text-white"
-                }`}
-                style={{ fontWeight: active ? 600 : 400 }}
-              >
-                <item.icon className="w-5 h-5 flex-shrink-0" />
-                <span className="flex-1 text-left">{item.label}</span>
-                {active && <ChevronRight className="w-4 h-4" />}
-              </button>
-            );
-          })}
-        </nav>
+        {/* Nav dinámico (desde API) */}
+        <SidebarNav />
 
         {/* Logout */}
         <div className="px-3 py-4 border-t border-blue-800">
@@ -166,7 +126,8 @@ export default function Layout() {
 
           <div className="flex-1">
             <h3 className="text-gray-800 text-sm" style={{ fontWeight: 600 }}>
-              {filteredNav.find(n => location.pathname.startsWith(n.path))?.label || "Servicios STS"}
+              {/* El título se obtiene del menú dinámico — por ahora fijo */}
+              {"Servicios STS"}
             </h3>
           </div>
 

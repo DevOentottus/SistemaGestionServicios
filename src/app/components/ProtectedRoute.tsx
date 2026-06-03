@@ -1,5 +1,5 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../auth/AuthContext";
 
 type ProtectedRouteProps = {
   /** Roles permitidos para acceder a las rutas hijas.
@@ -18,7 +18,7 @@ type ProtectedRouteProps = {
  *   </Route>
  */
 export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
-  const { currentUser, loading, hasRole } = useAuth();
+  const { currentUser, loading, hasPermission } = useAuth();
   const location = useLocation();
 
   // 1. Mientras restaura sesión
@@ -44,7 +44,7 @@ export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
   }
 
   // 4. Verificar roles si se especificaron
-  if (allowedRoles && allowedRoles.length > 0 && !hasRole(...allowedRoles)) {
+  if (allowedRoles && allowedRoles.length > 0 && !hasPermission(...allowedRoles)) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100">
         <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md text-center">

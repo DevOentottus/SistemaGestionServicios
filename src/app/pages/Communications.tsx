@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../auth/AuthContext";
 import {
   Send, Search, MessageCircle, Clock, ChevronDown, ExternalLink, History, Copy, Check,
   Bell, Users, FileText, AlertCircle, CheckCircle2, User, Calendar, Plus, X, Loader2,

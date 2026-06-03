@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../auth/AuthContext";
 import { supabase } from "../../lib/supabase";
 import {
   Users, TrendingUp, Clock, CheckCircle2,

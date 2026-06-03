@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../auth/AuthContext";
 import { Eye, EyeOff, Wrench, AlertCircle } from "lucide-react";
 
 export default function Login() {
@@ -17,13 +17,13 @@ export default function Login() {
     setError("");
     setLoading(true);
 
-    const user = await login(username, password);
+    const result = await login(username, password);
     setLoading(false);
 
-    if (user) {
-      navigate(user.rol === "Cliente" ? "/client" : "/dashboard");
+    if (result.success) {
+      navigate("/dashboard");
     } else {
-      setError("Usuario o contraseña incorrectos. Verifique sus credenciales.");
+      setError(result.error || "Usuario o contraseña incorrectos.");
     }
   };
 
