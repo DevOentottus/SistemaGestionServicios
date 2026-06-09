@@ -47,7 +47,7 @@ export async function loginUser(
   // 4. Actualizar ultimo_login
   await db
     .update(schema.usuarios)
-    .set({ usuario_ultimo_login: new Date().toISOString() as any })
+    .set({ usuario_ultimo_login: new Date() })
     .where(eq(schema.usuarios.usuario_id, usuario.usuario_id));
 
   // 5. Obtener permisos según rol

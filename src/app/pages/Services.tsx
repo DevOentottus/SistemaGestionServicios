@@ -3,7 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { useAuth } from "../../auth/AuthContext";
-import { supabase } from "../../lib/supabase";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAreas } from "../../api/queries/useAreas";
+import { useUsuarios } from "../../api/queries/useUsuarios";
+import { useServicios } from "../../api/queries/useServicios";
+import { useClientes } from "../../api/queries/useClientes";
+import { useTodasTareas } from "../../api/queries/useTodasTareas";
+import { usePlantillas, usePlantillaTareas } from "../../api/queries/usePlantillas";
+import { useCrearServicio } from "../../api/queries/useServicios";
+import { useCrearTarea } from "../../api/queries/useTareas";
 import {
   ArrowRight,
   CheckCircle2,
@@ -57,19 +65,11 @@ type Tarea = {
   tarea_estado: string;
   tarea_orden: number | null;
 };
-type ServicioColaborador = { servicio_id: number; colaborador_id: number };
-type AreaColaborador = { area_id: number; colaborador_id: number };
 type Plantilla = {
   plantilla_id: number;
   plantilla_nombre: string;
   plantilla_descripcion: string | null;
   plantilla_activa: boolean | null;
-};
-type PlantillaTarea = {
-  plantillatarea_id: number;
-  plantilla_id: number;
-  plantillatarea_titulo: string;
-  plantillatarea_orden: number | null;
 };
 
 interface ServiceForm {
@@ -273,93 +273,39 @@ export default function Services() {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
 
-  const [areas, setAreas] = useState<Area[]>([]);
-  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
-  const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [services, setServices] = useState<Servicio[]>([]);
-  const [servicioColaboradores, setServicioColaboradores] = useState<ServicioColaborador[]>([]);
-  const [tareas, setTareas] = useState<Tarea[]>([]);
-  const [plantillas, setPlantillas] = useState<Plantilla[]>([]);
-  const [plantillaTareas, setPlantillaTareas] = useState<PlantillaTarea[]>([]);
-  const [areaColaboradores, setAreaColaboradores] = useState<AreaColaborador[]>([]);
-
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("Todos");
   const [filterArea, setFilterArea] = useState("Todas");
   const [showModal, setShowModal] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState("");
+  const [selectedPlantillaId, setSelectedPlantillaId] = useState<number | null>(null);
   const [newTask, setNewTask] = useState("");
   const [form, setForm] = useState<ServiceForm>(defaultForm([]));
   const [clienteDropdownOpen, setClienteDropdownOpen] = useState(false);
   const [tick, setTick] = useState(0);
 
+  const queryClient = useQueryClient();
+
+  const { data: areasData } = useAreas();
+  const { data: usuariosData, isLoading: loadingUsuarios } = useUsuarios();
+  const { data: serviciosData, isLoading: loadingServicios } = useServicios();
+  const { data: clientesData } = useClientes();
+  const { data: tareasData } = useTodasTareas();
+  const { data: plantillasData } = usePlantillas();
+  const { data: plantillaTareasData } = usePlantillaTareas(selectedPlantillaId ?? undefined);
+
+  const areas = (areasData ?? []) as Area[];
+  const usuarios = (usuariosData ?? []) as Usuario[];
+  const services = (serviciosData ?? []) as Servicio[];
+  const clientes = (clientesData ?? []) as Cliente[];
+  const tareas = (tareasData ?? []) as Tarea[];
+  const plantillas = (plantillasData ?? []) as Plantilla[];
+
+  const loading = loadingServicios || loadingUsuarios;
+
   const updateField = <K extends keyof ServiceForm>(key: K, value: ServiceForm[K]) =>
     setForm((p) => ({ ...p, [key]: value }));
-
-  // ── Data fetching ─────────────────────────────────────────────────────────
-
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const [a, u, s, c, sc, t, pt, ptT, ac] = await Promise.all([
-        supabase.from("areas").select("area_id, area_nombre").order("area_nombre"),
-        supabase.from("usuarios").select(
-          "usuario_id, usuario_nombres, usuario_apellido_paterno, usuario_apellido_materno, usuario_rol, usuario_activo"
-        ),
-        supabase
-          .from("servicios")
-          .select(
-            "servicio_id, servicio_codigo, servicio_descripcion, servicio_estado, servicio_fecha_inicio, servicio_hora_inicio, servicio_fecha_fin, servicio_hora_fin, servicio_tiempo_estimado, cliente_id, area_id"
-          )
-          .order("servicio_fecha_inicio", { ascending: false }),
-        supabase
-          .from("clientes")
-          .select(
-            "cliente_id, cliente_dni, cliente_nombres, cliente_apellido_paterno, cliente_apellido_materno, cliente_telefono"
-          )
-          .order("cliente_nombres"),
-        supabase.from("serviciocolaboradores").select("servicio_id, colaborador_id"),
-        supabase.from("tareas").select("tarea_id, servicio_id, tarea_titulo, tarea_estado, tarea_orden"),
-        supabase.from("plantillas").select("plantilla_id, plantilla_nombre, plantilla_descripcion, plantilla_activa"),
-        supabase.from("plantillatareas").select("plantillatarea_id, plantilla_id, plantillatarea_titulo, plantillatarea_orden"),
-        supabase.from("areacolaboradores").select("area_id, colaborador_id"),
-      ]);
-
-      if (a.error || u.error || s.error || c.error || sc.error || t.error || pt.error || ptT.error || ac.error)
-        throw (
-          a.error ||
-          u.error ||
-          s.error ||
-          c.error ||
-          sc.error ||
-          t.error ||
-          pt.error ||
-          ptT.error ||
-          ac.error
-        );
-
-      setAreas((a.data ?? []) as Area[]);
-      setUsuarios((u.data ?? []) as Usuario[]);
-      setServices((s.data ?? []) as Servicio[]);
-      setClientes((c.data ?? []) as Cliente[]);
-      setServicioColaboradores((sc.data ?? []) as ServicioColaborador[]);
-      setTareas((t.data ?? []) as Tarea[]);
-      setPlantillas((pt.data ?? []) as Plantilla[]);
-      setPlantillaTareas((ptT.data ?? []) as PlantillaTarea[]);
-      setAreaColaboradores((ac.data ?? []) as AreaColaborador[]);
-    } catch (err) {
-      console.error(err);
-      alert("Error cargando servicios");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
 
   // Tick cada 1s para refrescar cronómetros en vivo
   useEffect(() => {
@@ -373,6 +319,15 @@ export default function Services() {
       updateField("areaId", areas[0].area_id);
     }
   }, [areas]);
+
+  // Populate tareas when plantilla data loads
+  useEffect(() => {
+    if (!plantillaTareasData || !selectedPlantillaId) return;
+    const rows = (plantillaTareasData as any[])
+      .sort((a: any, b: any) => (a.plantillatarea_orden ?? 0) - (b.plantillatarea_orden ?? 0))
+      .map((t: any) => t.plantillatarea_titulo);
+    updateField("tareasCustom", rows);
+  }, [plantillaTareasData, selectedPlantillaId]);
 
   // ── Lookup maps ───────────────────────────────────────────────────────────
 
@@ -398,26 +353,9 @@ export default function Services() {
 
   const visibleServices = useMemo(() => {
     if (!currentUser) return [];
-    if (currentUser.rol === "Administrador") return services;
-
-    if (currentUser.rol === "Encargado") {
-      const myAreas = areaColaboradores
-        .filter((ac) => ac.colaborador_id === currentUser.id_usuario)
-        .map((ac) => ac.area_id);
-      return services.filter((s) => s.area_id !== null && myAreas.includes(s.area_id));
-    }
-
-    if (currentUser.rol === "Colaborador") {
-      const mine = new Set(
-        servicioColaboradores
-          .filter((sc) => sc.colaborador_id === currentUser.id_usuario)
-          .map((sc) => sc.servicio_id)
-      );
-      return services.filter((s) => mine.has(s.servicio_id));
-    }
-
-    return [];
-  }, [currentUser, services, areaColaboradores, servicioColaboradores]);
+    // The API backend already filters by role/permissions
+    return services;
+  }, [currentUser, services]);
 
   const filtered = visibleServices.filter((s) => {
     const searchable = `${s.servicio_codigo ?? ""} ${clienteMap[s.cliente_id ?? -1] ?? ""} ${s.servicio_descripcion ?? ""}`.toLowerCase();
@@ -436,15 +374,10 @@ export default function Services() {
 
   const areaTechs = useMemo(() => {
     if (!form.areaId) return [];
-    const colabIds = new Set(
-      areaColaboradores
-        .filter((ac) => ac.area_id === form.areaId)
-        .map((ac) => ac.colaborador_id)
-    );
     return usuarios.filter(
-      (u) => colabIds.has(u.usuario_id) && u.usuario_activo && u.usuario_rol === "Colaborador"
+      (u) => u.usuario_activo && u.usuario_rol === "Colaborador"
     );
-  }, [form.areaId, areaColaboradores, usuarios]);
+  }, [form.areaId, usuarios]);
 
   // ── Tasks drag & drop ─────────────────────────────────────────────────────
 
@@ -457,11 +390,12 @@ export default function Services() {
 
   const handleTemplate = (templateId: string) => {
     setSelectedTemplate(templateId);
-    const rows = plantillaTareas
-      .filter((t) => t.plantilla_id === Number(templateId))
-      .sort((a, b) => (a.plantillatarea_orden ?? 0) - (b.plantillatarea_orden ?? 0))
-      .map((t) => t.plantillatarea_titulo);
-    updateField("tareasCustom", rows);
+    if (!templateId) {
+      setSelectedPlantillaId(null);
+      updateField("tareasCustom", []);
+    } else {
+      setSelectedPlantillaId(Number(templateId));
+    }
   };
 
   // ── Client autocomplete ───────────────────────────────────────────────────
@@ -490,10 +424,14 @@ export default function Services() {
   const resetModal = () => {
     setShowModal(false);
     setSelectedTemplate("");
+    setSelectedPlantillaId(null);
     setNewTask("");
     setClienteDropdownOpen(false);
     setForm(defaultForm(areas));
   };
+
+  const crearServicio = useCrearServicio();
+  const crearTarea = useCrearTarea();
 
   // ── Create service ────────────────────────────────────────────────────────
 
@@ -501,60 +439,35 @@ export default function Services() {
     if (!form.clienteId || !form.descripcion.trim() || !form.areaId) return;
     setSaving(true);
     try {
-      const nextCode = form.codigo.trim() || (() => {
-        const n = new Date();
-        const pad = (x: number) => String(x).padStart(2, "0");
-        return `SRV-${n.getFullYear()}${pad(n.getMonth()+1)}${pad(n.getDate())}${pad(n.getHours())}${pad(n.getMinutes())}${pad(n.getSeconds())}`;
-      })();
+      const result = await crearServicio.mutateAsync({
+        servicio_codigo: form.codigo.trim() || undefined,
+        cliente_id: form.clienteId,
+        area_id: form.areaId,
+        tecnico_principal_id: form.tecnicos[0] ?? null,
+        servicio_descripcion: form.descripcion.trim(),
+        servicio_estado: "pendiente",
+        servicio_fecha_inicio: new Date().toISOString().slice(0, 10),
+        servicio_hora_inicio: new Date().toTimeString().slice(0, 5),
+        servicio_tiempo_estimado: form.tiempoEstimado
+          ? parseInt(form.tiempoEstimado, 10)
+          : null,
+        servicio_descripcion_equipo: form.equipoDescripcion || null,
+        servicio_serie_equipo: form.equipoSerie || null,
+      });
 
-      const { data: inserted, error } = await supabase
-        .from("servicios")
-        .insert([
-          {
-            servicio_codigo: nextCode,
-            cliente_id: form.clienteId,
-            area_id: form.areaId,
-            tecnico_principal_id: form.tecnicos[0] ?? null,
-            servicio_descripcion: form.descripcion.trim(),
-            servicio_estado: "pendiente",
-            servicio_fecha_inicio: new Date().toISOString().slice(0, 10),
-            servicio_hora_inicio: new Date().toTimeString().slice(0, 5),
-            servicio_tiempo_estimado: form.tiempoEstimado
-              ? parseInt(form.tiempoEstimado, 10)
-              : null,
-            servicio_descripcion_equipo: form.equipoDescripcion || null,
-            servicio_serie_equipo: form.equipoSerie || null,
-          },
-        ])
-        .select("servicio_id")
-        .single();
-      if (error) throw error;
-      const serviceId = inserted.servicio_id as number;
+      const servicioId = result?.servicio_id ?? result?.id;
+      if (!servicioId) throw new Error("No se pudo crear el servicio");
 
-      // ServicioColaboradores (técnicos)
-      if (form.tecnicos.length > 0) {
-        const rel = form.tecnicos.map((id) => ({
-          servicio_id: serviceId,
-          colaborador_id: id,
-        }));
-        const { error: e2 } = await supabase.from("serviciocolaboradores").insert(rel);
-        if (e2) throw e2;
-      }
-
-      // Tareas
-      if (form.tareasCustom.length > 0) {
-        const rows = form.tareasCustom.map((nombre, i) => ({
-          servicio_id: serviceId,
-          tarea_titulo: nombre,
-          tarea_orden: i + 1,
-          tarea_estado: "pendiente",
-        }));
-        const { error: e3 } = await supabase.from("tareas").insert(rows);
-        if (e3) throw e3;
+      // Crear tareas una por una
+      for (const t of form.tareasCustom) {
+        await crearTarea.mutateAsync({
+          servicioId,
+          data: { tarea_titulo: t, tarea_orden: form.tareasCustom.indexOf(t) + 1 },
+        });
       }
 
       resetModal();
-      await fetchData();
+      queryClient.invalidateQueries({ queryKey: ["servicios"] });
     } catch (err) {
       console.error(err);
       alert("Error creando servicio");
@@ -644,9 +557,7 @@ export default function Services() {
             serviceTasks.length > 0
               ? Math.round((done / serviceTasks.length) * 100)
               : 0;
-          const techIds = servicioColaboradores
-            .filter((x) => x.servicio_id === s.servicio_id)
-            .map((x) => x.colaborador_id);
+          const techIds: number[] = [];
           return (
             <div key={s.servicio_id} className="bg-white border border-gray-100 rounded-2xl p-4">
               <div className="flex justify-between items-center mb-2">

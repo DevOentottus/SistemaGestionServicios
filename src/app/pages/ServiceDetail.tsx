@@ -1,7 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../auth/AuthContext";
+import { useQueryClient } from "@tanstack/react-query";
+import { useServicio, useEditarServicio, useCambiarEstadoServicio } from "../../api/queries/useServicios";
+import { useTareas, useCompletarTarea } from "../../api/queries/useTareas";
+import { useComentarioServicio, useCrearComentario } from "../../api/queries/useComentarios";
+import { useNotasTarea, useCrearNota } from "../../api/queries/useNotas";
+import { useServicioColaboradores, useAsignarColaborador, useRemoverColaborador } from "../../api/queries/useServicioColaboradores";
+import { useUsuarios } from "../../api/queries/useUsuarios";
+import { useAreas } from "../../api/queries/useAreas";
+import { useClientes } from "../../api/queries/useClientes";
+import { useEncuestaServicio } from "../../api/queries/useEncuestas";
 import { ArrowLeft, CheckCircle2, Circle, Clock, Lock, Unlock, MessageSquare, Play, Send, Star, UserPlus, X, AlertTriangle, Activity } from "lucide-react";
 import { ServiceTaskFlowchart, ServiceTimeline } from "../components/operational-view";
 import {
@@ -101,133 +110,79 @@ export default function ServiceDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
+  const queryClient = useQueryClient();
 
-  const [service, setService] = useState<Servicio | null>(null);
-  const [tasks, setTasks] = useState<Tarea[]>([]);
-  const [comments, setComments] = useState<Comentario[]>([]);
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [rels, setRels] = useState<TecnicoRel[]>([]);
-  const [users, setUsers] = useState<Usuario[]>([]);
-  const [areas, setAreas] = useState<Area[]>([]);
-  const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [calificacion, setCalificacion] = useState<Calificacion | null>(null);
+  const servicioId = Number(id);
+
+  const { data: servicioData, isLoading: loadingServicio } = useServicio(servicioId);
+  const { data: tareasData } = useTareas(servicioId);
+  const { data: comentariosData } = useComentarioServicio(servicioId);
+  const { data: colaboradoresData } = useServicioColaboradores(servicioId);
+  const { data: usuariosData } = useUsuarios();
+  const { data: areasData } = useAreas();
+  const { data: clientesData } = useClientes();
+  const { data: encuestaData } = useEncuestaServicio(servicioId);
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const { data: notasData } = useNotasTarea(selectedTaskId ?? undefined);
+
   const [historial, setHistorial] = useState<HistorialEntry[]>([]);
   const [historialLoading, setHistorialLoading] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [newComment, setNewComment] = useState("");
-  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [newNote, setNewNote] = useState("");
   const [showAddTech, setShowAddTech] = useState(false);
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [blockReason, setBlockReason] = useState("");
   const [elapsed, setElapsed] = useState(0);
 
-  // ── Data fetching ──
+  // Alias for JSX compatibility
+  const service = servicioData as Servicio | undefined;
+  const loading = loadingServicio;
+  const tasks = (tareasData ?? []) as Tarea[];
+  const comments = (comentariosData ?? []) as Comentario[];
+  const rels = (colaboradoresData ?? []) as TecnicoRel[];
+  const users = (usuariosData ?? []) as Usuario[];
+  const areas = (areasData ?? []) as Area[];
+  const clientes = (clientesData ?? []) as Cliente[];
+  const calificacion = (encuestaData ?? null) as Calificacion | null;
+  const selectedTaskNotes = (notasData ?? []) as Note[];
 
-  const fetchData = async () => {
-    if (!id) return;
-    setLoading(true);
-    try {
-      const [s, t, c, n, r, u, a, cl, cal, hist] = await Promise.all([
-        supabase
-          .from("servicios")
-          .select(
-            "servicio_id, servicio_codigo, servicio_descripcion, servicio_estado, servicio_fecha_inicio, servicio_hora_inicio, servicio_fecha_fin, servicio_hora_fin, servicio_tiempo_estimado, cliente_id, area_id"
-          )
-          .eq("servicio_id", id)
-          .maybeSingle(),
-        supabase
-          .from("tareas")
-          .select(
-            "tarea_id, servicio_id, tarea_titulo, tarea_estado, tarea_fecha_completado, tarea_hora_completado, tarea_completado_por, tarea_orden"
-          )
-          .eq("servicio_id", id)
-          .order("tarea_orden"),
-        supabase
-          .from("serviciocomentarios")
-          .select(
-            "serviciocomentario_id, servicio_id, usuario_id, serviciocomentario_contenido, serviciocomentario_fecha"
-          )
-          .eq("servicio_id", id)
-          .order("serviciocomentario_fecha"),
-        supabase
-          .from("tareacomentarios")
-          .select(
-            "tareacomentario_id, tarea_id, usuario_id, tareacomentario_contenido, tareacomentario_fecha"
-          ),
-        supabase
-          .from("serviciocolaboradores")
-          .select("servicio_id, colaborador_id")
-          .eq("servicio_id", id),
-        supabase
-          .from("usuarios")
-          .select("usuario_id, usuario_nombres, usuario_apellido_paterno, usuario_rol"),
-        supabase.from("areas").select("area_id, area_nombre"),
-        supabase
-          .from("clientes")
-          .select(
-            "cliente_id, cliente_nombres, cliente_apellido_paterno, cliente_apellido_materno"
-          ),
-        supabase
-          .from("calificaciones")
-          .select("*")
-          .eq("servicio_id", id)
-          .maybeSingle(),
-        fetchHistorial(Number(id)),
-      ]);
-
-      if (s.error || t.error || c.error || n.error || r.error || u.error || a.error || cl.error || cal.error)
-        throw (
-          s.error || t.error || c.error || n.error || r.error || u.error || a.error || cl.error || cal.error
-        );
-
-      setService(s.data as Servicio | null);
-      setTasks((t.data || []) as Tarea[]);
-      setComments((c.data || []) as Comentario[]);
-      setNotes((n.data || []) as Note[]);
-      setRels((r.data || []) as TecnicoRel[]);
-      setUsers((u.data || []) as Usuario[]);
-      setAreas((a.data || []) as Area[]);
-      setClientes((cl.data || []) as Cliente[]);
-      setCalificacion((cal.data || null) as Calificacion | null);
-      setHistorial(hist);
-    } catch (err) {
-      console.error(err);
-      alert("Error cargando detalle de servicio");
-    } finally {
-      setLoading(false);
-    }
-  };
+  // ── Historial fetch (keeps using supabase directly) ──
 
   useEffect(() => {
-    fetchData();
+    if (!id) return;
+    setHistorialLoading(true);
+    fetchHistorial(Number(id))
+      .then(setHistorial)
+      .finally(() => setHistorialLoading(false));
   }, [id]);
 
   // ── Cronómetro ──
   useEffect(() => {
-    if (!service?.servicio_fecha_inicio) {
+    if (!servicioData?.servicio_fecha_inicio) {
       setElapsed(0);
       return;
     }
-    const startStr = `${service.servicio_fecha_inicio}T${service.servicio_hora_inicio || "00:00"}`;
+    const startStr = `${servicioData.servicio_fecha_inicio}T${servicioData.servicio_hora_inicio || "00:00"}`;
     const startMs = new Date(startStr).getTime();
     if (isNaN(startMs)) { setElapsed(0); return; }
 
+    const isComp = servicioData.servicio_estado === "completado";
+
     const tick = () => {
-      const endMs = isCompleted && service.servicio_fecha_fin
-        ? new Date(`${service.servicio_fecha_fin}T${service.servicio_hora_fin || "23:59"}`).getTime()
+      const endMs = isComp && servicioData.servicio_fecha_fin
+        ? new Date(`${servicioData.servicio_fecha_fin}T${servicioData.servicio_hora_fin || "23:59"}`).getTime()
         : Date.now();
       setElapsed(Math.max(0, Math.floor((endMs - startMs) / 1000)));
     };
 
     tick();
-    if (!isCompleted) {
+    if (!isComp) {
       const interval = setInterval(tick, 1000);
       return () => clearInterval(interval);
     }
-  }, [service?.servicio_fecha_inicio, service?.servicio_hora_inicio,
-      service?.servicio_estado, service?.servicio_fecha_fin, service?.servicio_hora_fin]);
+  }, [servicioData?.servicio_fecha_inicio, servicioData?.servicio_hora_inicio,
+      servicioData?.servicio_estado, servicioData?.servicio_fecha_fin, servicioData?.servicio_hora_fin]);
 
   const formatElapsed = (s: number) => {
     if (s <= 0) return "";
@@ -248,7 +203,6 @@ export default function ServiceDetail() {
   const completed = tasks.filter((t) => t.tarea_estado === "completado").length;
   const progress = tasks.length ? Math.round((completed / tasks.length) * 100) : 0;
   const isCompleted = service?.servicio_estado === "completado";
-  const selectedTaskNotes = notes.filter((n) => n.tarea_id === selectedTaskId);
 
   const areasMap = useMemo(() => {
     const map: Record<number, string> = {};
@@ -274,59 +228,13 @@ export default function ServiceDetail() {
     return map;
   }, [users]);
 
-  // ── Service progress & date updates ──
-
-  const updateServiceProgressAndDates = async (nextTasks: Tarea[]) => {
-    if (!service) return;
-
-    const estadoAnterior = service.servicio_estado;
-
-    const done = nextTasks.filter((t) => t.tarea_estado === "completado").length;
-    const total = nextTasks.length;
-    const prog = total === 0 ? 0 : Math.round((done / total) * 100);
-
-    const estado =
-      prog === 100 ? "completado" : prog > 0 ? "en_progreso" : "pendiente";
-
-    let fecha_fin: string | null = service.servicio_fecha_fin;
-    let hora_fin: string | null = service.servicio_hora_fin;
-
-    // Alcanzó 100% → registrar fecha/hora de fin si aún no tiene
-    if (prog === 100 && !service.servicio_fecha_fin) {
-      const now = new Date();
-      fecha_fin = now.toISOString().split("T")[0];
-      hora_fin = now.toTimeString().split(" ")[0].slice(0, 5);
-    }
-
-    // Bajó de 100% → limpiar fecha/hora de fin
-    if (prog !== 100 && service.servicio_fecha_fin) {
-      fecha_fin = null;
-      hora_fin = null;
-    }
-
-    const updateData: any = { servicio_estado: estado };
-    if (fecha_fin !== undefined) updateData.servicio_fecha_fin = fecha_fin;
-    if (hora_fin !== undefined) updateData.servicio_hora_fin = hora_fin;
-
-    const { error } = await supabase
-      .from("servicios")
-      .update(updateData)
-      .eq("servicio_id", service.servicio_id);
-
-    if (error) throw error;
-
-    setService((prev) => (prev ? { ...prev, ...updateData } : prev));
-
-    // Auto-registro en historial si hubo cambio de estado
-    if (estado !== estadoAnterior) {
-      await recordTransition({
-        servicioId: service.servicio_id,
-        estadoAnterior,
-        estadoNuevo: estado,
-        usuarioId: currentUser?.id_usuario || null,
-      });
-    }
-  };
+  const editarServicio = useEditarServicio(servicioId);
+  const cambiarEstado = useCambiarEstadoServicio();
+  const completarTarea = useCompletarTarea();
+  const crearComentario = useCrearComentario(servicioId);
+  const crearNota = useCrearNota(selectedTaskId ?? 0);
+  const asignarColaborador = useAsignarColaborador();
+  const removerColaborador = useRemoverColaborador();
 
   // ── Actions ──
 
@@ -335,27 +243,11 @@ export default function ServiceDetail() {
     setSaving(true);
     try {
       const nowIso = new Date().toISOString();
-      const { error } = await supabase
-        .from("servicios")
-        .update({
-          servicio_estado: "en_progreso",
-          servicio_fecha_inicio: nowIso.split("T")[0],
-          servicio_hora_inicio: nowIso.split("T")[1]?.slice(0, 5),
-        })
-        .eq("servicio_id", service.servicio_id);
-
-      if (error) throw error;
-
-      setService((prev) =>
-        prev
-          ? {
-              ...prev,
-              servicio_estado: "en_progreso",
-              servicio_fecha_inicio: nowIso.split("T")[0],
-              servicio_hora_inicio: nowIso.split("T")[1]?.slice(0, 5),
-            }
-          : prev
-      );
+      await editarServicio.mutateAsync({
+        servicio_estado: "en_progreso",
+        servicio_fecha_inicio: nowIso.split("T")[0],
+        servicio_hora_inicio: nowIso.split("T")[1]?.slice(0, 5),
+      });
 
       // Auto-registro en historial
       await recordTransition({
@@ -376,46 +268,11 @@ export default function ServiceDetail() {
     }
   };
 
-  const toggleTask = async (task: Tarea) => {
+  const handleToggleTask = async (task: Tarea) => {
     if (!service) return;
     setSaving(true);
     try {
-      const newEstado = task.tarea_estado === "completado" ? "pendiente" : "completado";
-      const now = new Date();
-
-      const dbUpdate = {
-        tarea_estado: newEstado,
-        tarea_fecha_completado:
-          newEstado === "completado" ? now.toISOString().split("T")[0] : null,
-        tarea_hora_completado:
-          newEstado === "completado"
-            ? now.toTimeString().split(" ")[0].slice(0, 5)
-            : null,
-        tarea_completado_por:
-          newEstado === "completado" ? currentUser?.id_usuario || null : null,
-      };
-
-      const { error: tError } = await supabase
-        .from("tareas")
-        .update(dbUpdate)
-        .eq("tarea_id", task.tarea_id);
-
-      if (tError) throw tError;
-
-      // Actualización local (solo campos que existen en Tarea)
-      const updatedTasks = tasks.map((t) =>
-        t.tarea_id === task.tarea_id
-          ? {
-              ...t,
-              tarea_estado: newEstado,
-              tarea_fecha_completado: dbUpdate.tarea_fecha_completado,
-              tarea_hora_completado: dbUpdate.tarea_hora_completado ?? null,
-              tarea_completado_por: dbUpdate.tarea_completado_por,
-            }
-          : t
-      );
-      setTasks(updatedTasks);
-      await updateServiceProgressAndDates(updatedTasks);
+      await completarTarea.mutateAsync(task.tarea_id);
     } catch (err) {
       console.error(err);
       alert("Error actualizando tarea");
@@ -427,21 +284,10 @@ export default function ServiceDetail() {
   const addComment = async () => {
     if (!service || !newComment.trim()) return;
     try {
-      const payload = {
-        servicio_id: service.servicio_id,
+      await crearComentario.mutateAsync({
         usuario_id: currentUser?.id_usuario || null,
         serviciocomentario_contenido: newComment.trim(),
-      };
-      const { data, error } = await supabase
-        .from("serviciocomentarios")
-        .insert([payload])
-        .select(
-          "serviciocomentario_id, servicio_id, usuario_id, serviciocomentario_contenido, serviciocomentario_fecha"
-        )
-        .single();
-
-      if (error) throw error;
-      setComments((prev) => [...prev, data as Comentario]);
+      });
       setNewComment("");
     } catch (err) {
       console.error(err);
@@ -452,21 +298,10 @@ export default function ServiceDetail() {
   const addTaskNote = async () => {
     if (!selectedTaskId || !newNote.trim()) return;
     try {
-      const payload = {
-        tarea_id: selectedTaskId,
+      await crearNota.mutateAsync({
         usuario_id: currentUser?.id_usuario || null,
         tareacomentario_contenido: newNote.trim(),
-      };
-      const { data, error } = await supabase
-        .from("tareacomentarios")
-        .insert([payload])
-        .select(
-          "tareacomentario_id, tarea_id, usuario_id, tareacomentario_contenido, tareacomentario_fecha"
-        )
-        .single();
-
-      if (error) throw error;
-      setNotes((prev) => [...prev, data as Note]);
+      });
       setNewNote("");
     } catch (err) {
       console.error(err);
@@ -480,22 +315,13 @@ export default function ServiceDetail() {
     if (!service || !blockReason.trim()) return;
     setSaving(true);
     try {
-      await supabase
-        .from("servicios")
-        .update({ servicio_estado: "bloqueado" })
-        .eq("servicio_id", service.servicio_id);
+      await cambiarEstado.mutateAsync({ id: servicioId, estado: "bloqueado" });
 
-      const { error: cError } = await supabase
-        .from("serviciocomentarios")
-        .insert([{
-          servicio_id: service.servicio_id,
-          usuario_id: currentUser?.id_usuario || null,
-          serviciocomentario_contenido: `🔒 BLOQUEADO: ${blockReason.trim()}`,
-        }]);
+      await crearComentario.mutateAsync({
+        usuario_id: currentUser?.id_usuario || null,
+        serviciocomentario_contenido: `🔒 BLOQUEADO: ${blockReason.trim()}`,
+      });
 
-      if (cError) throw cError;
-
-      setService((prev) => (prev ? { ...prev, servicio_estado: "bloqueado" } : prev));
       setShowBlockModal(false);
       setBlockReason("");
 
@@ -507,7 +333,8 @@ export default function ServiceDetail() {
         usuarioId: currentUser?.id_usuario || null,
       });
 
-      fetchData(); // refresca comentarios e historial
+      const hist = await fetchHistorial(service.servicio_id);
+      setHistorial(hist);
     } catch (err) {
       console.error(err);
       alert("Error bloqueando servicio");
@@ -520,22 +347,14 @@ export default function ServiceDetail() {
     if (!service) return;
     setSaving(true);
     try {
-      await supabase
-        .from("servicios")
-        .update({ servicio_estado: "en_progreso" })
-        .eq("servicio_id", service.servicio_id);
+      await editarServicio.mutateAsync({
+        servicio_estado: "en_progreso",
+      });
 
-      const { error: cError } = await supabase
-        .from("serviciocomentarios")
-        .insert([{
-          servicio_id: service.servicio_id,
-          usuario_id: currentUser?.id_usuario || null,
-          serviciocomentario_contenido: `✅ Desbloqueado - servicio reanudado`,
-        }]);
-
-      if (cError) throw cError;
-
-      setService((prev) => (prev ? { ...prev, servicio_estado: "en_progreso" } : prev));
+      await crearComentario.mutateAsync({
+        usuario_id: currentUser?.id_usuario || null,
+        serviciocomentario_contenido: `✅ Desbloqueado - servicio reanudado`,
+      });
 
       // Auto-registro en historial
       await recordTransition({
@@ -545,7 +364,8 @@ export default function ServiceDetail() {
         usuarioId: currentUser?.id_usuario || null,
       });
 
-      fetchData();
+      const hist = await fetchHistorial(service.servicio_id);
+      setHistorial(hist);
     } catch (err) {
       console.error(err);
       alert("Error desbloqueando servicio");
@@ -557,15 +377,10 @@ export default function ServiceDetail() {
   const addTechnician = async (userId: number) => {
     if (!service) return;
     try {
-      const { error } = await supabase
-        .from("serviciocolaboradores")
-        .insert([{ servicio_id: service.servicio_id, colaborador_id: userId }]);
-
-      if (error) throw error;
-      setRels((prev) => [
-        ...prev,
-        { servicio_id: service.servicio_id, colaborador_id: userId },
-      ]);
+      await asignarColaborador.mutateAsync({
+        servicioId,
+        data: { colaborador_id: userId },
+      });
       setShowAddTech(false);
     } catch (err) {
       console.error(err);
@@ -576,18 +391,7 @@ export default function ServiceDetail() {
   const removeTechnician = async (userId: number) => {
     if (!service) return;
     try {
-      const { error } = await supabase
-        .from("serviciocolaboradores")
-        .delete()
-        .eq("servicio_id", service.servicio_id)
-        .eq("colaborador_id", userId);
-
-      if (error) throw error;
-      setRels((prev) =>
-        prev.filter(
-          (r) => !(r.servicio_id === service.servicio_id && r.colaborador_id === userId)
-        )
-      );
+      await removerColaborador.mutateAsync({ servicioId, userId });
     } catch (err) {
       console.error(err);
       alert("Error quitando colaborador");
@@ -761,7 +565,7 @@ export default function ServiceDetail() {
           {tasks.map((t, idx) => (
             <div key={t.tarea_id} className={`border rounded-xl p-3 ${isCompleted ? "border-green-100 bg-green-50/30" : "border-gray-100"}`}>
               <div className="flex items-center gap-3">
-                <button disabled={saving || isCompleted} onClick={() => toggleTask(t)} className="cursor-pointer">
+                <button disabled={saving || isCompleted} onClick={() => handleToggleTask(t)} className="cursor-pointer">
                   {t.tarea_estado === "completado" ? (
                     <CheckCircle2 className={`w-5 h-5 ${isCompleted ? "text-green-500" : "text-green-600"}`} />
                   ) : (

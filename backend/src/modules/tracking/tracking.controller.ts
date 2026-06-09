@@ -3,6 +3,7 @@ import { authenticate, authorize } from "@/core/middleware/auth.js";
 import { auditOnResponse } from "@/core/middleware/audit.js";
 import {
   listarTareas,
+  listarTareasGlobal,
   crearTarea,
   editarTarea,
   completarTarea,
@@ -13,17 +14,32 @@ import {
   reanudarTiempo,
   finalizarTiempo,
   obtenerTiemposTarea,
+  listarNotas,
+  crearNota,
 } from "./tracking.service.js";
 import {
+  listarTareasQuerySchema,
   crearTareaSchema,
   editarTareaSchema,
   reordenarTareasSchema,
+  crearNotaSchema,
 } from "./tracking.schema.js";
 
 export async function trackingController(app: FastifyInstance) {
   // ══════════════════════════════════════
   //  TAREAS
   // ══════════════════════════════════════
+
+  // GET /api/v1/tracking/tareas — listado global con filtros
+  app.get(
+    "/api/v1/tracking/tareas",
+    { preHandler: [authenticate, authorize("negocio:tareas:supervisar")] },
+    async (request, reply) => {
+      const query = listarTareasQuerySchema.parse(request.query);
+      const result = await listarTareasGlobal(query);
+      return reply.send(result);
+    }
+  );
 
   // GET /api/v1/tracking/servicios/:servicioId/tareas
   app.get(
@@ -221,6 +237,37 @@ export async function trackingController(app: FastifyInstance) {
       const { id } = request.params as { id: string };
       const tiempos = await obtenerTiemposTarea(parseInt(id));
       return reply.send({ data: tiempos });
+    }
+  );
+
+  // ══════════════════════════════════════
+  //  NOTAS
+  // ══════════════════════════════════════
+
+  // GET /api/v1/tracking/tareas/:id/notas
+  app.get(
+    "/api/v1/tracking/tareas/:id/notas",
+    { preHandler: [authenticate, authorize("negocio:tareas:ejecutar")] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const notas = await listarNotas(parseInt(id));
+      return reply.send({ data: notas });
+    }
+  );
+
+  // POST /api/v1/tracking/tareas/:id/notas
+  app.post(
+    "/api/v1/tracking/tareas/:id/notas",
+    { preHandler: [authenticate] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const input = crearNotaSchema.parse(request.body);
+      const nota = await crearNota(
+        parseInt(id),
+        request.currentUser!.user_id,
+        input
+      );
+      return reply.status(201).send({ data: nota });
     }
   );
 }

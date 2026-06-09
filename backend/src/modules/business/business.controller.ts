@@ -13,6 +13,15 @@ import {
   listarClientes,
   crearCliente,
   editarCliente,
+  listarComentarios,
+  crearComentario,
+  editarComentario,
+  eliminarComentario,
+  aplicarPlantilla,
+  listarColaboradoresServicio,
+  asignarColaboradorServicio,
+  removerColaboradorServicio,
+  obtenerDashboard,
 } from "./business.service.js";
 import {
   crearServicioSchema,
@@ -22,6 +31,9 @@ import {
   editarAreaSchema,
   crearClienteSchema,
   editarClienteSchema,
+  crearComentarioSchema,
+  editarComentarioSchema,
+  asignarColaboradorSchema,
 } from "./business.schema.js";
 
 export async function businessController(app: FastifyInstance) {
@@ -189,6 +201,137 @@ export async function businessController(app: FastifyInstance) {
       const input = editarClienteSchema.parse(request.body);
       const cliente = await editarCliente(parseInt(id), input);
       return reply.send({ data: cliente });
+    }
+  );
+
+  // ══════════════════════════════════════
+  //  PLANTILLAS — Aplicar a servicio
+  // ══════════════════════════════════════
+
+  // POST /api/v1/business/servicios/:id/aplicar-plantilla/:plantillaId
+  app.post(
+    "/api/v1/business/servicios/:id/aplicar-plantilla/:plantillaId",
+    { preHandler: [authenticate, authorize("negocio:servicios:editar")] },
+    async (request, reply) => {
+      const { id, plantillaId } = request.params as { id: string; plantillaId: string };
+      const result = await aplicarPlantilla(parseInt(id), parseInt(plantillaId));
+      return reply.status(201).send({ data: result });
+    }
+  );
+
+  // ══════════════════════════════════════
+  //  COLABORADORES
+  // ══════════════════════════════════════
+
+  // GET /api/v1/business/servicios/:id/colaboradores
+  app.get(
+    "/api/v1/business/servicios/:id/colaboradores",
+    { preHandler: [authenticate, authorize("negocio:servicios:listar")] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const colaboradores = await listarColaboradoresServicio(parseInt(id));
+      return reply.send({ data: colaboradores });
+    }
+  );
+
+  // POST /api/v1/business/servicios/:id/colaboradores
+  app.post(
+    "/api/v1/business/servicios/:id/colaboradores",
+    { preHandler: [authenticate, authorize("negocio:servicios:editar")] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const input = asignarColaboradorSchema.parse(request.body);
+      const colaborador = await asignarColaboradorServicio(parseInt(id), input);
+      return reply.status(201).send({ data: colaborador });
+    }
+  );
+
+  // DELETE /api/v1/business/servicios/:id/colaboradores/:userId
+  app.delete(
+    "/api/v1/business/servicios/:id/colaboradores/:userId",
+    { preHandler: [authenticate, authorize("negocio:servicios:editar")] },
+    async (request, reply) => {
+      const { id, userId } = request.params as { id: string; userId: string };
+      const colaborador = await removerColaboradorServicio(parseInt(id), parseInt(userId));
+      return reply.send({ data: colaborador });
+    }
+  );
+
+  // ══════════════════════════════════════
+  //  COMENTARIOS
+  // ══════════════════════════════════════
+
+  // GET /api/v1/business/servicios/:id/comentarios
+  app.get(
+    "/api/v1/business/servicios/:id/comentarios",
+    { preHandler: [authenticate, authorize("negocio:servicios:listar")] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const comentarios = await listarComentarios(parseInt(id));
+      return reply.send({ data: comentarios });
+    }
+  );
+
+  // POST /api/v1/business/servicios/:id/comentarios
+  app.post(
+    "/api/v1/business/servicios/:id/comentarios",
+    { preHandler: [authenticate] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const input = crearComentarioSchema.parse(request.body);
+      const comentario = await crearComentario(
+        parseInt(id),
+        request.currentUser!.user_id,
+        input
+      );
+      return reply.status(201).send({ data: comentario });
+    }
+  );
+
+  // PUT /api/v1/business/comentarios/:id
+  app.put(
+    "/api/v1/business/comentarios/:id",
+    {
+      preHandler: [authenticate],
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const input = editarComentarioSchema.parse(request.body);
+      const comentario = await editarComentario(
+        parseInt(id),
+        request.currentUser!.user_id,
+        input
+      );
+      return reply.send({ data: comentario });
+    }
+  );
+
+  // DELETE /api/v1/business/comentarios/:id
+  app.delete(
+    "/api/v1/business/comentarios/:id",
+    { preHandler: [authenticate] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const comentario = await eliminarComentario(
+        parseInt(id),
+        request.currentUser!.user_id,
+        request.currentUser?.rol
+      );
+      return reply.status(204).send();
+    }
+  );
+
+  // ══════════════════════════════════════
+  //  DASHBOARD
+  // ══════════════════════════════════════
+
+  // GET /api/v1/business/dashboard
+  app.get(
+    "/api/v1/business/dashboard",
+    { preHandler: [authenticate, authorize("negocio:dashboard:ver")] },
+    async (_req, reply) => {
+      const data = await obtenerDashboard();
+      return reply.send({ data });
     }
   );
 }

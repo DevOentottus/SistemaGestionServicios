@@ -17,7 +17,6 @@ import ClientView from "./pages/ClientView";
 import Clientes from "./pages/Clientes";
 import { ProtectedRoute } from "../auth/ProtectedRoute";
 import { RequirePermission } from "../auth/RequirePermission";
-import { RequireRole } from "./components/RequireRole";
 
 export const router = createBrowserRouter([
   // ── Ruta pública: Login ──

@@ -193,6 +193,74 @@ export const calificaciones = pgTable(
   ]
 );
 
+export const servicioComentarios = pgTable(
+  "servicio_comentarios",
+  {
+    id: serial("id").primaryKey(),
+    servicio_id: integer("servicio_id")
+      .notNull()
+      .references(() => servicios.servicio_id),
+    usuario_id: integer("usuario_id")
+      .notNull()
+      .references(() => usuarios.usuario_id),
+    contenido: text("contenido").notNull(),
+    es_bloqueo: boolean("es_bloqueo").default(false),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("idx_sc_servicio").on(table.servicio_id),
+  ]
+);
+
+export const tareaNotas = pgTable(
+  "tarea_notas",
+  {
+    id: serial("id").primaryKey(),
+    tarea_id: integer("tarea_id")
+      .notNull()
+      .references(() => tareas.tarea_id),
+    usuario_id: integer("usuario_id")
+      .notNull()
+      .references(() => usuarios.usuario_id),
+    contenido: text("contenido").notNull(),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("idx_tn_tarea").on(table.tarea_id),
+  ]
+);
+
+export const plantillas = pgTable(
+  "plantillas",
+  {
+    id: serial("id").primaryKey(),
+    nombre: varchar("nombre", { length: 200 }).notNull(),
+    descripcion: text("descripcion"),
+    activa: boolean("activa").default(true).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("idx_plantillas_activa").on(table.activa),
+  ]
+);
+
+export const plantillaTareas = pgTable(
+  "plantilla_tareas",
+  {
+    id: serial("id").primaryKey(),
+    plantilla_id: integer("plantilla_id")
+      .notNull()
+      .references(() => plantillas.id, { onDelete: "cascade" }),
+    titulo: varchar("titulo", { length: 300 }).notNull(),
+    descripcion: text("descripcion"),
+    orden: integer("orden").default(0),
+  },
+  (table) => [
+    index("idx_pt_plantilla").on(table.plantilla_id),
+  ]
+);
+
 export const auditoria = pgTable(
   "auditoria",
   {

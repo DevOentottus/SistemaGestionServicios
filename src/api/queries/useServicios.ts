@@ -4,7 +4,7 @@ import { serviciosApi } from "../client";
 export function useServicios(params?: Record<string, any>) {
   return useQuery({
     queryKey: ["servicios", params],
-    queryFn: () => serviciosApi.listar(params).then((r) => r.data),
+    queryFn: () => serviciosApi.listar(params).then((r) => r.data.data),
   });
 }
 

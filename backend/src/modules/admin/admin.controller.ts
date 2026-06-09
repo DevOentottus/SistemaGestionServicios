@@ -9,15 +9,111 @@ import {
   toggleUsuarioActivo,
   listarAuditoria,
   getMenuItems,
+  listarPlantillas,
+  crearPlantilla,
+  editarPlantilla,
+  eliminarPlantilla,
+  listarTareasPlantilla,
+  crearTareaPlantilla,
+  eliminarTareaPlantilla,
 } from "./admin.service.js";
 import {
   crearUsuarioSchema,
   editarUsuarioSchema,
   cambiarPasswordSchema,
   auditoriaQuerySchema,
+  crearPlantillaSchema,
+  editarPlantillaSchema,
+  crearPlantillaTareaSchema,
+  plantillaParamsSchema,
+  plantillaTareaParamsSchema,
 } from "./admin.schema.js";
 
 export async function adminController(app: FastifyInstance) {
+  // ══════════════════════════════════════
+  //  PLANTILLAS
+  // ══════════════════════════════════════
+
+  // GET /api/v1/admin/plantillas
+  app.get(
+    "/api/v1/admin/plantillas",
+    { preHandler: [authenticate, authorize("sistema:plantillas:listar")] },
+    async (request, reply) => {
+      const query = request.query as { activa?: string };
+      const activa = query.activa !== undefined ? query.activa === "true" : undefined;
+      const plantillas = await listarPlantillas(activa);
+      return reply.send({ data: plantillas });
+    }
+  );
+
+  // POST /api/v1/admin/plantillas
+  app.post(
+    "/api/v1/admin/plantillas",
+    { preHandler: [authenticate, authorize("sistema:plantillas:crear")] },
+    async (request, reply) => {
+      const input = crearPlantillaSchema.parse(request.body);
+      const plantilla = await crearPlantilla(input);
+      return reply.status(201).send({ data: plantilla });
+    }
+  );
+
+  // PUT /api/v1/admin/plantillas/:id
+  app.put(
+    "/api/v1/admin/plantillas/:id",
+    { preHandler: [authenticate, authorize("sistema:plantillas:editar")] },
+    async (request, reply) => {
+      const { id } = plantillaParamsSchema.parse(request.params);
+      const input = editarPlantillaSchema.parse(request.body);
+      const plantilla = await editarPlantilla(id, input);
+      return reply.send({ data: plantilla });
+    }
+  );
+
+  // DELETE /api/v1/admin/plantillas/:id
+  app.delete(
+    "/api/v1/admin/plantillas/:id",
+    { preHandler: [authenticate, authorize("sistema:plantillas:eliminar")] },
+    async (request, reply) => {
+      const { id } = plantillaParamsSchema.parse(request.params);
+      const plantilla = await eliminarPlantilla(id);
+      return reply.status(200).send({ data: plantilla });
+    }
+  );
+
+  // GET /api/v1/admin/plantillas/:id/tareas
+  app.get(
+    "/api/v1/admin/plantillas/:id/tareas",
+    { preHandler: [authenticate, authorize("sistema:plantillas:listar")] },
+    async (request, reply) => {
+      const { id } = plantillaParamsSchema.parse(request.params);
+      const tareas = await listarTareasPlantilla(id);
+      return reply.send({ data: tareas });
+    }
+  );
+
+  // POST /api/v1/admin/plantillas/:id/tareas
+  app.post(
+    "/api/v1/admin/plantillas/:id/tareas",
+    { preHandler: [authenticate, authorize("sistema:plantillas:crear")] },
+    async (request, reply) => {
+      const { id } = plantillaParamsSchema.parse(request.params);
+      const input = crearPlantillaTareaSchema.parse(request.body);
+      const tarea = await crearTareaPlantilla(id, input);
+      return reply.status(201).send({ data: tarea });
+    }
+  );
+
+  // DELETE /api/v1/admin/plantillas/:id/tareas/:tareaId
+  app.delete(
+    "/api/v1/admin/plantillas/:id/tareas/:tareaId",
+    { preHandler: [authenticate, authorize("sistema:plantillas:eliminar")] },
+    async (request, reply) => {
+      const params = { ...plantillaParamsSchema.parse(request.params), ...plantillaTareaParamsSchema.parse(request.params) };
+      const tarea = await eliminarTareaPlantilla(params.tareaId);
+      return reply.status(200).send({ data: tarea });
+    }
+  );
+
   // ══════════════════════════════════════
   //  MENÚ DINÁMICO
   // ══════════════════════════════════════

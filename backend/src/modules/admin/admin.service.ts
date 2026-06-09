@@ -1,8 +1,15 @@
 import bcrypt from "bcryptjs";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, asc, sql } from "drizzle-orm";
 import { db, schema } from "@/db/connection.js";
 import { NotFoundError, ConflictError } from "@/core/errors/index.js";
-import type { CrearUsuarioInput, EditarUsuarioInput, AuditoriaQuery } from "./admin.schema.js";
+import type {
+  CrearUsuarioInput,
+  EditarUsuarioInput,
+  AuditoriaQuery,
+  CrearPlantillaInput,
+  EditarPlantillaInput,
+  CrearPlantillaTareaInput,
+} from "./admin.schema.js";
 
 // ═══════════════════════════════════════════
 //  USUARIOS
@@ -151,6 +158,110 @@ export async function listarAuditoria(query: AuditoriaQuery) {
       total: Number(totalResult[0]?.count ?? 0),
     },
   };
+}
+
+// ═══════════════════════════════════════════
+//  PLANTILLAS
+// ═══════════════════════════════════════════
+
+export async function listarPlantillas(activa?: boolean) {
+  const conditions = [];
+  if (activa !== undefined) {
+    conditions.push(eq(schema.plantillas.activa, activa));
+  }
+  return db
+    .select()
+    .from(schema.plantillas)
+    .where(and(...conditions))
+    .orderBy(desc(schema.plantillas.created_at));
+}
+
+export async function crearPlantilla(data: CrearPlantillaInput) {
+  const { tareas, ...plantillaData } = data;
+
+  const [plantilla] = await db
+    .insert(schema.plantillas)
+    .values(plantillaData)
+    .returning();
+
+  if (tareas && tareas.length > 0) {
+    await db.insert(schema.plantillaTareas).values(
+      tareas.map((t, i) => ({
+        plantilla_id: plantilla.id,
+        titulo: t.titulo,
+        descripcion: t.descripcion ?? null,
+        orden: t.orden ?? i,
+      }))
+    );
+  }
+
+  return plantilla;
+}
+
+export async function editarPlantilla(id: number, data: EditarPlantillaInput) {
+  const [plantilla] = await db
+    .update(schema.plantillas)
+    .set({ ...data, updated_at: sql`now()` })
+    .where(eq(schema.plantillas.id, id))
+    .returning();
+
+  if (!plantilla) {
+    throw new NotFoundError("Plantilla");
+  }
+
+  return plantilla;
+}
+
+export async function eliminarPlantilla(id: number) {
+  const [plantilla] = await db
+    .update(schema.plantillas)
+    .set({ activa: false, updated_at: sql`now()` })
+    .where(eq(schema.plantillas.id, id))
+    .returning();
+
+  if (!plantilla) {
+    throw new NotFoundError("Plantilla");
+  }
+
+  return plantilla;
+}
+
+export async function listarTareasPlantilla(plantillaId: number) {
+  return db
+    .select()
+    .from(schema.plantillaTareas)
+    .where(eq(schema.plantillaTareas.plantilla_id, plantillaId))
+    .orderBy(asc(schema.plantillaTareas.orden));
+}
+
+export async function crearTareaPlantilla(
+  plantillaId: number,
+  data: CrearPlantillaTareaInput
+) {
+  const [tarea] = await db
+    .insert(schema.plantillaTareas)
+    .values({
+      plantilla_id: plantillaId,
+      titulo: data.titulo,
+      descripcion: data.descripcion ?? null,
+      orden: data.orden ?? 0,
+    })
+    .returning();
+
+  return tarea;
+}
+
+export async function eliminarTareaPlantilla(tareaId: number) {
+  const [tarea] = await db
+    .delete(schema.plantillaTareas)
+    .where(eq(schema.plantillaTareas.id, tareaId))
+    .returning();
+
+  if (!tarea) {
+    throw new NotFoundError("Tarea de plantilla");
+  }
+
+  return tarea;
 }
 
 // ═══════════════════════════════════════════

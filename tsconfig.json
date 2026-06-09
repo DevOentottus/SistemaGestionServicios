@@ -12,7 +12,10 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "strict": true,
-    "types": ["vite/client"]   // ← Línea clave
+    "types": ["vite/client"],   // ← Línea clave
+    "paths": {
+      "@shared/*": ["./shared/types/*"]
+    }
   },
   "include": ["src"]
 }

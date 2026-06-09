@@ -38,6 +38,25 @@ export const crearClienteSchema = z.object({
 
 export const editarClienteSchema = crearClienteSchema.partial();
 
+// ── Comentarios ──
+export const crearComentarioSchema = z.object({
+  contenido: z.string().min(1, "El comentario no puede estar vacío"),
+  es_bloqueo: z.boolean().optional().default(false),
+});
+
+export const editarComentarioSchema = z.object({
+  contenido: z.string().min(1),
+});
+
+export const comentarioParamsSchema = z.object({
+  id: z.coerce.number(),
+});
+
+// ── Colaboradores ──
+export const asignarColaboradorSchema = z.object({
+  colaborador_id: z.number().int().positive(),
+});
+
 export type CrearServicioInput = z.infer<typeof crearServicioSchema>;
 export type EditarServicioInput = z.infer<typeof editarServicioSchema>;
 export type ListarServiciosQuery = z.infer<typeof listarServiciosQuerySchema>;
@@ -45,3 +64,6 @@ export type CrearAreaInput = z.infer<typeof crearAreaSchema>;
 export type EditarAreaInput = z.infer<typeof editarAreaSchema>;
 export type CrearClienteInput = z.infer<typeof crearClienteSchema>;
 export type EditarClienteInput = z.infer<typeof editarClienteSchema>;
+export type CrearComentarioInput = z.infer<typeof crearComentarioSchema>;
+export type EditarComentarioInput = z.infer<typeof editarComentarioSchema>;
+export type AsignarColaboradorInput = z.infer<typeof asignarColaboradorSchema>;

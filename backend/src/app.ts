@@ -15,6 +15,7 @@ import { reportsController } from "@/modules/reports/reports.controller.js";
 import { surveysController } from "@/modules/surveys/surveys.controller.js";
 import { portalController } from "@/modules/client-portal/portal.controller.js";
 import { db } from "@/db/connection.js";
+import { sql } from "drizzle-orm";
 
 export async function buildApp() {
   const app = Fastify({
@@ -58,7 +59,7 @@ export async function buildApp() {
   // ── Health check ──
   app.get("/api/health", async () => {
     try {
-      await db.execute({ raw: "SELECT 1" } as any);
+      await db.execute(sql.raw("SELECT 1"));
       return { status: "ok", database: "connected", timestamp: new Date().toISOString() };
     } catch (err) {
       return { status: "error", database: "disconnected", error: String(err) };

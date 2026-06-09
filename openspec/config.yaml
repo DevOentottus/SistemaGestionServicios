@@ -1,10 +1,13 @@
 schema: spec-driven
 
 context: |
-  Tech stack: React 18 + TypeScript (strict) + Vite 6 + Tailwind 4 + MUI 7 + Radix UI + Supabase + React Router 7
-  Architecture: Pages routing with RBAC (ProtectedRoute + RequireRole), Supabase for backend, AuthContext for session, no global state store (page-local state)
+  Stack: React 18 + TS strict + Vite 6 + Tailwind 4 + Radix UI + React Router 7 + React Query 5
+  Backend: Node.js + Fastify 5 + Drizzle ORM + PostgreSQL (Monolito Modular)
+  Deploy: Vercel (frontend + serverless API) + Supabase (PostgreSQL + Auth opcional)
+  Architecture: 3-capas clásica. Frontend consume API REST con React Query. Backend monolito modular con 7 módulos (auth, admin, business, tracking, reports, surveys, client-portal). Auth JWT stateless con refresh token httpOnly. Permisos atómicos (sistema:* / negocio:*), sidebar dinámica desde API.
+  Patrones: Layered Architecture, Monolito Modular, Bounded Contexts (Admin SPA ≠ Portal Cliente), Strangler Fig (migración desde Supabase directo), API-First, Server-Side Enforcement, Doble Auditoría (middleware + triggers).
   Testing: Vitest 3 + @testing-library/react + jsdom
-  Style: ESLint 9 (ts+react) + Prettier (semi, double quotes, printWidth 120) + tsc --noEmit
+  Style: ESLint 9 (ts+react) + Prettier + tsc --noEmit
 
 strict_tdd: true
 

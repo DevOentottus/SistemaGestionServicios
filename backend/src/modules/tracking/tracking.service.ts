@@ -1,11 +1,85 @@
-import { eq, and, asc, sql } from "drizzle-orm";
+import { eq, and, asc, desc, gte, lte, sql } from "drizzle-orm";
 import { db, schema } from "@/db/connection.js";
 import { NotFoundError, ValidationError, ForbiddenError } from "@/core/errors/index.js";
-import type { CrearTareaInput, EditarTareaInput, ReordenarTareasInput } from "./tracking.schema.js";
+import type { CrearTareaInput, EditarTareaInput, ReordenarTareasInput, CrearNotaInput, ListarTareasQuery } from "./tracking.schema.js";
 
 // ═══════════════════════════════════════════
 //  TAREAS
 // ═══════════════════════════════════════════
+
+export async function listarTareasGlobal(filtros: ListarTareasQuery) {
+  const conditions = [];
+
+  if (filtros.estado) {
+    conditions.push(eq(schema.tareas.tarea_estado, filtros.estado));
+  }
+  if (filtros.servicio_id) {
+    conditions.push(eq(schema.tareas.servicio_id, filtros.servicio_id));
+  }
+  if (filtros.colaborador_id) {
+    conditions.push(
+      sql`${schema.tareas.tarea_id} IN (
+        SELECT tarea_id FROM ${schema.tiempoTracking}
+        WHERE colaborador_id = ${filtros.colaborador_id}
+      )`
+    );
+  }
+  if (filtros.desde) {
+    conditions.push(gte(schema.tareas.created_at, new Date(filtros.desde)));
+  }
+  if (filtros.hasta) {
+    conditions.push(lte(schema.tareas.created_at, new Date(filtros.hasta)));
+  }
+
+  const offset = (filtros.page - 1) * filtros.limit;
+
+  const [data, totalResult] = await Promise.all([
+    db
+      .select({
+        tarea_id: schema.tareas.tarea_id,
+        servicio_id: schema.tareas.servicio_id,
+        tarea_titulo: schema.tareas.tarea_titulo,
+        tarea_descripcion: schema.tareas.tarea_descripcion,
+        tarea_orden: schema.tareas.tarea_orden,
+        tarea_estado: schema.tareas.tarea_estado,
+        tarea_completado_por: schema.tareas.tarea_completado_por,
+        tarea_fecha_completado: schema.tareas.tarea_fecha_completado,
+        created_at: schema.tareas.created_at,
+        updated_at: schema.tareas.updated_at,
+        servicio_codigo: schema.servicios.servicio_codigo,
+        servicio_descripcion: schema.servicios.servicio_descripcion,
+      })
+      .from(schema.tareas)
+      .innerJoin(
+        schema.servicios,
+        eq(schema.tareas.servicio_id, schema.servicios.servicio_id)
+      )
+      .where(and(...conditions))
+      .orderBy(desc(schema.tareas.created_at))
+      .limit(filtros.limit)
+      .offset(offset),
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.tareas)
+      .innerJoin(
+        schema.servicios,
+        eq(schema.tareas.servicio_id, schema.servicios.servicio_id)
+      )
+      .where(and(...conditions)),
+  ]);
+
+  const total = Number(totalResult[0]?.count ?? 0);
+
+  return {
+    data,
+    meta: {
+      page: filtros.page,
+      limit: filtros.limit,
+      total,
+      totalPages: Math.ceil(total / filtros.limit),
+    },
+  };
+}
 
 export async function listarTareas(servicioId: number) {
   return db
@@ -304,4 +378,45 @@ export async function obtenerTiemposTarea(tareaId: number) {
     .from(schema.tiempoTracking)
     .where(eq(schema.tiempoTracking.tarea_id, tareaId))
     .orderBy(asc(schema.tiempoTracking.tiempo_inicio));
+}
+
+// ═══════════════════════════════════════════
+//  NOTAS
+// ═══════════════════════════════════════════
+
+export async function listarNotas(tareaId: number) {
+  return db
+    .select({
+      id: schema.tareaNotas.id,
+      tarea_id: schema.tareaNotas.tarea_id,
+      usuario_id: schema.tareaNotas.usuario_id,
+      contenido: schema.tareaNotas.contenido,
+      created_at: schema.tareaNotas.created_at,
+      usuario_nombres: schema.usuarios.usuario_nombres,
+      usuario_apellido_paterno: schema.usuarios.usuario_apellido_paterno,
+    })
+    .from(schema.tareaNotas)
+    .innerJoin(
+      schema.usuarios,
+      eq(schema.tareaNotas.usuario_id, schema.usuarios.usuario_id)
+    )
+    .where(eq(schema.tareaNotas.tarea_id, tareaId))
+    .orderBy(asc(schema.tareaNotas.created_at));
+}
+
+export async function crearNota(
+  tareaId: number,
+  usuarioId: number,
+  data: CrearNotaInput
+) {
+  const [nota] = await db
+    .insert(schema.tareaNotas)
+    .values({
+      tarea_id: tareaId,
+      usuario_id: usuarioId,
+      contenido: data.contenido,
+    })
+    .returning();
+
+  return nota;
 }

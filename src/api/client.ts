@@ -151,6 +151,9 @@ export const tareasApi = {
 
   eliminar: (id: number) =>
     api.delete(`/tracking/tareas/${id}`),
+
+  listarGlobal: (params?: Record<string, any>) =>
+    api.get("/tracking/tareas", { params }),
 };
 
 // ── Time Tracking API ──
@@ -206,4 +209,92 @@ export const clientesApi = {
   listar: () => api.get("/business/clientes"),
   crear: (data: any) => api.post("/business/clientes", data),
   editar: (id: number, data: any) => api.put(`/business/clientes/${id}`, data),
+};
+
+// ── Reportes API ──
+export const reportesApi = {
+  eficiencia: (params?: Record<string, any>) =>
+    api.get("/reports/eficiencia", { params }),
+  productividad: (params?: Record<string, any>) =>
+    api.get("/reports/productividad", { params }),
+  trazabilidad: (params?: Record<string, any>) =>
+    api.get("/reports/trazabilidad", { params }),
+};
+
+// ── Surveys (Encuestas) API ──
+export const surveysApi = {
+  obtener: (id: number) => api.get(`/surveys/servicios/${id}`),
+  calificar: (id: number, data: any) => api.post(`/surveys/servicios/${id}/calificar`, data),
+  analytics: () => api.get("/surveys/analytics"),
+};
+
+// ── Comentarios API ──
+export const comentariosApi = {
+  listar: (servicioId: number) =>
+    api.get(`/business/servicios/${servicioId}/comentarios`),
+  crear: (servicioId: number, data: any) =>
+    api.post(`/business/servicios/${servicioId}/comentarios`, data),
+  editar: (id: number, data: any) =>
+    api.put(`/business/comentarios/${id}`, data),
+  eliminar: (id: number) =>
+    api.delete(`/business/comentarios/${id}`),
+};
+
+// ── Notas API ──
+export const notasApi = {
+  listar: (tareaId: number) =>
+    api.get(`/tracking/tareas/${tareaId}/notas`),
+  crear: (tareaId: number, data: any) =>
+    api.post(`/tracking/tareas/${tareaId}/notas`, data),
+};
+
+// ── Plantillas API ──
+export const plantillasApi = {
+  listar: (params?: Record<string, any>) =>
+    api.get("/admin/plantillas", { params }),
+
+  crear: (data: any) =>
+    api.post("/admin/plantillas", data),
+
+  editar: (id: number, data: any) =>
+    api.put(`/admin/plantillas/${id}`, data),
+
+  eliminar: (id: number) =>
+    api.delete(`/admin/plantillas/${id}`),
+
+  listarTareas: (plantillaId: number) =>
+    api.get(`/admin/plantillas/${plantillaId}/tareas`),
+
+  crearTarea: (plantillaId: number, data: any) =>
+    api.post(`/admin/plantillas/${plantillaId}/tareas`, data),
+
+  eliminarTarea: (plantillaId: number, tareaId: number) =>
+    api.delete(`/admin/plantillas/${plantillaId}/tareas/${tareaId}`),
+
+  aplicarPlantilla: (servicioId: number, plantillaId: number) =>
+    api.post(`/business/servicios/${servicioId}/aplicar-plantilla/${plantillaId}`),
+};
+
+// ── Colaboradores API ──
+export const colaboradoresApi = {
+  listar: (servicioId: number) =>
+    api.get(`/business/servicios/${servicioId}/colaboradores`),
+
+  asignar: (servicioId: number, data: any) =>
+    api.post(`/business/servicios/${servicioId}/colaboradores`, data),
+
+  remover: (servicioId: number, userId: number) =>
+    api.delete(`/business/servicios/${servicioId}/colaboradores/${userId}`),
+};
+
+// ── Portal Cliente API ──
+export const portalApi = {
+  access: (code: string) => api.get(`/client/access`, { params: { code } }),
+  servicio: (token: string) => api.get(`/client/servicio/${token}`),
+  calificar: (token: string, data: any) => api.post(`/client/servicio/${token}/calificar`, data),
+};
+
+// ── Dashboard API ──
+export const dashboardApi = {
+  obtener: () => api.get("/business/dashboard"),
 };

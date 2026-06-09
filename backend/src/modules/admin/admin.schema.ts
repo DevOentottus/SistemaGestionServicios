@@ -29,6 +29,42 @@ export const auditoriaQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).default(50),
 });
 
+// ═══════════════════════════════════════════
+//  PLANTILLAS
+// ═══════════════════════════════════════════
+
+export const crearPlantillaSchema = z.object({
+  nombre: z.string().min(2).max(200),
+  descripcion: z.string().optional(),
+  tareas: z
+    .array(
+      z.object({
+        titulo: z.string().min(2).max(300),
+        descripcion: z.string().optional(),
+        orden: z.number().int().optional(),
+      })
+    )
+    .optional(),
+});
+
+export const editarPlantillaSchema = z.object({
+  nombre: z.string().min(2).max(200).optional(),
+  descripcion: z.string().optional(),
+  activa: z.boolean().optional(),
+});
+
+export const crearPlantillaTareaSchema = z.object({
+  titulo: z.string().min(2).max(300),
+  descripcion: z.string().optional(),
+  orden: z.number().int().optional(),
+});
+
+export const plantillaParamsSchema = z.object({ id: z.coerce.number() });
+export const plantillaTareaParamsSchema = z.object({ tareaId: z.coerce.number() });
+
 export type CrearUsuarioInput = z.infer<typeof crearUsuarioSchema>;
 export type EditarUsuarioInput = z.infer<typeof editarUsuarioSchema>;
 export type AuditoriaQuery = z.infer<typeof auditoriaQuerySchema>;
+export type CrearPlantillaInput = z.infer<typeof crearPlantillaSchema>;
+export type EditarPlantillaInput = z.infer<typeof editarPlantillaSchema>;
+export type CrearPlantillaTareaInput = z.infer<typeof crearPlantillaTareaSchema>;

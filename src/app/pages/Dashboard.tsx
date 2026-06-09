@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
-import { supabase } from "../../lib/supabase";
 import {
   ClipboardList, Users, MapPin, CheckCircle2, Clock, AlertTriangle,
   TrendingUp, ArrowRight, Activity, Star,
@@ -12,14 +11,17 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from "recharts";
+import { useServicios } from "../../api/queries/useServicios";
+import { useTodasTareas } from "../../api/queries/useTodasTareas";
+import { useUsuarios } from "../../api/queries/useUsuarios";
+import { useAreas } from "../../api/queries/useAreas";
+import { useClientes } from "../../api/queries/useClientes";
+import { useDashboard } from "../../api/queries/useDashboard";
 
 type Servicio = { servicio_id: number; servicio_codigo: string | null; servicio_descripcion: string | null; servicio_estado: string; servicio_fecha_inicio: string | null; servicio_fecha_fin: string | null; cliente_id: number | null; area_id: number | null; servicio_tiempo_estimado: number | null };
 type Tarea = { tarea_id: number; servicio_id: number; tarea_titulo: string; tarea_estado: string; tarea_completado_por: number | null; tarea_fecha_completado: string | null };
 type Usuario = { usuario_id: number; usuario_nombres: string; usuario_apellido_paterno: string | null; usuario_rol: string; usuario_activo: boolean };
 type Area = { area_id: number; area_nombre: string; area_encargado_id: number | null };
-type Solicitud = { usuario_id: number; solicitud_tipo: string; solicitud_descripcion: string; solicitud_estado: string };
-type AuditLog = { auditoria_id: number; usuario_id: number; auditoria_accion: string; auditoria_tabla: string; auditoria_fecha: string };
-type ServicioColaborador = { servicio_id: number; colaborador_id: number };
 
 const COLOR_MAP: Record<string, { bg: string; text700: string; text400: string }> = {
   green: { bg: "bg-green-50", text700: "text-green-700", text400: "text-green-400" },
@@ -33,17 +35,23 @@ const sectionLabels = ["Alertas", "Indicadores", "Desempeño Operativo", "Satisf
 export default function Dashboard() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [servicios, setServicios] = useState<Servicio[]>([]);
-  const [tareas, setTareas] = useState<Tarea[]>([]);
-  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
-  const [areas, setAreas] = useState<Area[]>([]);
-  const [solicitudes, setSolicitudes] = useState<Solicitud[]>([]);
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
-  const [calificaciones, setCalificaciones] = useState<any[]>([]);
-  const [clientes, setClientes] = useState<any[]>([]);
-  const [servicioColaboradores, setServicioColaboradores] = useState<ServicioColaborador[]>([]);
-  const [comentariosServicio, setComentariosServicio] = useState<any[]>([]);
+
+  const { data: _serviciosData, isLoading: loadingServicios } = useServicios();
+  const { data: _tareasData, isLoading: loadingTareas } = useTodasTareas();
+  const { data: _usuariosData, isLoading: loadingUsuarios } = useUsuarios();
+  const { data: _areasData, isLoading: loadingAreas } = useAreas();
+  const { data: _clientesData, isLoading: loadingClientes } = useClientes();
+  const { data: _dashboardData, isLoading: loadingDashboard } = useDashboard();
+
+  const serviciosData = (_serviciosData ?? []) as Servicio[];
+  const tareasData = (_tareasData ?? []) as Tarea[];
+  const usuariosData = (_usuariosData ?? []) as Usuario[];
+  const areasData = (_areasData ?? []) as Area[];
+  const clientesData = (_clientesData ?? []) as any[];
+  const dashboardData = _dashboardData as any;
+
+  const loading = loadingServicios || loadingTareas || loadingUsuarios || loadingAreas || loadingClientes || loadingDashboard;
+
   const [prodFilter, setProdFilter] = useState<"semana" | "mes" | "año">("semana");
   const [efiAreaFilter, setEfiAreaFilter] = useState<number | null>(null);
   const [clienteAreaFilter, setClienteAreaFilter] = useState<number | null>(null);
@@ -53,10 +61,6 @@ export default function Dashboard() {
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [popoverArea, setPopoverArea] = useState<number | null>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    fetchData();
-  }, []);
 
   const handleClickOutside = useCallback((e: MouseEvent) => {
     if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
@@ -71,59 +75,16 @@ export default function Dashboard() {
     }
   }, [popoverArea, handleClickOutside]);
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const [s, t, u, a, r, al, cf, c, sc, cm] = await Promise.all([
-        supabase.from("servicios").select("servicio_id, servicio_codigo, servicio_descripcion, servicio_estado, servicio_fecha_inicio, servicio_fecha_fin, cliente_id, area_id, servicio_tiempo_estimado"),
-        supabase.from("tareas").select("tarea_id, servicio_id, tarea_titulo, tarea_estado, tarea_completado_por, tarea_fecha_completado"),
-        supabase.from("usuarios").select("usuario_id, usuario_nombres, usuario_apellido_paterno, usuario_rol, usuario_activo"),
-        supabase.from("areas").select("area_id, area_nombre, area_encargado_id").order("area_nombre"),
-        supabase.from("solicitudesinternas").select("*"),
-        supabase.from("auditoria").select("auditoria_id, usuario_id, auditoria_accion, auditoria_tabla, auditoria_fecha").order("auditoria_fecha", { ascending: false }),
-        supabase.from("calificaciones").select("calificacion_puntaje, calificacion_comentario, calificacion_observacion, calificacion_fecha, calificacion_hora, servicio_id, cliente_id"),
-        supabase.from("clientes").select("cliente_id, cliente_nombres"),
-        supabase.from("serviciocolaboradores").select("servicio_id, colaborador_id"),
-        supabase.from("serviciocomentarios").select("servicio_id"),
-      ]);
-      if (s.error || t.error || u.error || a.error || r.error || al.error || cf.error || c.error || sc.error || cm.error) throw "Error loading dashboard data";
+  const allTasks = tareasData ?? [];
+  const completedServices = (serviciosData ?? []).filter((s) => s.servicio_estado === "completado");
+  const inProgressServices = (serviciosData ?? []).filter((s) => s.servicio_estado === "en_progreso");
+  const pendingServices = (serviciosData ?? []).filter((s) => s.servicio_estado === "pendiente");
+  const blockedServices = (serviciosData ?? []).filter((s) => s.servicio_estado === "bloqueado");
 
-      const areasData = (a.data || []) as Area[];
-      setAreas(areasData);
-      setServicios((s.data || []) as Servicio[]);
-      setTareas((t.data || []) as Tarea[]);
-      setUsuarios((u.data || []) as Usuario[]);
-      setSolicitudes((r.data || []) as Solicitud[]);
-      setAuditLogs((al.data || []) as AuditLog[]);
-      setCalificaciones((cf.data || []) as any[]);
-      setClientes((c.data || []) as any[]);
-      setServicioColaboradores((sc.data || []) as ServicioColaborador[]);
-      setComentariosServicio((cm.data || []) as any[]);
-    } catch (err) {
-      console.error("Error loading dashboard:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const allTasks = tareas;
-  const completedServices = servicios.filter((s) => s.servicio_estado === "completado");
-  const inProgressServices = servicios.filter((s) => s.servicio_estado === "en_progreso");
-  const pendingServices = servicios.filter((s) => s.servicio_estado === "pendiente");
-  const blockedServices = servicios.filter((s) => s.servicio_estado === "bloqueado");
-  const completedTasks = allTasks.filter((t) => t.tarea_estado === "completado");
-  const pendingRequests = solicitudes.filter((r: any) => r.solicitud_estado === "pendiente");
-  const activeCollabs = usuarios.filter((c) => c.usuario_activo && c.usuario_rol !== "Administrador");
-
-  const clienteMap = new Map<number, string>((clientes || []).map((cl: any) => [cl.cliente_id, cl.cliente_nombres]));
-  const userMap = new Map<number, string>(usuarios.map(u => [u.usuario_id, u.usuario_nombres]));
+  const clienteMap = new Map<number, string>((clientesData ?? []).map((cl: any) => [cl.cliente_id, cl.cliente_nombres]));
+  const userMap = new Map<number, string>((usuariosData ?? []).map(u => [u.usuario_id, u.usuario_nombres]));
 
   const techByService = new Map<number, { id: number; name: string }[]>();
-  servicioColaboradores.forEach(sc => {
-    if (!techByService.has(sc.servicio_id)) techByService.set(sc.servicio_id, []);
-    const user = usuarios.find(u => u.usuario_id === sc.colaborador_id);
-    if (user) techByService.get(sc.servicio_id)!.push({ id: user.usuario_id, name: user.usuario_nombres });
-  });
 
   const getServiceProgress = (servicioId: number) => {
     const serviceTasks = allTasks.filter(t => t.servicio_id === servicioId);
@@ -183,18 +144,10 @@ export default function Dashboard() {
   });
   const topAreaEntry = [...areaCompletedInPeriod.entries()].sort((a, b) => b[1] - a[1])[0];
   const topAreaServices = topAreaEntry ? topAreaEntry[1] : 0;
-  const topAreaName = topAreaEntry ? areas.find(a => a.area_id === topAreaEntry[0])?.area_nombre || "—" : "—";
+  const topAreaName = topAreaEntry ? (areasData ?? []).find(a => a.area_id === topAreaEntry[0])?.area_nombre || "—" : "—";
 
-  const collabCompletedInPeriod = new Map<number, number>();
-  servicesInPeriod.forEach(s => {
-    const assigned = servicioColaboradores.filter(sc => sc.servicio_id === s.servicio_id);
-    assigned.forEach(sc => {
-      collabCompletedInPeriod.set(sc.colaborador_id, (collabCompletedInPeriod.get(sc.colaborador_id) || 0) + 1);
-    });
-  });
-  const topCollabEntry = [...collabCompletedInPeriod.entries()].sort((a, b) => b[1] - a[1])[0];
-  const topCollabServices = topCollabEntry ? topCollabEntry[1] : 0;
-  const topCollabName = topCollabEntry ? userMap.get(topCollabEntry[0]) || "—" : "—";
+  const topCollabServices = dashboardData?.kpis?.topColaborador?.servicios ?? 0;
+  const topCollabName = dashboardData?.kpis?.topColaborador?.nombre ?? "—";
 
   const servicesForEfficiency = efiAreaFilter == null
     ? completedServices
@@ -214,52 +167,45 @@ export default function Dashboard() {
 
   // ---- Customer KPI ----
   const serviciosConCalifArea = clienteAreaFilter == null
-    ? servicios
-    : servicios.filter(s => s.area_id === clienteAreaFilter);
+    ? (serviciosData ?? [])
+    : (serviciosData ?? []).filter(s => s.area_id === clienteAreaFilter);
   const serviciosCompletadosArea = clienteAreaFilter == null
     ? completedServices
     : completedServices.filter(s => s.area_id === clienteAreaFilter);
+  const calificacionesData = (dashboardData?.satisfaccion?.calificacionesRecientes ?? []) as any[];
   const calificacionesArea = clienteAreaFilter == null
-    ? calificaciones
-    : calificaciones.filter(c => serviciosConCalifArea.some(s => s.servicio_id === c.servicio_id));
-  const califPuntajes = calificacionesArea.map(c => c.calificacion_puntaje);
+    ? calificacionesData
+    : calificacionesData.filter((c: any) => serviciosConCalifArea.some((s: any) => s.servicio_id === c.servicio_id));
+  const califPuntajes = (calificacionesArea.map((c: any) => c.calificacion_puntaje) ?? []) as number[];
   const realSatisfaction = califPuntajes.length > 0 
     ? parseFloat((califPuntajes.reduce((a, b) => a + b, 0) / califPuntajes.length).toFixed(1))
     : 0;
-  const serviciosConCalif = new Set(calificacionesArea.map(c => c.servicio_id)).size;
+  const serviciosConCalif = new Set(calificacionesArea.map((c: any) => c.servicio_id)).size;
   const realPctCalifican = serviciosCompletadosArea.length > 0 
     ? Math.round((serviciosConCalif / serviciosCompletadosArea.length) * 100) 
     : 0;
   const pctPositivos = califPuntajes.length > 0
-    ? Math.round((califPuntajes.filter(p => p >= 3).length / califPuntajes.length) * 100)
+    ? Math.round((califPuntajes.filter((p: number) => p >= 3).length / califPuntajes.length) * 100)
     : 0;
   const pctNegativos = califPuntajes.length > 0
-    ? Math.round((califPuntajes.filter(p => p < 3).length / califPuntajes.length) * 100)
+    ? Math.round((califPuntajes.filter((p: number) => p < 3).length / califPuntajes.length) * 100)
     : 0;
 
   const areaCalifMap = new Map<number, number[]>();
-  calificaciones.forEach(c => {
-    const servicio = servicios.find(s => s.servicio_id === c.servicio_id);
+  calificacionesData.forEach((c: any) => {
+    const servicio = (serviciosData ?? []).find((s: any) => s.servicio_id === c.servicio_id);
     if (servicio && servicio.area_id) {
       if (!areaCalifMap.has(servicio.area_id)) areaCalifMap.set(servicio.area_id, []);
       areaCalifMap.get(servicio.area_id)!.push(c.calificacion_puntaje);
     }
   });
 
-  const areaComentariosMap = new Map<number, number>();
-  comentariosServicio.forEach((c: { servicio_id: number }) => {
-    const servicio = servicios.find(s => s.servicio_id === c.servicio_id);
-    if (servicio && servicio.area_id) {
-      areaComentariosMap.set(servicio.area_id, (areaComentariosMap.get(servicio.area_id) || 0) + 1);
-    }
-  });
-
   // ---- Observaciones de clientes (desde calificaciones) ----
   const areaObsMap = new Map<number, any[]>();
   const areaObsRaw = new Map<number, any[]>();
-  calificaciones.forEach((c: any) => {
+  calificacionesData.forEach((c: any) => {
     if (!c.calificacion_observacion) return;
-    const servicio = servicios.find(s => s.servicio_id === c.servicio_id);
+    const servicio = (serviciosData ?? []).find((s: any) => s.servicio_id === c.servicio_id);
     if (servicio && servicio.area_id) {
       if (!areaObsRaw.has(servicio.area_id)) areaObsRaw.set(servicio.area_id, []);
       areaObsRaw.get(servicio.area_id)!.push({
@@ -279,38 +225,10 @@ export default function Dashboard() {
     areaObsMap.set(areaId, obs);
   }
 
-  // ---- Equipo ranking ----
-  const servicioCalifMap = new Map<number, number[]>();
-  calificaciones.forEach(c => {
-    if (!servicioCalifMap.has(c.servicio_id)) servicioCalifMap.set(c.servicio_id, []);
-    servicioCalifMap.get(c.servicio_id)!.push(c.calificacion_puntaje);
-  });
-
-  const equipoRanking = activeCollabs.map(c => {
-    const assignedServiceIds = servicioColaboradores
-      .filter(sc => sc.colaborador_id === c.usuario_id)
-      .map(sc => sc.servicio_id);
-    const completedAssigned = servicios.filter(s =>
-      assignedServiceIds.includes(s.servicio_id) && s.servicio_estado === "completado"
-    );
-    const completedCount = completedAssigned.length;
-    const pctOfTotal = servicios.length > 0 ? Math.round((completedCount / servicios.length) * 100) : 0;
-    let avgRating = 0;
-    const allRatings: number[] = [];
-    completedAssigned.forEach(s => {
-      const ratings = servicioCalifMap.get(s.servicio_id) || [];
-      allRatings.push(...ratings);
-    });
-    if (allRatings.length > 0) {
-      avgRating = parseFloat((allRatings.reduce((a, b) => a + b, 0) / allRatings.length).toFixed(1));
-    }
-    return {
-      ...c,
-      completedServices: completedCount,
-      pctOfTotal,
-      avgRating,
-    };
-  }).sort((a, b) => equipoAsc ? a.completedServices - b.completedServices : b.completedServices - a.completedServices);
+  const rankingTecnicos = (dashboardData?.rankingTecnicos ?? []) as any[];
+  const equipoRanking = equipoAsc
+    ? [...rankingTecnicos].sort((a: any, b: any) => a.completedServices - b.completedServices)
+    : rankingTecnicos;
 
   // ---- Charts ----
   const pieData = [
@@ -320,8 +238,8 @@ export default function Dashboard() {
     { name: "Bloqueado", value: blockedServices.length, color: "#DC2626" },
   ];
 
-  const areaData = areas.map((a) => {
-    const aS = servicios.filter((s) => s.area_id === a.area_id);
+  const areaData = (areasData ?? []).map((a) => {
+    const aS = (serviciosData ?? []).filter((s) => s.area_id === a.area_id);
     const aCompleted = aS.filter((s) => s.servicio_estado === "completado");
     const aInProgress = aS.filter((s) => s.servicio_estado === "en_progreso");
     const aPending = aS.filter((s) => s.servicio_estado === "pendiente");
@@ -355,7 +273,7 @@ export default function Dashboard() {
 
   // Non-admin views
   if (currentUser?.rol === "Colaborador" || currentUser?.rol === "Encargado") {
-    const myServices = currentUser.rol === "Encargado" ? servicios : [];
+    const myServices = currentUser.rol === "Encargado" ? (serviciosData ?? []) : [];
     const myCompleted = myServices.filter((s) => s.servicio_estado === "completado").length;
     const myInProgress = myServices.filter((s) => s.servicio_estado === "en_progreso").length;
     const myBlocked = myServices.filter((s) => s.servicio_estado === "bloqueado").length;
@@ -605,14 +523,14 @@ export default function Dashboard() {
                 <select value={efiAreaFilter ?? ""} onChange={(e) => setEfiAreaFilter(e.target.value ? Number(e.target.value) : null)}
                   className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-gray-50 text-gray-700 w-full">
                   <option value="">Todas las áreas</option>
-                  {areas.map((a) => <option key={a.area_id} value={a.area_id}>{a.area_nombre}</option>)}
+                  {(areasData ?? []).map((a) => <option key={a.area_id} value={a.area_id}>{a.area_nombre}</option>)}
                 </select>
               </div>
               <div className="grid grid-cols-3 gap-3 mb-2">
                 {[
                   { label: "Min prom.", value: avgMinutes, sub: "por servicio", color: avgMinutes <= 480 ? "green" : "orange" },
-                  { label: "Oportunos", value: `${servicios.length > 0 ? Math.round(((servicios.length - demoradosCount) / servicios.length) * 100) : 0}%`, sub: "", color: "green" },
-                  { label: "Demorados", value: `${servicios.length > 0 ? Math.round((demoradosCount / servicios.length) * 100) : 0}%`, sub: "", color: demoradosCount > 0 ? "red" : "green" },
+                  { label: "Oportunos", value: `${(serviciosData ?? []).length > 0 ? Math.round((((serviciosData ?? []).length - demoradosCount) / (serviciosData ?? []).length) * 100) : 0}%`, sub: "", color: "green" },
+                  { label: "Demorados", value: `${(serviciosData ?? []).length > 0 ? Math.round((demoradosCount / (serviciosData ?? []).length) * 100) : 0}%`, sub: "", color: demoradosCount > 0 ? "red" : "green" },
                 ].map((m) => {
                   const c = COLOR_MAP[m.color] ?? COLOR_MAP.green;
                   return (
@@ -641,7 +559,7 @@ export default function Dashboard() {
               <select value={clienteAreaFilter ?? ""} onChange={(e) => setClienteAreaFilter(e.target.value ? Number(e.target.value) : null)}
                 className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-gray-50 text-gray-700 w-full">
                 <option value="">Todas las áreas</option>
-                {areas.map((a) => <option key={a.area_id} value={a.area_id}>{a.area_nombre}</option>)}
+                {(areasData ?? []).map((a) => <option key={a.area_id} value={a.area_id}>{a.area_nombre}</option>)}
               </select>
             </div>
             <div className="flex-1 space-y-3">
@@ -705,7 +623,7 @@ export default function Dashboard() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-gray-800 font-semibold">{e.value}</span>
-                    <span className="text-gray-400">({servicios.length > 0 ? Math.round((e.value / servicios.length) * 100) : 0}%)</span>
+                    <span className="text-gray-400">({(serviciosData ?? []).length > 0 ? Math.round((e.value / (serviciosData ?? []).length) * 100) : 0}%)</span>
                   </div>
                 </div>
               ))}
@@ -762,7 +680,7 @@ export default function Dashboard() {
             <span className="text-xs text-gray-400">{equipoRanking.length} colaboradores</span>
           </div>
           <div className="divide-y divide-gray-50">
-            {equipoRanking.map((c, idx) => {
+            {equipoRanking.map((c: any, idx: number) => {
               const rank = equipoAsc ? idx + 1 : equipoRanking.length - idx;
               return (
                 <div key={c.usuario_id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition">
@@ -828,7 +746,7 @@ export default function Dashboard() {
           <div className="divide-y divide-gray-50">
             {(() => {
               const dir = realtimeAsc ? 1 : -1;
-              return servicios
+              return (serviciosData ?? [])
                 .map(srv => ({ srv, latest: Math.max(
                   srv.servicio_fecha_inicio ? new Date(srv.servicio_fecha_inicio).getTime() : 0,
                   srv.servicio_fecha_fin ? new Date(srv.servicio_fecha_fin).getTime() : 0
@@ -905,8 +823,8 @@ export default function Dashboard() {
           <h2 className="text-gray-900 font-bold">Satisfacción por Área</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {areas.map((area) => {
-            const aServices = servicios.filter(s => s.area_id === area.area_id);
+          {(areasData ?? []).map((area) => {
+            const aServices = (serviciosData ?? []).filter(s => s.area_id === area.area_id);
             const aCompleted = aServices.filter(s => s.servicio_estado === "completado").length;
             const puntajes = areaCalifMap.get(area.area_id) || [];
             const avgStars = puntajes.length > 0 
@@ -1108,11 +1026,11 @@ export default function Dashboard() {
                           <p className="text-green-700 text-xs font-semibold">Min promedio por servicio</p>
                         </div>
                         <div className="bg-white rounded-xl p-3 text-center">
-                          <p className="text-2xl font-extrabold text-green-700">{servicios.length > 0 ? Math.round(((servicios.length - demoradosCount) / servicios.length) * 100) : 0}%</p>
+                          <p className="text-2xl font-extrabold text-green-700">{(serviciosData ?? []).length > 0 ? Math.round((((serviciosData ?? []).length - demoradosCount) / (serviciosData ?? []).length) * 100) : 0}%</p>
                           <p className="text-green-700 text-xs font-semibold">Servicios oportunos</p>
                         </div>
                         <div className="bg-white rounded-xl p-3 text-center">
-                          <p className="text-2xl font-extrabold text-red-600">{servicios.length > 0 ? Math.round((demoradosCount / servicios.length) * 100) : 0}%</p>
+                          <p className="text-2xl font-extrabold text-red-600">{(serviciosData ?? []).length > 0 ? Math.round((demoradosCount / (serviciosData ?? []).length) * 100) : 0}%</p>
                           <p className="text-red-600 text-xs font-semibold">Demorados</p>
                         </div>
                       </div>
@@ -1129,7 +1047,7 @@ export default function Dashboard() {
                       <select value={clienteAreaFilter ?? ""} onChange={(e) => setClienteAreaFilter(e.target.value ? Number(e.target.value) : null)}
                         className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 w-full">
                         <option value="">Todas las áreas</option>
-                        {areas.map((a) => <option key={a.area_id} value={a.area_id}>{a.area_nombre}</option>)}
+                        {(areasData ?? []).map((a) => <option key={a.area_id} value={a.area_id}>{a.area_nombre}</option>)}
                       </select>
                     </div>
                     <div className="space-y-3">
@@ -1249,7 +1167,7 @@ export default function Dashboard() {
                     <span className="text-sm text-gray-400">{equipoRanking.length} colaboradores</span>
                   </div>
                   <div className="divide-y divide-gray-50 max-h-[400px] overflow-y-auto">
-                    {equipoRanking.map((c, idx) => {
+                    {equipoRanking.map((c: any, idx: number) => {
                       const rank = equipoAsc ? idx + 1 : equipoRanking.length - idx;
                       return (
                         <div key={c.usuario_id} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-50 transition">
@@ -1302,7 +1220,7 @@ export default function Dashboard() {
                   <div className="divide-y divide-gray-50 max-h-[400px] overflow-y-auto">
                     {(() => {
                       const dir = realtimeAsc ? 1 : -1;
-                      return servicios
+                      return (serviciosData ?? [])
                         .map(srv => ({ srv, latest: Math.max(
                           srv.servicio_fecha_inicio ? new Date(srv.servicio_fecha_inicio).getTime() : 0,
                           srv.servicio_fecha_fin ? new Date(srv.servicio_fecha_fin).getTime() : 0
@@ -1362,8 +1280,8 @@ export default function Dashboard() {
 
               {expandedSection === "satisfaccion" && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {areas.map((area) => {
-                    const aServices = servicios.filter(s => s.area_id === area.area_id);
+                  {(areasData ?? []).map((area) => {
+                    const aServices = (serviciosData ?? []).filter(s => s.area_id === area.area_id);
                     const aCompleted = aServices.filter(s => s.servicio_estado === "completado").length;
                     const puntajes = areaCalifMap.get(area.area_id) || [];
                     const avgStars = puntajes.length > 0

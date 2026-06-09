@@ -1,5 +1,5 @@
 {
-  "name": "@figma/my-make-file",
+  "name": "sgsst",
   "private": true,
   "version": "0.0.1",
   "type": "module",
@@ -7,6 +7,8 @@
     "build": "vite build",
     "dev": "vite",
     "preview": "vite preview",
+    "vercel-build": "cd backend && npm run build && cd .. && npm run build",
+    "vercel-dev": "concurrently \"npm run dev\" \"cd backend && npm run dev\"",
     "lint": "eslint . --ext .ts,.tsx --report-unused-disable-directives",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "typecheck": "tsc --noEmit",
@@ -19,6 +21,7 @@
   "dependencies": {
     "@emotion/react": "11.14.0",
     "@emotion/styled": "11.14.1",
+    "@fastify/middie": "^9.3.2",
     "@mui/icons-material": "7.3.5",
     "@mui/material": "7.3.5",
     "@popperjs/core": "2.11.8",
@@ -90,6 +93,7 @@
     "@types/react-dom": "^19.2.3",
     "@typescript-eslint/eslint-plugin": "^8.18.0",
     "@typescript-eslint/parser": "^8.18.0",
+    "@vercel/node": "^5.1.14",
     "@vitejs/plugin-react": "4.7.0",
     "@vitest/ui": "^3.1.1",
     "eslint": "^9.17.0",
