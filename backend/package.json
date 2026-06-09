@@ -7,6 +7,7 @@
     "dev": "node dev.cjs",
     "dev:quick": "tsx watch src/app.ts",
     "build": "tsc",
+    "build:serverless": "esbuild src/serverless.ts --bundle --platform=node --format=esm --outfile=dist/serverless.js --alias:@=./src",
     "start": "node dist/backend/src/app.js",
     "db:start": "node -e \"const EP = require('embedded-postgres').default; const p = new EP({databaseDir: require('path').join(process.env.USERPROFILE,'.local','pg-sgsst','data'),binariesDir: require('path').join(process.env.USERPROFILE,'.local','pg-sgsst','bin'),port:5432,database:'sgsst',user:'postgres',password:'postgres',persistent:true,logging:true}); (async()=>{await p.initialise(); await p.start(); console.log('PostgreSQL ready'); await new Promise(()=>{}); })();\"",
     "db:stop": "taskkill /F /IM postgres.exe 2>nul || echo PostgreSQL not running",
@@ -50,6 +51,7 @@
     "eslint": "^10.4.1",
     "prettier": "^3.8.3",
     "tsx": "^4.22.4",
+    "esbuild": "^0.25.4",
     "typescript": "^6.0.3",
     "vitest": "^4.1.8"
   }

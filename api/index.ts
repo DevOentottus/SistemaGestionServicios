@@ -1,13 +1,5 @@
-import { buildApp } from '../backend/src/app.js';
-import middie from '@fastify/middie';
-
-let app: Awaited<ReturnType<typeof buildApp>> | null = null;
-
-export default async function handler(req: any, res: any) {
-  if (!app) {
-    app = await buildApp();
-    await app.register(middie);
-    await app.ready();
-  }
-  app.server.emit('request', req, res);
-}
+// This file is the Vercel serverless function entry point.
+// The actual handler is built by bundling backend/src/serverless.ts
+// via `npm run build:serverless` (esbuild), which resolves @/ aliases.
+// esbuild outputs to backend/dist/serverless.js, which is imported here.
+export { default } from "../backend/dist/serverless.js";

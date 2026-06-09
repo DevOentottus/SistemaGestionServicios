@@ -1,6 +1,6 @@
 import "fastify";
 
-// Re-export desde shared
+// Re-export desde shared (ruta relativa porque esbuild no resuelve @shared/ en serverless)
 export type {
   RolSistema, RolNegocio, RolCliente, Rol,
   PermisoSistema, PermisoNegocio, Permiso,
@@ -8,14 +8,14 @@ export type {
   Usuario, Area, Cliente, Servicio, Tarea,
   TiempoTracking, Calificacion, Auditoria,
   JwtPayload,
-} from "@shared/index.js";
+} from "../../../shared/types/index.js";
 
-export { ROL_PERMISOS } from "@shared/permissions.js";
+export { ROL_PERMISOS } from "../../../shared/types/permissions.js";
 
 // Extensiones de Fastify (solo backend)
 declare module "fastify" {
   interface FastifyRequest {
-    currentUser?: import("@shared/index.js").JwtPayload;
+    currentUser?: import("../../../shared/types/index.js").JwtPayload;
     auditData?: {
       tabla: string;
       id_registro: number;
