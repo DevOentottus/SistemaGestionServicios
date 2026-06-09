@@ -1,5 +1,6 @@
 {
   "framework": "vite",
+  "installCommand": "npm install --no-optional --no-audit --no-fund && cd backend && npm install --no-optional --no-audit --no-fund",
   "buildCommand": "npm run vercel-build",
   "outputDirectory": "dist",
   "rewrites": [
