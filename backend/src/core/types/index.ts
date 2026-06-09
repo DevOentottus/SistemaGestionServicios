@@ -8,14 +8,14 @@ export type {
   Usuario, Area, Cliente, Servicio, Tarea,
   TiempoTracking, Calificacion, Auditoria,
   JwtPayload,
-} from "../../../shared/types/index.js";
+} from "../../../../shared/types/index.js";
 
-export { ROL_PERMISOS } from "../../../shared/types/permissions.js";
+export { ROL_PERMISOS } from "../../../../shared/types/permissions.js";
 
 // Extensiones de Fastify (solo backend)
 declare module "fastify" {
   interface FastifyRequest {
-    currentUser?: import("../../../shared/types/index.js").JwtPayload;
+    currentUser?: import("../../../../shared/types/index.js").JwtPayload;
     auditData?: {
       tabla: string;
       id_registro: number;
